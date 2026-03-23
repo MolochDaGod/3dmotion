@@ -8,31 +8,47 @@ import { useGameStore } from "./useGameStore";
 
 type AnimKey =
   | "idle"
-  | "walkFwd"  | "walkBwd"
-  | "strafeL"  | "strafeR"
+  | "walkFwd" | "walkBwd"
+  | "strafeL" | "strafeR"
   | "walkArcL" | "walkArcR"
   | "runFwd"
-  | "jump"     | "jumpLand"
+  | "jump" | "jumpLand"
   | "standToKneel" | "kneelingIdle" | "kneelToStand";
 
-interface PlayerProps {
-  onShoot: (position: THREE.Vector3, direction: THREE.Vector3) => void;
+export interface PlayerProps {
+  onShoot: (origin: THREE.Vector3, direction: THREE.Vector3) => void;
+  onMelee: (origin: THREE.Vector3, direction: THREE.Vector3) => void;
   onDead: () => void;
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const WALK_SPEED   = 4;
-const RUN_SPEED    = 8.5;
-const JUMP_FORCE   = 8;
-const GRAVITY      = -20;
-const SENSITIVITY  = 0.002;
+const WALK_SPEED    = 4.5;
+const RUN_SPEED     = 9.0;
+const JUMP_FORCE    = 9;
+const GRAVITY       = -22;
+const SENSITIVITY   = 0.002;
+const PITCH_MIN     = -Math.PI / 2.8;
+const PITCH_MAX     = Math.PI / 7;
 
-// Over-shoulder: right, up, back (in local player space)
-const SHOULDER = new THREE.Vector3(0.55, 1.6, 3.2);
+// Over-the-shoulder offset in PLAYER LOCAL SPACE (right, up, back)
+const SHOULDER_R    = 0.6;   // right of player center
+const SHOULDER_U    = 1.55;  // above player origin
+const SHOULDER_B    = 3.0;   // behind player
+const EYE_H         = 0;     // extra height (already in SHOULDER_U)
 
-// 13 essential animations loaded sequentially (model first) to prevent GPU OOM
+// Roll
+const ROLL_SPEED    = 14;
+const ROLL_DURATION = 0.45;
+const ROLL_COOLDOWN = 1.2;
+
+// Melee
+const MELEE_RANGE    = 2.6;
+const MELEE_COOLDOWN = 0.7;
+
+// ─── FBX load queue (model first, then 13 animations) ────────────────────────
+
 const LOAD_QUEUE: Array<{ key: AnimKey | "__model__"; file: string }> = [
   { key: "__model__",    file: "/models/Meshy_AI_Corsair_King_0323082850_texture_fbx.fbx" },
   { key: "idle",         file: "/models/pistol idle.fbx" },
@@ -50,103 +66,89 @@ const LOAD_QUEUE: Array<{ key: AnimKey | "__model__"; file: string }> = [
   { key: "kneelToStand", file: "/models/pistol kneel to stand.fbx" },
 ];
 
-// ─── Animation state machine ──────────────────────────────────────────────────
+// ─── Animation resolver ───────────────────────────────────────────────────────
 
 interface MoveInput {
   fwd: boolean; bwd: boolean; left: boolean; right: boolean;
   sprint: boolean; grounded: boolean; crouching: boolean; jumping: boolean;
+  rolling: boolean;
 }
 
-function resolveAnim(inp: MoveInput, prevAnim: AnimKey): AnimKey {
-  // Crouch transitions are non-interruptible until complete
-  if (prevAnim === "standToKneel" || prevAnim === "kneelToStand") return prevAnim;
-
+function resolveAnim(inp: MoveInput, cur: AnimKey): AnimKey {
+  if (cur === "standToKneel" || cur === "kneelToStand") return cur;
   if (!inp.grounded) return inp.jumping ? "jump" : "jumpLand";
-
-  if (inp.crouching) return "kneelingIdle";
+  if (inp.crouching)  return "kneelingIdle";
+  if (inp.rolling)    return "runFwd"; // closest we have to a dive
 
   const { fwd, bwd, left, right, sprint } = inp;
-  const moving = fwd || bwd || left || right;
-  if (!moving) return "idle";
+  if (!fwd && !bwd && !left && !right) return "idle";
 
-  // Forward arcs use diagonal blending
   if (fwd && !bwd) {
     if (!left && !right) return sprint ? "runFwd" : "walkFwd";
-    if (left)            return "walkArcL";  // no separate run arcs — reuse walk
+    if (left)            return "walkArcL";
     if (right)           return "walkArcR";
   }
-  // Backward — always use walkBwd (no run-backward in trimmed set)
   if (bwd && !fwd) return "walkBwd";
-
-  // Pure strafe (no fwd/bwd)
   if (left)  return "strafeL";
   if (right) return "strafeR";
-
   return "idle";
 }
 
-// ─── Player component ─────────────────────────────────────────────────────────
+// ─── Reusable temporaries (avoid per-frame alloc) ────────────────────────────
 
-export function Player({ onShoot, onDead, playerPosRef }: PlayerProps) {
-  const rootRef = useRef<THREE.Group>(null!);
+const _up    = new THREE.Vector3(0, 1, 0);
+const _yawQ  = new THREE.Quaternion();
+const _euler = new THREE.Euler(0, 0, 0, "YXZ");
+const _offset = new THREE.Vector3();
+const _camPos = new THREE.Vector3();
+
+// ─── Player ───────────────────────────────────────────────────────────────────
+
+export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) {
+  const rootRef      = useRef<THREE.Group>(null!);
+  const bodyRef      = useRef<THREE.Group>(null!); // for roll tilt
 
   // Physics
-  const velY         = useRef(0);
-  const grounded     = useRef(true);
-  const wasGrounded  = useRef(true);
+  const velY        = useRef(0);
+  const grounded    = useRef(true);
+  const wasGrounded = useRef(true);
 
   // Look
   const yaw   = useRef(0);
   const pitch = useRef(0);
 
-  // Inputs
-  const keys = useRef<Record<string, boolean>>({});
+  // Input
+  const keys   = useRef<Record<string, boolean>>({});
   const locked = useRef(false);
 
-  // Game state
-  const deadFired     = useRef(false);
-  const shootCooldown = useRef(0);
+  // Action state
+  const deadFired      = useRef(false);
+  const shootCooldown  = useRef(0);
+  const meleeCooldown  = useRef(0);
+
+  // Crouch
   const crouching     = useRef(false);
   const crouchPending = useRef<"kneel" | "stand" | null>(null);
 
+  // Roll
+  const rolling      = useRef(false);
+  const rollTimer    = useRef(0);
+  const rollDir      = useRef(new THREE.Vector3(0, 0, -1));
+  const rollCooldown = useRef(0);
+  const rollInvin    = useRef(false); // invincibility frames
+
   // Animation
-  const mixerRef      = useRef<THREE.AnimationMixer | null>(null);
-  const actionsRef    = useRef<Partial<Record<AnimKey, THREE.AnimationAction>>>({});
-  const curAnim       = useRef<AnimKey>("idle");
+  const mixerRef   = useRef<THREE.AnimationMixer | null>(null);
+  const actionsRef = useRef<Partial<Record<AnimKey, THREE.AnimationAction>>>({});
+  const curAnim    = useRef<AnimKey>("idle");
+
   const [modelObj, setModelObj] = useState<THREE.Group | null>(null);
-  const [loadedCount, setLoadedCount] = useState(0);
-  const totalCount = LOAD_QUEUE.length;
 
   const { camera } = useThree();
-  const { health, shoot, reload, ammo, isReloading } = useGameStore();
-
-  // ── 3D crosshair attached to camera ─────────────────────────────────────
-  useEffect(() => {
-    const g = new THREE.Group();
-    const mat = (col: number) =>
-      new THREE.MeshBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: 0.92, side: THREE.DoubleSide });
-
-    g.add(new THREE.Mesh(new THREE.RingGeometry(0.013, 0.025, 32), mat(0xffffff)));
-    g.add(new THREE.Mesh(new THREE.CircleGeometry(0.005, 16), mat(0xff3333)));
-
-    // Gap tick-marks
-    const tick = (x: number, y: number, w: number, h: number) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat(0xffffff));
-      m.position.set(x, y, 0);
-      return m;
-    };
-    g.add(tick(0, 0.045, 0.003, 0.018));
-    g.add(tick(0, -0.045, 0.003, 0.018));
-    g.add(tick(0.045, 0, 0.018, 0.003));
-    g.add(tick(-0.045, 0, 0.018, 0.003));
-
-    g.position.set(0, 0, -5);
-    g.renderOrder = 999;
-    camera.add(g);
-    return () => { camera.remove(g); };
-  }, [camera]);
+  const { health, shoot, reload, ammo, isReloading, setInvincible } = useGameStore();
 
   // ── Sequential FBX loader ────────────────────────────────────────────────
+
   useEffect(() => {
     let cancelled = false;
     const loader = new FBXLoader();
@@ -158,7 +160,6 @@ export function Player({ onShoot, onDead, playerPosRef }: PlayerProps) {
 
       loader.load(file, (fbx) => {
         if (cancelled) return;
-        setLoadedCount(i + 1);
 
         if (key === "__model__") {
           fbx.scale.setScalar(0.01);
@@ -198,67 +199,119 @@ export function Player({ onShoot, onDead, playerPosRef }: PlayerProps) {
     return () => { cancelled = true; mixerRef.current?.stopAllAction(); };
   }, []);
 
-  // Transition helper
-  const transitionTo = useCallback((next: AnimKey, fadeDur = 0.18) => {
-    const prev = curAnim.current;
-    if (prev === next) return;
-    actionsRef.current[prev]?.fadeOut(fadeDur);
+  // ── Animation helper ─────────────────────────────────────────────────────
+
+  const transitionTo = useCallback((next: AnimKey, fade = 0.15) => {
+    if (curAnim.current === next) return;
+    actionsRef.current[curAnim.current]?.fadeOut(fade);
     const a = actionsRef.current[next];
-    if (a) {
-      a.reset().fadeIn(fadeDur).play();
-      curAnim.current = next;
-    }
+    if (a) { a.reset().fadeIn(fade).play(); curAnim.current = next; }
   }, []);
 
+  // ── Crouch helpers ───────────────────────────────────────────────────────
+
+  const startCrouch = useCallback(() => {
+    if (crouching.current || crouchPending.current) return;
+    crouchPending.current = "kneel";
+    crouching.current = true;
+    transitionTo("standToKneel", 0.1);
+    setTimeout(() => {
+      if (crouching.current && !rolling.current) transitionTo("kneelingIdle", 0.15);
+      crouchPending.current = null;
+    }, 650);
+  }, [transitionTo]);
+
+  const endCrouch = useCallback(() => {
+    if (!crouching.current || crouchPending.current) return;
+    crouchPending.current = "stand";
+    crouching.current = false;
+    transitionTo("kneelToStand", 0.1);
+    setTimeout(() => {
+      transitionTo("idle", 0.15);
+      crouchPending.current = null;
+    }, 650);
+  }, [transitionTo]);
+
   // ── Input listeners ──────────────────────────────────────────────────────
-  const getDir = useCallback(() =>
-    new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(pitch.current, yaw.current, 0, "YXZ")),
-  []);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!locked.current) return;
     yaw.current   -= e.movementX * SENSITIVITY;
     pitch.current -= e.movementY * SENSITIVITY;
-    pitch.current  = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 6, pitch.current));
+    pitch.current  = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch.current));
   }, []);
 
-  const handleClick = useCallback(() => {
-    if (!locked.current) { document.body.requestPointerLock(); return; }
-    if (shootCooldown.current > 0 || isReloading) return;
-    const fired = shoot();
-    if (fired) {
-      shootCooldown.current = 0.12;
-      onShoot(rootRef.current.position.clone().add(new THREE.Vector3(0, 1.4, 0)), getDir());
-    } else if (ammo <= 0) reload();
-  }, [shoot, reload, ammo, isReloading, onShoot, getDir]);
+  // LMB = shoot
+  const handleMouseDown = useCallback((e: MouseEvent) => {
+    if (e.button === 0) {
+      if (!locked.current) { document.body.requestPointerLock(); return; }
+      if (shootCooldown.current > 0 || isReloading) return;
+      const fired = shoot();
+      if (fired) {
+        shootCooldown.current = 0.12;
+        // Bullet direction = EXACTLY where camera is looking = screen center crosshair
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        // Muzzle comes from camera pos so shots match crosshair perfectly
+        const origin = camera.position.clone().add(dir.clone().multiplyScalar(0.5));
+        onShoot(origin, dir);
+      } else if (ammo <= 0) reload();
+    }
+
+    // RMB = melee
+    if (e.button === 2) {
+      if (!locked.current) return;
+      if (meleeCooldown.current > 0) return;
+      meleeCooldown.current = MELEE_COOLDOWN;
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const origin = rootRef.current.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+      onMelee(origin, dir);
+    }
+  }, [shoot, reload, ammo, isReloading, onShoot, onMelee, camera]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Prevent Alt from opening browser menu
+    if (e.code === "AltLeft" || e.code === "AltRight") e.preventDefault();
     keys.current[e.code] = true;
+
     if (e.code === "KeyR") reload();
 
-    // Crouch toggle (C)
-    if (e.code === "KeyC") {
-      if (!crouching.current && !crouchPending.current) {
-        crouchPending.current = "kneel";
-        crouching.current = true;
-        transitionTo("standToKneel", 0.1);
-        // After transition is done, switch to kneeling idle
-        setTimeout(() => {
-          if (crouching.current) transitionTo("kneelingIdle", 0.15);
-        }, 700);
-      } else if (crouching.current && !crouchPending.current) {
-        crouchPending.current = "stand";
-        crouching.current = false;
-        transitionTo("kneelToStand", 0.1);
-        setTimeout(() => {
-          if (!crouching.current) {
-            transitionTo("idle", 0.15);
-            crouchPending.current = null;
-          }
-        }, 700);
-      }
+    // Alt = crouch toggle
+    if (e.code === "AltLeft" || e.code === "AltRight") {
+      crouching.current ? endCrouch() : startCrouch();
     }
-  }, [reload, transitionTo]);
+
+    // Ctrl = roll (if grounded, not crouching, off cooldown)
+    if ((e.code === "ControlLeft" || e.code === "ControlRight")
+      && grounded.current && !rolling.current && !crouching.current
+      && rollCooldown.current <= 0) {
+
+      rolling.current   = true;
+      rollTimer.current = ROLL_DURATION;
+      rollCooldown.current = ROLL_COOLDOWN;
+      rollInvin.current = true;
+
+      // Roll direction = current movement intent or forward
+      const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+      const rgtVec = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
+      const d = new THREE.Vector3();
+      if (keys.current["KeyW"])   d.add(fwdVec);
+      if (keys.current["KeyS"])   d.sub(fwdVec);
+      if (keys.current["KeyA"])   d.sub(rgtVec);
+      if (keys.current["KeyD"])   d.add(rgtVec);
+      if (d.lengthSq() < 0.01)   d.copy(fwdVec); // default: roll forward
+      rollDir.current.copy(d.normalize());
+
+      // Store invincibility via game store
+      if (setInvincible) setInvincible(true);
+      setTimeout(() => {
+        rolling.current = false;
+        if (setInvincible) setInvincible(false);
+        rollInvin.current = false;
+      }, ROLL_DURATION * 1000);
+    }
+  }, [reload, startCrouch, endCrouch, setInvincible]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     keys.current[e.code] = false;
@@ -268,58 +321,87 @@ export function Player({ onShoot, onDead, playerPosRef }: PlayerProps) {
     locked.current = document.pointerLockElement === document.body;
   }, []);
 
+  const handleContextMenu = useCallback((e: MouseEvent) => e.preventDefault(), []);
+
   useEffect(() => {
     document.addEventListener("mousemove",         handleMouseMove);
-    document.addEventListener("click",             handleClick);
+    document.addEventListener("mousedown",         handleMouseDown);
     document.addEventListener("keydown",           handleKeyDown);
     document.addEventListener("keyup",             handleKeyUp);
     document.addEventListener("pointerlockchange", handlePLC);
+    document.addEventListener("contextmenu",       handleContextMenu);
     return () => {
       document.removeEventListener("mousemove",         handleMouseMove);
-      document.removeEventListener("click",             handleClick);
+      document.removeEventListener("mousedown",         handleMouseDown);
       document.removeEventListener("keydown",           handleKeyDown);
       document.removeEventListener("keyup",             handleKeyUp);
       document.removeEventListener("pointerlockchange", handlePLC);
+      document.removeEventListener("contextmenu",       handleContextMenu);
     };
-  }, [handleMouseMove, handleClick, handleKeyDown, handleKeyUp, handlePLC]);
+  }, [handleMouseMove, handleMouseDown, handleKeyDown, handleKeyUp, handlePLC, handleContextMenu]);
 
   // ── Game loop ────────────────────────────────────────────────────────────
+
   useFrame((_, delta) => {
     if (!rootRef.current) return;
-
     if (health <= 0 && !deadFired.current) { deadFired.current = true; onDead(); return; }
-    if (shootCooldown.current > 0) shootCooldown.current -= delta;
+
+    // Cooldown ticks
+    if (shootCooldown.current  > 0) shootCooldown.current  -= delta;
+    if (meleeCooldown.current  > 0) meleeCooldown.current  -= delta;
+    if (rollCooldown.current   > 0) rollCooldown.current   -= delta;
+    if (rollTimer.current      > 0) rollTimer.current      -= delta;
 
     mixerRef.current?.update(delta);
 
-    // ── Movement ───────────────────────────────────────────────────────────
-    const sprint = (keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !crouching.current;
-    const speed  = sprint ? RUN_SPEED : WALK_SPEED;
+    // ── Movement ─────────────────────────────────────────────────────────
 
-    const fwdVec   = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
-    const rightVec = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
+    const sprint  = (keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !crouching.current;
+    const fwdVec  = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+    const rgtVec  = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
 
     const fwd   = !!(keys.current["KeyW"] || keys.current["ArrowUp"]);
     const bwd   = !!(keys.current["KeyS"] || keys.current["ArrowDown"]);
     const left  = !!(keys.current["KeyA"] || keys.current["ArrowLeft"]);
     const right = !!(keys.current["KeyD"] || keys.current["ArrowRight"]);
 
-    const move = new THREE.Vector3();
-    if (fwd)   move.add(fwdVec);
-    if (bwd)   move.sub(fwdVec);
-    if (left)  move.sub(rightVec);
-    if (right) move.add(rightVec);
+    // During roll: override movement with roll direction
+    if (rolling.current && rollTimer.current > 0) {
+      const rollMove = rollDir.current.clone().multiplyScalar(ROLL_SPEED * delta);
+      rootRef.current.position.add(rollMove);
 
-    // No movement while crouching (authentic pistol pack behaviour)
-    const canMove = !crouching.current && crouchPending.current === null;
-    if (canMove && move.lengthSq() > 0) {
-      move.normalize().multiplyScalar(speed * delta);
-      rootRef.current.position.add(move);
+      // Visual tilt: dip the body group forward over roll arc
+      if (bodyRef.current) {
+        const t = 1 - rollTimer.current / ROLL_DURATION;
+        const tilt = Math.sin(t * Math.PI) * 0.9; // rises and falls
+        bodyRef.current.rotation.x = -tilt;
+      }
+    } else {
+      // Reset body tilt after roll
+      if (bodyRef.current && Math.abs(bodyRef.current.rotation.x) > 0.01) {
+        bodyRef.current.rotation.x *= 0.8;
+      }
+
+      const canMove = !crouching.current && crouchPending.current === null;
+      if (canMove) {
+        const move = new THREE.Vector3();
+        if (fwd)   move.add(fwdVec);
+        if (bwd)   move.sub(fwdVec);
+        if (left)  move.sub(rgtVec);
+        if (right) move.add(rgtVec);
+        if (move.lengthSq() > 0) {
+          const speed = sprint ? RUN_SPEED : WALK_SPEED;
+          move.normalize().multiplyScalar(speed * delta);
+          rootRef.current.position.add(move);
+        }
+      }
     }
 
-    // Jump (no jump while crouching)
-    if (keys.current["Space"] && grounded.current && canMove) {
-      velY.current = JUMP_FORCE;
+    // ── Vertical physics ──────────────────────────────────────────────────
+
+    const canJump = grounded.current && !crouching.current && !rolling.current;
+    if (keys.current["Space"] && canJump) {
+      velY.current     = JUMP_FORCE;
       grounded.current = false;
     }
     velY.current += GRAVITY * delta;
@@ -327,10 +409,15 @@ export function Player({ onShoot, onDead, playerPosRef }: PlayerProps) {
     if (rootRef.current.position.y <= 0) {
       rootRef.current.position.y = 0;
       velY.current = 0;
-      grounded.current = true;
+      if (!grounded.current) {
+        grounded.current = true;
+        transitionTo("jumpLand", 0.08);
+        setTimeout(() => { if (grounded.current) transitionTo("idle", 0.2); }, 320);
+      }
     }
+    wasGrounded.current = grounded.current;
 
-    // Bounds
+    // World bounds
     const half = 49;
     rootRef.current.position.x = Math.max(-half, Math.min(half, rootRef.current.position.x));
     rootRef.current.position.z = Math.max(-half, Math.min(half, rootRef.current.position.z));
@@ -338,77 +425,62 @@ export function Player({ onShoot, onDead, playerPosRef }: PlayerProps) {
     playerPosRef.current.copy(rootRef.current.position);
     rootRef.current.rotation.y = yaw.current;
 
-    // ── Animation state machine ────────────────────────────────────────────
-    const goingUp = velY.current > 1;
+    // ── Animation state machine ───────────────────────────────────────────
 
+    const goingUp = velY.current > 0.5;
     const inp: MoveInput = {
       fwd, bwd, left, right, sprint,
       grounded: grounded.current,
       crouching: crouching.current,
       jumping: goingUp,
+      rolling: rolling.current,
     };
-
-    // Handle jump/land transitions
-    if (!wasGrounded.current && grounded.current) {
-      // Just landed — play land then idle
-      transitionTo("jumpLand", 0.1);
-      setTimeout(() => { if (grounded.current) transitionTo("idle", 0.2); }, 350);
-    }
-    wasGrounded.current = grounded.current;
-
-    // Only resolve new anim if no locked crouch transition running
-    const lockedAnims: AnimKey[] = ["standToKneel", "kneelToStand"];
-    if (!lockedAnims.includes(curAnim.current)) {
-      const next = resolveAnim(inp, curAnim.current);
-      transitionTo(next);
+    const locked_ = ["standToKneel", "kneelToStand"] as AnimKey[];
+    if (!locked_.includes(curAnim.current)) {
+      transitionTo(resolveAnim(inp, curAnim.current));
     }
 
-    // ── Over-shoulder camera ───────────────────────────────────────────────
-    const q = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(pitch.current * 0.6, yaw.current, 0, "YXZ")
-    );
-    const camTarget = rootRef.current.position.clone()
-      .add(new THREE.Vector3(0, 1.0, 0))
-      .add(SHOULDER.clone().applyQuaternion(q));
-    camera.position.lerp(camTarget, 0.14);
+    // ── Camera: directly attached to player (zero rubber-band) ───────────
+    //
+    // Algorithm:
+    //   1. Rotate shoulder offset by YAW ONLY — keeps camera behind player
+    //      regardless of pitch (no vertical swinging)
+    //   2. Camera position = playerPos + offset  (no lerp = no lag)
+    //   3. Camera rotation = set via YXZ Euler directly  (no lookAt fight)
+    //
+    _yawQ.setFromAxisAngle(_up, yaw.current);
 
-    const aimPt = rootRef.current.position.clone()
-      .add(new THREE.Vector3(0, 1.4, 0))
-      .add(getDir().multiplyScalar(15));
-    const curDir  = new THREE.Vector3();
-    camera.getWorldDirection(curDir);
-    const wantDir = aimPt.clone().sub(camera.position).normalize();
-    camera.lookAt(
-      camera.position.clone().add(curDir.lerp(wantDir, 0.14).normalize().multiplyScalar(10))
-    );
+    _offset.set(SHOULDER_R, SHOULDER_U, SHOULDER_B);
+    _offset.applyQuaternion(_yawQ);
+
+    _camPos.copy(rootRef.current.position).add(_offset);
+    camera.position.copy(_camPos);
+
+    // Direct rotation — pitch + yaw, no lerp, no lookAt
+    _euler.set(pitch.current, yaw.current, 0, "YXZ");
+    camera.quaternion.setFromEuler(_euler);
   });
 
   // ─── Render ──────────────────────────────────────────────────────────────
-  const pct = Math.round((loadedCount / totalCount) * 100);
 
   return (
     <group ref={rootRef}>
-      {modelObj ? (
-        <primitive object={modelObj} />
-      ) : (
-        <group>
-          <mesh position={[0, 0.9, 0]} castShadow>
-            <capsuleGeometry args={[0.35, 1.0, 4, 8]} />
-            <meshStandardMaterial color="#4a90d9" />
-          </mesh>
-          <mesh position={[0, 1.75, 0]} castShadow>
-            <sphereGeometry args={[0.28, 8, 8]} />
-            <meshStandardMaterial color="#f4c896" />
-          </mesh>
-        </group>
-      )}
-      {/* Loading indicator in world space above player */}
-      {!modelObj && (
-        <mesh position={[0, 3, 0]}>
-          <planeGeometry args={[1.2, 0.15]} />
-          <meshBasicMaterial color="#111" transparent opacity={0.7} />
-        </mesh>
-      )}
+      <group ref={bodyRef}>
+        {modelObj ? (
+          <primitive object={modelObj} />
+        ) : (
+          <group>
+            <mesh position={[0, 0.9, 0]} castShadow>
+              <capsuleGeometry args={[0.35, 1.0, 4, 8]} />
+              <meshStandardMaterial color="#4a90d9" />
+            </mesh>
+            <mesh position={[0, 1.75, 0]} castShadow>
+              <sphereGeometry args={[0.28, 8, 8]} />
+              <meshStandardMaterial color="#f4c896" />
+            </mesh>
+          </group>
+        )}
+      </group>
     </group>
   );
 }

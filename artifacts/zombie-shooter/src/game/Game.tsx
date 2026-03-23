@@ -17,8 +17,11 @@ interface GameProps {
 let bulletIdCounter = 0;
 let zombieIdCounter = 0;
 
-const MAX_ZOMBIES = 18;
+const MAX_ZOMBIES      = 18;
 const BULLET_HIT_RADIUS = 1.0;
+const MELEE_RANGE       = 2.6;
+const MELEE_DAMAGE      = 80;
+const MELEE_ARC_DOT     = 0.35; // cos(~70°) — wide front arc
 
 const SPAWN_POSITIONS: [number, number, number][] = [
   [45, 0, 0], [-45, 0, 0], [0, 0, 45], [0, 0, -45],
@@ -45,6 +48,7 @@ function SceneContent({
   bullets,
   playerPosRef,
   onShoot,
+  onMelee,
   onBulletExpire,
   onZombieDied,
   onDamagePlayer,
@@ -54,6 +58,7 @@ function SceneContent({
   bullets: BulletData[];
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
   onShoot: (pos: THREE.Vector3, dir: THREE.Vector3) => void;
+  onMelee: (pos: THREE.Vector3, dir: THREE.Vector3) => void;
   onBulletExpire: (id: string) => void;
   onZombieDied: (id: string) => void;
   onDamagePlayer: (amount: number) => void;
@@ -82,6 +87,7 @@ function SceneContent({
 
       <Player
         onShoot={onShoot}
+        onMelee={onMelee}
         onDead={onPlayerDead}
         playerPosRef={playerPosRef}
       />
@@ -165,6 +171,37 @@ export default function Game({ onGameOver }: GameProps) {
     }
   }, [addKill, addScore]);
 
+  const handleMelee = useCallback((origin: THREE.Vector3, direction: THREE.Vector3) => {
+    let killsScored = 0;
+    let scoreGained = 0;
+
+    setZombies((prev) =>
+      prev.map((z) => {
+        if (z.isDead) return z;
+        const toZ = z.position.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
+        const dist = toZ.length();
+        if (dist > MELEE_RANGE) return z;
+        // Arc check: dot of normalized direction and to-zombie
+        const dot = direction.clone().normalize().dot(toZ.clone().normalize());
+        if (dot < MELEE_ARC_DOT) return z;
+        const newHealth = z.health - MELEE_DAMAGE;
+        if (newHealth <= 0) {
+          killsScored += 1;
+          scoreGained += 50 + waveRef.current * 25;
+          return { ...z, health: 0, isDead: true };
+        }
+        return { ...z, health: newHealth };
+      })
+    );
+
+    if (killsScored > 0) {
+      setTimeout(() => {
+        for (let i = 0; i < killsScored; i++) addKill();
+        addScore(scoreGained);
+      }, 0);
+    }
+  }, [addKill, addScore]);
+
   const handleBulletExpire = useCallback((id: string) => {
     setBullets((prev) => prev.filter((b) => b.id !== id));
   }, []);
@@ -196,12 +233,6 @@ export default function Game({ onGameOver }: GameProps) {
     return () => clearInterval(interval);
   }, [nextWave]);
 
-  useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
-    document.addEventListener("contextmenu", handleContextMenu);
-    return () => document.removeEventListener("contextmenu", handleContextMenu);
-  }, []);
-
   return (
     <div className="fixed inset-0 bg-black cursor-none">
       <Canvas
@@ -215,6 +246,7 @@ export default function Game({ onGameOver }: GameProps) {
           bullets={bullets}
           playerPosRef={playerPosRef}
           onShoot={handleShoot}
+          onMelee={handleMelee}
           onBulletExpire={handleBulletExpire}
           onZombieDied={handleZombieDied}
           onDamagePlayer={handleDamagePlayer}

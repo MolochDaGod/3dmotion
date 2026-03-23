@@ -9,6 +9,7 @@ interface GameStore {
   kills: number;
   isReloading: boolean;
   isPaused: boolean;
+  isInvincible: boolean;
   wave: number;
 
   takeDamage: (amount: number) => void;
@@ -19,6 +20,7 @@ interface GameStore {
   addKill: () => void;
   setReloading: (val: boolean) => void;
   setPaused: (val: boolean) => void;
+  setInvincible: (val: boolean) => void;
   nextWave: () => void;
   reset: () => void;
 }
@@ -32,9 +34,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   kills: 0,
   isReloading: false,
   isPaused: false,
+  isInvincible: false,
   wave: 1,
 
   takeDamage: (amount) => {
+    if (get().isInvincible) return;
     set((s) => ({ health: Math.max(0, s.health - amount) }));
   },
 
@@ -67,8 +71,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setReloading: (val) => set({ isReloading: val }),
-
-  setPaused: (val) => set({ isPaused: val }),
+  setPaused:    (val) => set({ isPaused: val }),
+  setInvincible:(val) => set({ isInvincible: val }),
 
   nextWave: () => set((s) => ({ wave: s.wave + 1 })),
 
@@ -80,6 +84,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       kills: 0,
       isReloading: false,
       isPaused: false,
+      isInvincible: false,
       wave: 1,
     }),
 }));
