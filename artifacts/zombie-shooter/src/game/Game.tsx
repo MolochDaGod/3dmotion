@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Sky, Stars } from "@react-three/drei";
+import { PCFShadowMap } from "three";
 import * as THREE from "three";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
@@ -16,7 +17,6 @@ interface GameProps {
 let bulletIdCounter = 0;
 let zombieIdCounter = 0;
 
-const ZOMBIE_SPAWN_INTERVAL = 3.5;
 const MAX_ZOMBIES = 18;
 const BULLET_HIT_RADIUS = 1.0;
 
@@ -64,7 +64,7 @@ function SceneContent({
       <Sky sunPosition={[100, 20, 100]} turbidity={10} rayleigh={1} />
       <Stars radius={200} depth={50} count={500} factor={3} />
 
-      <ambientLight intensity={0.35} />
+      <ambientLight intensity={0.4} />
       <directionalLight
         position={[30, 50, 20]}
         intensity={1.2}
@@ -80,7 +80,11 @@ function SceneContent({
 
       <Map />
 
-      <Player onShoot={onShoot} onDead={onPlayerDead} />
+      <Player
+        onShoot={onShoot}
+        onDead={onPlayerDead}
+        playerPosRef={playerPosRef}
+      />
 
       {bullets.map((b) => (
         <Bullet key={b.id} data={b} onExpire={onBulletExpire} />
@@ -105,7 +109,6 @@ export default function Game({ onGameOver }: GameProps) {
   ]);
   const [bullets, setBullets] = useState<BulletData[]>([]);
   const playerPosRef = useRef(new THREE.Vector3(0, 0, 0));
-  const spawnTimer = useRef(0);
   const { takeDamage, addScore, addKill, score, wave, nextWave, kills } = useGameStore();
   const killCountRef = useRef(kills);
   const waveRef = useRef(wave);
@@ -129,12 +132,12 @@ export default function Game({ onGameOver }: GameProps) {
         if (z.isDead) return z;
         const dist = z.position.distanceTo(position);
         if (dist > 40) return z;
-
-        const toZombie = new THREE.Vector3().subVectors(z.position, position);
-        const zombieCenter = toZombie.clone().add(new THREE.Vector3(0, 1, 0));
-        const cross = new THREE.Vector3().crossVectors(direction, zombieCenter);
+        const toZombie = new THREE.Vector3().subVectors(
+          z.position.clone().add(new THREE.Vector3(0, 1, 0)),
+          position
+        );
+        const cross = new THREE.Vector3().crossVectors(direction, toZombie);
         const perp = cross.length() / direction.length();
-
         if (perp < BULLET_HIT_RADIUS && toZombie.dot(direction) > 0) {
           const dmg = 30 + Math.random() * 20;
           const newHealth = z.health - dmg;
@@ -170,20 +173,14 @@ export default function Game({ onGameOver }: GameProps) {
     const interval = setInterval(() => {
       setZombies((prev) => {
         if (prev.length >= MAX_ZOMBIES) return prev;
-        spawnTimer.current += ZOMBIE_SPAWN_INTERVAL;
         const currentWave = waveRef.current;
         const count = Math.min(2, MAX_ZOMBIES - prev.length);
-        const newZombies = Array.from({ length: count }, () => spawnZombie(currentWave));
-        return [...prev, ...newZombies];
+        return [...prev, ...Array.from({ length: count }, () => spawnZombie(currentWave))];
       });
-
-      const k = killCountRef.current;
-      const w = waveRef.current;
-      if (k >= w * 10) {
+      if (killCountRef.current >= waveRef.current * 10) {
         nextWave();
       }
-    }, ZOMBIE_SPAWN_INTERVAL * 1000);
-
+    }, 3500);
     return () => clearInterval(interval);
   }, [nextWave]);
 
@@ -197,8 +194,9 @@ export default function Game({ onGameOver }: GameProps) {
     <div className="fixed inset-0 bg-black cursor-none">
       <Canvas
         shadows
-        camera={{ fov: 75, near: 0.1, far: 500 }}
+        camera={{ fov: 70, near: 0.05, far: 500 }}
         gl={{ antialias: true }}
+        onCreated={({ gl }) => { gl.shadowMap.type = PCFShadowMap; }}
         style={{ width: "100%", height: "100%" }}
       >
         <SceneContent
