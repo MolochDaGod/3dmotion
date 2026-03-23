@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Zombie Shooter"
+version = "1.0.0"
+id = "artifacts/zombie-shooter"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26241
+
+[services.development]
+run = "pnpm --filter @workspace/zombie-shooter run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/zombie-shooter", "run", "build" ]
+publicDir = "artifacts/zombie-shooter/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26241"
+BASE_PATH = "/"
