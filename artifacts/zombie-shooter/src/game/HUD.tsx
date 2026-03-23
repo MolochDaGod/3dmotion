@@ -58,8 +58,8 @@ export function HUD() {
       </div>
 
       {/* Controls hint — top center */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/30 text-xs text-center">
-        Click to aim &nbsp;·&nbsp; WASD to move &nbsp;·&nbsp; Space to jump &nbsp;·&nbsp; R to reload &nbsp;·&nbsp; Shift to sprint
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/30 text-xs text-center leading-relaxed">
+        Click to aim &nbsp;·&nbsp; WASD – move &nbsp;·&nbsp; Shift – sprint &nbsp;·&nbsp; Space – jump &nbsp;·&nbsp; C – crouch &nbsp;·&nbsp; R – reload
       </div>
 
       {/* Empty ammo warning */}

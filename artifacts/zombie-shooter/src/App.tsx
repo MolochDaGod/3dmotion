@@ -35,9 +35,9 @@ function App() {
           <div className="text-gray-500 text-sm mb-8 space-y-1">
             <p>WASD / Arrow Keys — Move</p>
             <p>Mouse — Aim & Look</p>
-            <p>Left Click — Shoot</p>
-            <p>Space — Jump</p>
-            <p>Shift — Sprint</p>
+            <p>Left Click — Shoot &nbsp;·&nbsp; R — Reload</p>
+            <p>Space — Jump &nbsp;·&nbsp; Shift — Sprint</p>
+            <p>C — Crouch / Stand</p>
           </div>
           <button
             onClick={handleStart}

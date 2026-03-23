@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Sky, Stars } from "@react-three/drei";
-import { PCFShadowMap } from "three";
+import * as THREE_TYPES from "three";
 import * as THREE from "three";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
@@ -127,8 +127,12 @@ export default function Game({ onGameOver }: GameProps) {
 
     setBullets((prev) => [...prev, newBullet]);
 
-    setZombies((prev) =>
-      prev.map((z) => {
+    // Collect kills BEFORE calling setState so we don't mutate store inside updater
+    let killsScored = 0;
+    let scoreGained = 0;
+
+    setZombies((prev) => {
+      return prev.map((z) => {
         if (z.isDead) return z;
         const dist = z.position.distanceTo(position);
         if (dist > 40) return z;
@@ -142,15 +146,23 @@ export default function Game({ onGameOver }: GameProps) {
           const dmg = 30 + Math.random() * 20;
           const newHealth = z.health - dmg;
           if (newHealth <= 0) {
-            addKill();
-            addScore(100 + waveRef.current * 50);
+            killsScored += 1;
+            scoreGained += 100 + waveRef.current * 50;
             return { ...z, health: 0, isDead: true };
           }
           return { ...z, health: newHealth };
         }
         return z;
-      })
-    );
+      });
+    });
+
+    // Apply store updates after state update is committed
+    if (killsScored > 0) {
+      setTimeout(() => {
+        for (let i = 0; i < killsScored; i++) addKill();
+        addScore(scoreGained);
+      }, 0);
+    }
   }, [addKill, addScore]);
 
   const handleBulletExpire = useCallback((id: string) => {
@@ -193,10 +205,9 @@ export default function Game({ onGameOver }: GameProps) {
   return (
     <div className="fixed inset-0 bg-black cursor-none">
       <Canvas
-        shadows
+        shadows={{ type: THREE_TYPES.PCFShadowMap }}
         camera={{ fov: 70, near: 0.05, far: 500 }}
         gl={{ antialias: true }}
-        onCreated={({ gl }) => { gl.shadowMap.type = PCFShadowMap; }}
         style={{ width: "100%", height: "100%" }}
       >
         <SceneContent

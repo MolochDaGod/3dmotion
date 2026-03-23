@@ -81,27 +81,27 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
 
   return (
     <group ref={meshRef} position={data.position.toArray()}>
-      <mesh position={[0, 0.85, 0]} castShadow>
+      <mesh position={[0, 0.85, 0]}>
         <capsuleGeometry args={[0.32, 0.9, 4, 8]} />
         <meshStandardMaterial color={bodyColor} roughness={0.9} />
       </mesh>
-      <mesh position={[0, 1.65, 0]} castShadow>
+      <mesh position={[0, 1.65, 0]}>
         <sphereGeometry args={[0.26, 8, 8]} />
         <meshStandardMaterial color={headColor} roughness={0.9} />
       </mesh>
-      <mesh position={[0.38, 1.2, 0]} rotation={[0, 0, -0.5]} castShadow>
+      <mesh position={[0.38, 1.2, 0]} rotation={[0, 0, -0.5]}>
         <boxGeometry args={[0.11, 0.52, 0.11]} />
         <meshStandardMaterial color={bodyColor} roughness={0.9} />
       </mesh>
-      <mesh position={[-0.38, 1.2, 0]} rotation={[0, 0, 0.5]} castShadow>
+      <mesh position={[-0.38, 1.2, 0]} rotation={[0, 0, 0.5]}>
         <boxGeometry args={[0.11, 0.52, 0.11]} />
         <meshStandardMaterial color={bodyColor} roughness={0.9} />
       </mesh>
-      <mesh position={[0.14, 0.2, 0]} castShadow>
+      <mesh position={[0.14, 0.2, 0]}>
         <boxGeometry args={[0.13, 0.45, 0.13]} />
         <meshStandardMaterial color="#3a3a2a" roughness={0.9} />
       </mesh>
-      <mesh position={[-0.14, 0.2, 0]} castShadow>
+      <mesh position={[-0.14, 0.2, 0]}>
         <boxGeometry args={[0.13, 0.45, 0.13]} />
         <meshStandardMaterial color="#3a3a2a" roughness={0.9} />
       </mesh>
