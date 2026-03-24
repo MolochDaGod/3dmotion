@@ -91,6 +91,27 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/zombie-shooter` (`@workspace/zombie-shooter`)
+
+Third-person survival shooter built with React Three Fiber + Rapier physics.
+
+**Stack:** React 19, R3F + Drei + Rapier, Three.js, Zustand, TypeScript, Vite
+
+**Architecture:**
+- `src/game/Player.tsx` — Rapier kinematic capsule controller, FBX Corsair King character, 4-weapon cycle (pistol/rifle/sword/axe), TPS/FPS camera with yaw/pitch, roll, melee combo
+- `src/game/Zombie.tsx` — Mixamo Mutant GLTF model with FSM animation AI (idle→run→attack→hit→dead), SkeletonUtils.clone for per-instance skeletons, texture applied manually, detection radius + chase AI
+- `src/game/Game.tsx` — Wave spawning, bullet/melee hit detection, player death, score/wave tracking
+- `src/game/Map.tsx` — Rapier trimesh terrain collider
+- `src/game/HUD.tsx` — Health/ammo/weapon pills overlay
+- `src/game/useGameStore.ts` — Zustand store (health, score, wave, kills, weaponMode)
+
+**Models:**
+- `public/models/` — Corsair King FBX + animations (pistol/rifle/melee packs), mutant.{gltf,bin,jpg} (zombie), boss.glb (future boss)
+- Mutant animations: idle, running, punch, punchStart, punchEnd, fist, jumpAttack, jumpAttackStart, jumpAttackEnd, dash, hit, knockDown, jump
+- Weapon mode: Q cycles pistol→rifle→sword→axe; sword/axe tracked to right-hand bone each frame
+
+**Key files:** ANNIHILATE_LEARNINGS.md — architecture reference from studied game repo
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

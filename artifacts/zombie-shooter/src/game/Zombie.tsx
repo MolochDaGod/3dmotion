@@ -1,6 +1,10 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
+import { useGLTF, useAnimations, useTexture } from "@react-three/drei";
+import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import * as THREE from "three";
+
+useGLTF.preload("/models/mutant.gltf");
 
 export interface ZombieData {
   id: string;
@@ -19,103 +23,180 @@ interface ZombieProps {
   onDied: (id: string) => void;
 }
 
-const ATTACK_RANGE = 1.8;
-const ATTACK_DAMAGE = 10;
-const ATTACK_COOLDOWN = 1.5;
+type ZState = "loading" | "idle" | "run" | "attack" | "hit" | "dead";
+
+const ATTACK_RANGE    = 1.9;
+const ATTACK_DAMAGE   = 10;
+const ATTACK_COOLDOWN = 4.0;
+const DETECTOR_RADIUS = 22;
+const DEAD_LINGER     = 3.5;
+
+const ONCE_ANIMS = new Set([
+  "punch", "punchStart", "punchEnd", "fist",
+  "jumpAttack", "jumpAttackStart", "jumpAttackEnd",
+  "dash", "hit", "knockDown",
+]);
 
 export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieProps) {
-  const meshRef = useRef<THREE.Group>(null!);
-  const localCooldown = useRef(data.attackCooldown);
-  const deadTimer = useRef(0);
-  const dyingRef = useRef(false);
+  const groupRef = useRef<THREE.Group>(null!);
+
+  const { scene, animations } = useGLTF("/models/mutant.gltf");
+  const texture = useTexture("/models/mutant.jpg");
+
+  const clone = useMemo(() => {
+    const c = skeletonClone(scene) as THREE.Group;
+    texture.flipY = false;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    c.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.material = new THREE.MeshStandardMaterial({
+          map: texture,
+          roughness: 0.85,
+          metalness: 0.0,
+          skinning: true,
+        } as any);
+      }
+    });
+    return c;
+  }, [scene, texture]);
+
+  const { actions, mixer } = useAnimations(animations, groupRef);
+
+  const stateRef        = useRef<ZState>("loading");
+  const activeActionRef = useRef<THREE.AnimationAction | null>(null);
+  const attackCdRef     = useRef(0);
+  const deadTimerRef    = useRef(0);
+  const prevHealthRef   = useRef(data.health);
+  const tmpDir          = useRef(new THREE.Vector3());
+
+  function fadeToAction(name: string, fadeIn = 0.18) {
+    const action = actions[name];
+    if (!action) return;
+    const prev = activeActionRef.current;
+    if (prev && prev !== action) prev.fadeOut(fadeIn);
+    action.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(fadeIn).play();
+    activeActionRef.current = action;
+  }
+
+  function transitionTo(next: ZState) {
+    if (stateRef.current === "dead" && next !== "dead") return;
+    stateRef.current = next;
+    switch (next) {
+      case "idle":   fadeToAction("idle"); break;
+      case "run":    fadeToAction("running"); break;
+      case "attack":
+        fadeToAction("punchStart", 0.1);
+        setTimeout(() => {
+          if (stateRef.current === "attack") fadeToAction("punch", 0.15);
+        }, 400);
+        break;
+      case "hit":  fadeToAction("hit", 0.08);  break;
+      case "dead": fadeToAction("knockDown", 0.15); break;
+    }
+  }
 
   useEffect(() => {
-    if (meshRef.current) {
-      meshRef.current.position.copy(data.position);
-    }
+    if (!groupRef.current) return;
+    groupRef.current.position.copy(data.position);
+
+    Object.entries(actions).forEach(([name, action]) => {
+      if (!action) return;
+      if (ONCE_ANIMS.has(name)) {
+        action.loop = THREE.LoopOnce;
+        action.clampWhenFinished = true;
+      }
+    });
+
+    const onFinished = () => {
+      const st = stateRef.current;
+      if (st === "attack" || st === "hit") transitionTo("idle");
+    };
+    mixer.addEventListener("finished", onFinished);
+    transitionTo("idle");
+
+    return () => {
+      mixer.removeEventListener("finished", onFinished);
+      mixer.stopAllAction();
+    };
   }, []);
 
   useFrame((_, delta) => {
-    if (!meshRef.current) return;
+    if (!groupRef.current) return;
+    const st  = stateRef.current;
+    const pos = groupRef.current.position;
+    const pp  = playerPosition.current;
 
-    if (data.isDead) {
-      if (!dyingRef.current) {
-        dyingRef.current = true;
-      }
-      deadTimer.current += delta;
-      meshRef.current.position.y = Math.max(-1.5, meshRef.current.position.y - delta * 2);
-      meshRef.current.rotation.x = Math.min(Math.PI / 2, meshRef.current.rotation.x + delta * 3);
-      if (deadTimer.current > 1.5) {
-        onDied(data.id);
-      }
+    if (st === "loading") return;
+
+    if (data.isDead && st !== "dead") {
+      transitionTo("dead");
+    }
+
+    if (st === "dead") {
+      deadTimerRef.current += delta;
+      if (deadTimerRef.current > DEAD_LINGER) onDied(data.id);
       return;
     }
 
-    const dir = new THREE.Vector3()
-      .subVectors(playerPosition.current, meshRef.current.position);
-    const dist = dir.length();
-
-    if (dist < ATTACK_RANGE) {
-      localCooldown.current -= delta;
-      if (localCooldown.current <= 0) {
-        onDamagePlayer(ATTACK_DAMAGE);
-        localCooldown.current = ATTACK_COOLDOWN;
-      }
-    } else {
-      dir.normalize();
-      meshRef.current.position.addScaledVector(dir, data.speed * delta);
+    if (data.health < prevHealthRef.current) {
+      prevHealthRef.current = data.health;
+      if (!data.isDead) transitionTo("hit");
     }
 
-    data.position.copy(meshRef.current.position);
+    tmpDir.current.set(pp.x - pos.x, 0, pp.z - pos.z);
+    const dist = tmpDir.current.length();
 
-    const angle = Math.atan2(
-      playerPosition.current.x - meshRef.current.position.x,
-      playerPosition.current.z - meshRef.current.position.z
-    );
-    meshRef.current.rotation.y = angle;
+    if (dist > DETECTOR_RADIUS) {
+      if (st !== "idle") transitionTo("idle");
+      return;
+    }
+
+    groupRef.current.rotation.y = Math.atan2(pp.x - pos.x, pp.z - pos.z);
+    attackCdRef.current -= delta;
+
+    if (dist < ATTACK_RANGE) {
+      if (st !== "attack" && st !== "hit") {
+        if (attackCdRef.current <= 0) {
+          attackCdRef.current = ATTACK_COOLDOWN;
+          transitionTo("attack");
+          setTimeout(() => onDamagePlayer(ATTACK_DAMAGE), 700);
+        } else if (st !== "idle") {
+          transitionTo("idle");
+        }
+      }
+    } else {
+      if (st !== "run" && st !== "attack" && st !== "hit") {
+        transitionTo("run");
+      }
+      if (st === "run") {
+        tmpDir.current.normalize().multiplyScalar(data.speed * delta);
+        pos.add(tmpDir.current);
+        data.position.copy(pos);
+      }
+    }
   });
 
-  const healthPct = data.health / data.maxHealth;
-  const bodyColor = data.isDead ? "#555" : "#6b7c4f";
-  const headColor = data.isDead ? "#444" : "#8a7a5a";
+  const healthPct = Math.max(0, data.health / data.maxHealth);
 
   return (
-    <group ref={meshRef} position={data.position.toArray()}>
-      <mesh position={[0, 0.85, 0]}>
-        <capsuleGeometry args={[0.32, 0.9, 4, 8]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 1.65, 0]}>
-        <sphereGeometry args={[0.26, 8, 8]} />
-        <meshStandardMaterial color={headColor} roughness={0.9} />
-      </mesh>
-      <mesh position={[0.38, 1.2, 0]} rotation={[0, 0, -0.5]}>
-        <boxGeometry args={[0.11, 0.52, 0.11]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.9} />
-      </mesh>
-      <mesh position={[-0.38, 1.2, 0]} rotation={[0, 0, 0.5]}>
-        <boxGeometry args={[0.11, 0.52, 0.11]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.9} />
-      </mesh>
-      <mesh position={[0.14, 0.2, 0]}>
-        <boxGeometry args={[0.13, 0.45, 0.13]} />
-        <meshStandardMaterial color="#3a3a2a" roughness={0.9} />
-      </mesh>
-      <mesh position={[-0.14, 0.2, 0]}>
-        <boxGeometry args={[0.13, 0.45, 0.13]} />
-        <meshStandardMaterial color="#3a3a2a" roughness={0.9} />
-      </mesh>
+    <group ref={groupRef}>
+      <primitive object={clone} />
+
       {!data.isDead && (
-        <group position={[0, 2.1, 0]}>
-          <mesh position={[0, 0, 0]}>
-            <planeGeometry args={[0.8, 0.08]} />
-            <meshBasicMaterial color="#333" side={THREE.DoubleSide} />
+        <group position={[0, 2.6, 0]}>
+          <mesh>
+            <planeGeometry args={[0.9, 0.08]} />
+            <meshBasicMaterial color="#222" side={THREE.DoubleSide} depthTest={false} />
           </mesh>
-          <mesh position={[-(0.4 - healthPct * 0.4), 0, 0.01]}>
-            <planeGeometry args={[0.8 * healthPct, 0.08]} />
+          <mesh position={[-(0.45 - healthPct * 0.45), 0, 0.01]}>
+            <planeGeometry args={[0.9 * healthPct, 0.08]} />
             <meshBasicMaterial
               color={healthPct > 0.5 ? "#4caf50" : healthPct > 0.25 ? "#ff9800" : "#f44336"}
               side={THREE.DoubleSide}
+              depthTest={false}
             />
           </mesh>
         </group>
