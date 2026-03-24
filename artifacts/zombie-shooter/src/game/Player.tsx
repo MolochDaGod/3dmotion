@@ -18,9 +18,13 @@ const PITCH_MIN     = -Math.PI / 2.5;
 const PITCH_MAX_TPS =  Math.PI / 8;
 const PITCH_MAX_FPS =  Math.PI / 2 - 0.05;
 const EYE_HEIGHT    = 1.70;
-const ROLL_SPEED    = 14;
-const ROLL_DURATION = 0.45;
-const ROLL_COOLDOWN = 1.2;
+const ROLL_SPEED     = 14;
+const ROLL_DURATION  = 0.45;
+const ROLL_COOLDOWN  = 1.2;
+const DODGE_SPEED    = 10;          // directional dodge (double-tap or Ctrl)
+const DODGE_DURATION = 0.38;        // physics window for the dodge impulse
+const DOUBLE_TAP_MS  = 280;         // max gap between two taps to register a dodge
+const CROUCH_WALK_TS = 0.55;        // timeScale for locomotion anims while crouching
 
 // ─── Shooting cooldowns (ranged only) ─────────────────────────────────────────
 const SHOOT_CD: Record<WeaponMode, number> = {
@@ -110,7 +114,10 @@ type BowKey =
   | "bowAimWalkFwd" | "bowAimWalkBwd"
   | "bowAimStrafeL" | "bowAimStrafeR";
 
-type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey;
+type DodgeKey =
+  | "dodgeFwd" | "dodgeBwd" | "dodgeL" | "dodgeR";
+
+type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey;
 
 // ─── Load queues ──────────────────────────────────────────────────────────────
 
@@ -161,6 +168,12 @@ const MELEE_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "meleeJump",     file: "/models/melee jump.fbx" },
   { key: "meleeCrouch",   file: "/models/melee crouch idle.fbx" },
   { key: "meleeBlock",    file: "/models/melee block.fbx" },
+  // Dodge animations — same FBX source as run/strafe but loaded as separate
+  // clips so they can be registered as LoopOnce / blocking-once
+  { key: "dodgeFwd",      file: "/models/melee run.fbx" },
+  { key: "dodgeBwd",      file: "/models/melee run backward.fbx" },
+  { key: "dodgeL",        file: "/models/melee strafe left.fbx" },
+  { key: "dodgeR",        file: "/models/melee strafe right.fbx" },
 ];
 
 const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -195,23 +208,33 @@ const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
 
 // ─── LoopOnce animations (non-looping) ────────────────────────────────────────
 // These clamp at last frame. Attacks are a subset: BLOCKING_ONCE.
+// ── LAYER 1: "base layer" — locomotion animations (idle/walk/run/crouch/jump).
+//    These always run unless a LAYER 2 animation is active.
+//
+// ── LAYER 2: "weapon/action layer" — attacks, spells, and dodges.
+//    While any BLOCKING_ONCE animation plays, blockingOnce.current = true
+//    and the locomotion state machine is suspended until it finishes.
+
 const ONCE_ANIMS = new Set<AnimKey>([
+  // attacks / spells
   "meleeAttack1","meleeAttack2","meleeAttack3",
   "meleeCombo1","meleeCombo2","meleeCombo3",
   "pistolCrouchDown","pistolCrouchUp",
   "rifleFire",
   "staffCast1","staffCast2",
   "bowDraw","bowFire",
+  // directional dodges (play once, then snap back to locomotion)
+  "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
 ]);
 
 // ─── Blocking animations — must play fully before queue can run ───────────────
-// These are the animations managed by the 1-slot queue system.
 const BLOCKING_ONCE = new Set<AnimKey>([
   "meleeAttack1","meleeAttack2","meleeAttack3",
   "meleeCombo1","meleeCombo2","meleeCombo3",
   "staffCast1","staffCast2",
   "rifleFire",
   "bowDraw","bowFire",
+  "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
 ]);
 
 // ─── Idle for each weapon mode ────────────────────────────────────────────────
@@ -245,7 +268,44 @@ function resolveAnim(
     return "pistolJump";
   }
 
-  if (crouching) return isMelee ? "meleeCrouch" : "pistolCrouchIdle";
+  // ── Crouching ─────────────────────────────────────────────────────────────
+  // Stationary → dedicated crouch-idle; Moving → reuse the walk/strafe anims
+  // (useFrame will apply CROUCH_WALK_TS so the character shuffles, not runs).
+  if (crouching) {
+    if (!moving) return isMelee ? "meleeCrouch" : "pistolCrouchIdle";
+    if (isMelee) {
+      if (fwd && !bwd) return "meleeWalkFwd";
+      if (bwd && !fwd) return "meleeWalkBwd";
+      if (left)        return "meleeStrafeL";
+      if (right)       return "meleeStrafeR";
+      return "meleeCrouch";
+    }
+    if (isRifle) {
+      if (fwd && !bwd) return "rifleWalkFwd";
+      if (bwd && !fwd) return "rifleWalkBwd";
+      if (left)        return "rifleStrafeL";
+      if (right)       return "rifleStrafeR";
+      return "rifleIdle";
+    }
+    if (isStaff) {
+      if (fwd && !bwd) return "staffWalkFwd";
+      if (bwd && !fwd) return "staffWalkBwd";
+      return "staffIdle";
+    }
+    if (isBow) {
+      if (fwd && !bwd) return "bowWalkFwd";
+      if (bwd && !fwd) return "bowWalkBwd";
+      if (left)        return "bowStrafeL";
+      if (right)       return "bowStrafeR";
+      return "bowIdle";
+    }
+    // Pistol (default)
+    if (fwd && !bwd) return "pistolWalkFwd";
+    if (bwd && !fwd) return "pistolWalkBwd";
+    if (left)        return "pistolStrafeL";
+    if (right)       return "pistolStrafeR";
+    return "pistolCrouchIdle";
+  }
 
   if (isStaff) {
     if (!moving) return "staffIdle";
@@ -353,6 +413,13 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const rollDir      = useRef(new THREE.Vector3(0, 0, -1));
   const rollCooldown = useRef(0);
 
+  // ── Double-tap dodge detection ────────────────────────────────────────────
+  // Stores the timestamp of the last keydown for W / A / S / D.
+  const doubleTapTimers  = useRef<Partial<Record<string, number>>>({});
+  // Always-fresh callback so handleKeyDown can trigger a dodge without needing
+  // _rawPlay in its closure (refs-only pattern, same as onBlockingDoneRef).
+  const triggerDodgeRef  = useRef<((dir: "fwd"|"bwd"|"left"|"right") => void) | null>(null);
+
   // ── Attack / combo refs ───────────────────────────────────────────────────
   const attackPhase = useRef(0);
   const comboWindow = useRef(0);
@@ -459,15 +526,44 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   // ── Raw play helper (direct, no skip-if-same) ─────────────────────────────
   // Used by the queue system where repeating the same anim (e.g. meleeAttack1
   // twice in a row) must start fresh.
-  function _rawPlay(key: AnimKey, fade: number) {
+  // ── timeScale = 1 by default; pass <1 to slow (crouch-walk), >1 to speed up ─
+  function _rawPlay(key: AnimKey, fade: number, timeScale = 1) {
     const prev = actionsRef.current[curAnim.current];
     if (prev && curAnim.current !== key) prev.fadeOut(fade);
     const a = actionsRef.current[key];
     if (a) {
+      a.timeScale = timeScale;
       a.reset().fadeIn(fade).play();
       curAnim.current = key;
     }
   }
+
+  // ── Always-fresh dodge trigger ─────────────────────────────────────────────
+  // Updated every render so the closure always sees the current refs/_rawPlay.
+  triggerDodgeRef.current = (dir) => {
+    if (!grounded.current || rolling.current || crouching.current || rollCooldown.current > 0) return;
+    rolling.current      = true;
+    rollTimer.current    = DODGE_DURATION;
+    rollCooldown.current = ROLL_COOLDOWN;
+    blockingOnce.current = true;     // suspend locomotion layer during dodge
+
+    const fwdV = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+    const rgtV = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
+    if      (dir === "fwd")  rollDir.current.copy(fwdV);
+    else if (dir === "bwd")  rollDir.current.copy(fwdV).negate();
+    else if (dir === "left") rollDir.current.copy(rgtV).negate();
+    else                     rollDir.current.copy(rgtV);
+
+    rollDir.current.multiplyScalar(DODGE_SPEED / ROLL_SPEED); // scale to DODGE_SPEED ratio
+
+    const key: AnimKey = dir === "fwd" ? "dodgeFwd"
+                       : dir === "bwd" ? "dodgeBwd"
+                       : dir === "left" ? "dodgeL"
+                       : "dodgeR";
+    // Play at 1.5× so the full dodge fits within DODGE_DURATION
+    _rawPlay(key, 0.08, 1.5);
+    if (setInvincible) setInvincible(true);
+  };
 
   // ── Rapier character controller ───────────────────────────────────────────
   useEffect(() => {
@@ -1010,7 +1106,24 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       crouching.current ? endCrouch() : startCrouch();
     }
 
-    // Ctrl — dodge roll
+    // ── Double-tap W/A/S/D → directional dodge ────────────────────────────
+    // If the same direction key is pressed twice within DOUBLE_TAP_MS, fire a
+    // quick dodge in that direction.  The roll-cooldown prevents spam.
+    if (e.code === "KeyW" || e.code === "KeyA" || e.code === "KeyS" || e.code === "KeyD") {
+      const now  = performance.now();
+      const last = doubleTapTimers.current[e.code] ?? 0;
+      doubleTapTimers.current[e.code] = now;
+      if (now - last < DOUBLE_TAP_MS) {
+        const dir: "fwd"|"bwd"|"left"|"right" =
+          e.code === "KeyW" ? "fwd" :
+          e.code === "KeyS" ? "bwd" :
+          e.code === "KeyA" ? "left" : "right";
+        triggerDodgeRef.current?.(dir);
+      }
+    }
+
+    // Ctrl — committed roll (same physics but full ROLL_SPEED/ROLL_DURATION;
+    //         direction is decided by held WASD, defaulting to forward)
     if ((e.code === "ControlLeft" || e.code === "ControlRight")
       && grounded.current && !rolling.current && !crouching.current
       && rollCooldown.current <= 0) {
@@ -1018,19 +1131,29 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       rolling.current      = true;
       rollTimer.current    = ROLL_DURATION;
       rollCooldown.current = ROLL_COOLDOWN;
+      blockingOnce.current = true;
 
-      const fwd = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
-      const rgt = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
-      const d   = new THREE.Vector3();
-      if (keys.current["KeyW"]) d.add(fwd);
-      if (keys.current["KeyS"]) d.sub(fwd);
-      if (keys.current["KeyA"]) d.sub(rgt);
-      if (keys.current["KeyD"]) d.add(rgt);
-      if (d.lengthSq() < 0.01) d.copy(fwd);
+      const fwdV = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+      const rgtV = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
+      const d    = new THREE.Vector3();
+      if (keys.current["KeyW"]) d.add(fwdV);
+      if (keys.current["KeyS"]) d.sub(fwdV);
+      if (keys.current["KeyA"]) d.sub(rgtV);
+      if (keys.current["KeyD"]) d.add(rgtV);
+      if (d.lengthSq() < 0.01) d.copy(fwdV);
       rollDir.current.copy(d.normalize());
 
-      const rightBias = rollDir.current.dot(rgt);
+      const rightBias = rollDir.current.dot(rgtV);
       rollCamZ.current = -rightBias * 0.18;
+
+      // Determine dominant direction for animation selection
+      const dotFwd  = rollDir.current.dot(fwdV);
+      const dotRgt  = rollDir.current.dot(rgtV);
+      const rollKey: AnimKey =
+        Math.abs(dotFwd) >= Math.abs(dotRgt)
+          ? (dotFwd >= 0 ? "dodgeFwd" : "dodgeBwd")
+          : (dotRgt >= 0 ? "dodgeR"   : "dodgeL");
+      _rawPlay(rollKey, 0.08, 1.3);
       if (setInvincible) setInvincible(true);
     }
   }, [
@@ -1230,9 +1353,8 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       playerPosRef.current.copy(rootRef.current.position);
     }
 
-    // ── Locomotion animation state machine ─────────────────────────────────
-    // Only runs when NO blocking attack is playing — attacks drive themselves
-    // through the queue system (finished event → next slot or idle).
+    // ── LAYER 1: Locomotion animation state machine ────────────────────────
+    // Suspended whenever a LAYER 2 (weapon/dodge) animation is blocking.
     if (!blockingOnce.current) {
       const next = resolveAnim(
         wm, fwd, bwd, left, right, sprint,
@@ -1240,6 +1362,13 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
         bowAiming.current,
       );
       if (next !== curAnim.current) transitionTo(next);
+
+      // Apply timeScale: crouch-walking uses 55% speed so the character
+      // shuffles rather than full-stride walks.
+      const isCrouchMoving =
+        crouching.current && (fwd || bwd || left || right) && grounded.current;
+      const cur = actionsRef.current[curAnim.current];
+      if (cur) cur.timeScale = isCrouchMoving ? CROUCH_WALK_TS : 1;
     }
   });
 
