@@ -1,13 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Sky, Stars } from "@react-three/drei";
+import { Stars } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
-import { Map } from "./Map";
+import { Graveyard } from "./Graveyard";
 import { HUD } from "./HUD";
 import { MagicSystem } from "./MagicProjectile";
 import { SpellRadial } from "./SpellRadial";
@@ -86,26 +86,31 @@ function SceneContent({
 }) {
   return (
     <>
-      <Sky sunPosition={[100, 20, 100]} turbidity={10} rayleigh={1} />
-      <Stars radius={200} depth={50} count={500} factor={3} />
+      {/* ── Night sky atmosphere ── */}
+      <fog attach="fog" args={["#050a06", 55, 130]} />
+      <color attach="background" args={["#050a06"]} />
+      <Stars radius={160} depth={60} count={1800} factor={4} fade />
 
-      <ambientLight intensity={0.4} />
+      {/* ── Moonlight (cool blue-white, casting shadows) ── */}
+      <ambientLight intensity={0.08} color="#2a3560" />
       <directionalLight
-        position={[30, 50, 20]}
-        intensity={1.2}
+        position={[-30, 60, -20]}
+        intensity={0.55}
+        color="#b8c8ff"
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-far={150}
-        shadow-camera-left={-60}
-        shadow-camera-right={60}
-        shadow-camera-top={60}
-        shadow-camera-bottom={-60}
+        shadow-camera-far={160}
+        shadow-camera-left={-70}
+        shadow-camera-right={70}
+        shadow-camera-top={70}
+        shadow-camera-bottom={-70}
       />
-      <pointLight position={[0, 8, 0]} intensity={0.3} color="#ffaa44" />
+      {/* Subtle fill from opposite side */}
+      <directionalLight position={[20, 20, 30]} intensity={0.07} color="#223322" />
 
-      {/* ── All physics bodies — player, map, AND zombie sensors ── */}
+      {/* ── All physics bodies — player, graveyard, AND zombie sensors ── */}
       <Physics gravity={[0, -22, 0]} timeStep="vary">
-        <Map />
+        <Graveyard />
         <Player
           onShoot={onShoot}
           onMelee={onMelee}
