@@ -9,7 +9,9 @@ import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
 import { Map } from "./Map";
 import { HUD } from "./HUD";
-import { useGameStore } from "./useGameStore";
+import { MagicSystem } from "./MagicProjectile";
+import { SpellRadial } from "./SpellRadial";
+import { useGameStore, MagicProjectileState } from "./useGameStore";
 
 interface GameProps {
   onGameOver: (score: number) => void;
@@ -18,11 +20,11 @@ interface GameProps {
 let bulletIdCounter = 0;
 let zombieIdCounter = 0;
 
-const MAX_ZOMBIES      = 18;
+const MAX_ZOMBIES       = 18;
 const BULLET_HIT_RADIUS = 1.0;
 const MELEE_RANGE       = 2.6;
 const MELEE_DAMAGE      = 80;
-const MELEE_ARC_DOT     = 0.35; // cos(~70°) — wide front arc
+const MELEE_ARC_DOT     = 0.35;
 
 const SPAWN_POSITIONS: [number, number, number][] = [
   [45, 0, 0], [-45, 0, 0], [0, 0, 45], [0, 0, -45],
@@ -54,6 +56,7 @@ function SceneContent({
   onZombieDied,
   onDamagePlayer,
   onPlayerDead,
+  onMagicHit,
 }: {
   zombies: ZombieData[];
   bullets: BulletData[];
@@ -64,6 +67,7 @@ function SceneContent({
   onZombieDied: (id: string) => void;
   onDamagePlayer: (amount: number) => void;
   onPlayerDead: () => void;
+  onMagicHit: (id: string, pos: THREE.Vector3, spell: MagicProjectileState["spell"]) => void;
 }) {
   return (
     <>
@@ -84,10 +88,8 @@ function SceneContent({
       />
       <pointLight position={[0, 8, 0]} intensity={0.3} color="#ffaa44" />
 
-      {/* All physics objects (environment + player) must live inside Physics */}
       <Physics gravity={[0, -22, 0]} timeStep="vary">
         <Map />
-
         <Player
           onShoot={onShoot}
           onMelee={onMelee}
@@ -109,6 +111,9 @@ function SceneContent({
           onDied={onZombieDied}
         />
       ))}
+
+      {/* Magic projectile VFX — lives outside Physics since projectiles fly freely */}
+      <MagicSystem onProjectileHit={onMagicHit} />
     </>
   );
 }
@@ -119,13 +124,19 @@ export default function Game({ onGameOver }: GameProps) {
   ]);
   const [bullets, setBullets] = useState<BulletData[]>([]);
   const playerPosRef = useRef(new THREE.Vector3(0, 0, 0));
-  const { takeDamage, addScore, addKill, score, wave, nextWave, kills } = useGameStore();
+
+  const {
+    takeDamage, addScore, addKill, score, wave, nextWave, kills,
+    removeMagicProjectile,
+  } = useGameStore();
+
   const killCountRef = useRef(kills);
-  const waveRef = useRef(wave);
+  const waveRef      = useRef(wave);
 
   useEffect(() => { killCountRef.current = kills; }, [kills]);
   useEffect(() => { waveRef.current = wave; }, [wave]);
 
+  // ── Bullet shoot ────────────────────────────────────────────────────────────
   const handleShoot = useCallback((position: THREE.Vector3, direction: THREE.Vector3) => {
     const newBullet: BulletData = {
       id: `bullet-${++bulletIdCounter}`,
@@ -134,94 +145,98 @@ export default function Game({ onGameOver }: GameProps) {
       speed: 35,
       lifetime: 2.5,
     };
-
     setBullets((prev) => [...prev, newBullet]);
 
-    // Collect kills BEFORE calling setState so we don't mutate store inside updater
     let killsScored = 0;
     let scoreGained = 0;
-
-    setZombies((prev) => {
-      return prev.map((z) => {
-        if (z.isDead) return z;
-        const dist = z.position.distanceTo(position);
-        if (dist > 40) return z;
-        const toZombie = new THREE.Vector3().subVectors(
-          z.position.clone().add(new THREE.Vector3(0, 1, 0)),
-          position
-        );
-        const cross = new THREE.Vector3().crossVectors(direction, toZombie);
-        const perp = cross.length() / direction.length();
-        if (perp < BULLET_HIT_RADIUS && toZombie.dot(direction) > 0) {
-          const dmg = 30 + Math.random() * 20;
-          const newHealth = z.health - dmg;
-          if (newHealth <= 0) {
-            killsScored += 1;
-            scoreGained += 100 + waveRef.current * 50;
-            return { ...z, health: 0, isDead: true };
-          }
-          return { ...z, health: newHealth };
-        }
-        return z;
-      });
-    });
-
-    // Apply store updates after state update is committed
-    if (killsScored > 0) {
-      setTimeout(() => {
-        for (let i = 0; i < killsScored; i++) addKill();
-        addScore(scoreGained);
-      }, 0);
-    }
-  }, [addKill, addScore]);
-
-  const handleMelee = useCallback((origin: THREE.Vector3, direction: THREE.Vector3) => {
-    let killsScored = 0;
-    let scoreGained = 0;
-
-    setZombies((prev) =>
-      prev.map((z) => {
-        if (z.isDead) return z;
-        const toZ = z.position.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
-        const dist = toZ.length();
-        if (dist > MELEE_RANGE) return z;
-        // Arc check: dot of normalized direction and to-zombie
-        const dot = direction.clone().normalize().dot(toZ.clone().normalize());
-        if (dot < MELEE_ARC_DOT) return z;
-        const newHealth = z.health - MELEE_DAMAGE;
+    setZombies((prev) => prev.map((z) => {
+      if (z.isDead) return z;
+      const dist = z.position.distanceTo(position);
+      if (dist > 40) return z;
+      const toZombie = new THREE.Vector3().subVectors(
+        z.position.clone().add(new THREE.Vector3(0, 1, 0)), position);
+      const cross = new THREE.Vector3().crossVectors(direction, toZombie);
+      const perp = cross.length() / direction.length();
+      if (perp < BULLET_HIT_RADIUS && toZombie.dot(direction) > 0) {
+        const dmg = 30 + Math.random() * 20;
+        const newHealth = z.health - dmg;
         if (newHealth <= 0) {
           killsScored += 1;
-          scoreGained += 50 + waveRef.current * 25;
+          scoreGained += 100 + waveRef.current * 50;
           return { ...z, health: 0, isDead: true };
         }
         return { ...z, health: newHealth };
-      })
-    );
-
+      }
+      return z;
+    }));
     if (killsScored > 0) {
-      setTimeout(() => {
-        for (let i = 0; i < killsScored; i++) addKill();
-        addScore(scoreGained);
-      }, 0);
+      setTimeout(() => { for (let i = 0; i < killsScored; i++) addKill(); addScore(scoreGained); }, 0);
     }
   }, [addKill, addScore]);
 
-  const handleBulletExpire = useCallback((id: string) => {
-    setBullets((prev) => prev.filter((b) => b.id !== id));
-  }, []);
+  // ── Melee hit ───────────────────────────────────────────────────────────────
+  const handleMelee = useCallback((origin: THREE.Vector3, direction: THREE.Vector3) => {
+    let killsScored = 0;
+    let scoreGained = 0;
+    setZombies((prev) => prev.map((z) => {
+      if (z.isDead) return z;
+      const toZ = z.position.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
+      const dist = toZ.length();
+      if (dist > MELEE_RANGE) return z;
+      const dot = direction.clone().normalize().dot(toZ.clone().normalize());
+      if (dot < MELEE_ARC_DOT) return z;
+      const newHealth = z.health - MELEE_DAMAGE;
+      if (newHealth <= 0) {
+        killsScored += 1;
+        scoreGained += 50 + waveRef.current * 25;
+        return { ...z, health: 0, isDead: true };
+      }
+      return { ...z, health: newHealth };
+    }));
+    if (killsScored > 0) {
+      setTimeout(() => { for (let i = 0; i < killsScored; i++) addKill(); addScore(scoreGained); }, 0);
+    }
+  }, [addKill, addScore]);
 
-  const handleZombieDied = useCallback((id: string) => {
-    setZombies((prev) => prev.filter((z) => z.id !== id));
-  }, []);
+  // ── Magic projectile hit ─────────────────────────────────────────────────────
+  // Called by MagicSystem when a projectile needs to be checked for zombie hits.
+  // The projectile checks its own position each frame; this handles AoE and
+  // proximity checks against the live zombie list.
+  const handleMagicHit = useCallback((
+    id: string,
+    pos: THREE.Vector3,
+    spell: MagicProjectileState["spell"],
+  ) => {
+    removeMagicProjectile(id);
 
-  const handleDamagePlayer = useCallback((amount: number) => {
-    takeDamage(amount);
-  }, [takeDamage]);
+    let killsScored = 0;
+    let scoreGained = 0;
 
-  const handlePlayerDead = useCallback(() => {
-    onGameOver(score);
-  }, [onGameOver, score]);
+    setZombies((prev) => prev.map((z) => {
+      if (z.isDead) return z;
+      const zPos = z.position.clone().add(new THREE.Vector3(0, 1, 0));
+      const dist = zPos.distanceTo(pos);
+      if (dist > spell.radius + 1.2) return z;
+      const newHealth = z.health - spell.damage;
+      if (newHealth <= 0) {
+        killsScored += 1;
+        scoreGained += 120 + waveRef.current * 60;
+        return { ...z, health: 0, isDead: true };
+      }
+      return { ...z, health: newHealth };
+    }));
 
+    if (killsScored > 0) {
+      setTimeout(() => { for (let i = 0; i < killsScored; i++) addKill(); addScore(scoreGained); }, 0);
+    }
+  }, [addKill, addScore, removeMagicProjectile]);
+
+  const handleBulletExpire  = useCallback((id: string) => setBullets((p) => p.filter((b) => b.id !== id)), []);
+  const handleZombieDied    = useCallback((id: string) => setZombies((p) => p.filter((z) => z.id !== id)), []);
+  const handleDamagePlayer  = useCallback((amount: number) => takeDamage(amount), [takeDamage]);
+  const handlePlayerDead    = useCallback(() => onGameOver(score), [onGameOver, score]);
+
+  // ── Wave spawner ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       setZombies((prev) => {
@@ -230,9 +245,7 @@ export default function Game({ onGameOver }: GameProps) {
         const count = Math.min(2, MAX_ZOMBIES - prev.length);
         return [...prev, ...Array.from({ length: count }, () => spawnZombie(currentWave))];
       });
-      if (killCountRef.current >= waveRef.current * 10) {
-        nextWave();
-      }
+      if (killCountRef.current >= waveRef.current * 10) nextWave();
     }, 3500);
     return () => clearInterval(interval);
   }, [nextWave]);
@@ -255,9 +268,11 @@ export default function Game({ onGameOver }: GameProps) {
           onZombieDied={handleZombieDied}
           onDamagePlayer={handleDamagePlayer}
           onPlayerDead={handlePlayerDead}
+          onMagicHit={handleMagicHit}
         />
       </Canvas>
       <HUD />
+      <SpellRadial />
     </div>
   );
 }

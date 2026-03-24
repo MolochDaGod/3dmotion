@@ -21,15 +21,74 @@ export const DEFAULT_CAMERA: CameraSettings = {
 };
 
 // ─── Weapon modes ─────────────────────────────────────────────────────────────
-//  "pistol" → one-hand sidearm
-//  "rifle"  → two-hand ranged
-//  "sword"  → two-hand melee, sword model
-//  "axe"    → two-hand melee, axe model
-//  "staff"  → magic staff, casting animations
 
 export type WeaponMode = "pistol" | "rifle" | "sword" | "axe" | "staff";
-
 export const WEAPON_CYCLE: WeaponMode[] = ["pistol", "rifle", "sword", "axe", "staff"];
+
+// ─── Spell system (colors sourced from BinbunVFX MagicProjectiles pack) ──────
+
+export type SpellType = "orb" | "javelin" | "wave" | "nova";
+
+export interface SpellDef {
+  id:          SpellType;
+  name:        string;
+  icon:        string;
+  color:       string;        // outer glow / trail
+  coreColor:   string;        // bright inner core
+  damage:      number;
+  speed:       number;        // world units/s; 0 = stationary burst
+  radius:      number;        // impact / AoE radius
+  manaCost:    number;
+  cooldown:    number;        // seconds between casts
+  description: string;
+}
+
+// Colors directly translated from the Godot .tres material files
+export const SPELLS: SpellDef[] = [
+  {
+    id: "orb", name: "Arcane Orb", icon: "🔮",
+    color: "#FFE600",     // secondary_color basic_01
+    coreColor: "#FFEACC", // primary_color basic_01
+    damage: 40, speed: 14, radius: 0.6,
+    manaCost: 25, cooldown: 0.8,
+    description: "Slow orb of arcane energy",
+  },
+  {
+    id: "javelin", name: "Frost Javelin", icon: "❄",
+    color: "#69C0FF",     // secondary_color basic_02
+    coreColor: "#CCE0FF", // primary_color basic_02
+    damage: 20, speed: 38, radius: 0.2,
+    manaCost: 15, cooldown: 0.25,
+    description: "Fast piercing bolt of frost",
+  },
+  {
+    id: "wave", name: "Void Wave", icon: "〰",
+    color: "#7783FF",     // secondary_color basic_03
+    coreColor: "#FFE1DF", // primary_color basic_03
+    damage: 25, speed: 16, radius: 4.0,
+    manaCost: 35, cooldown: 1.4,
+    description: "Expanding ring of void energy",
+  },
+  {
+    id: "nova", name: "Fire Nova", icon: "💥",
+    color: "#F15B00",     // secondary_color basic_04
+    coreColor: "#FDEAB2", // primary_color basic_04
+    damage: 70, speed: 0, radius: 7.0,
+    manaCost: 55, cooldown: 2.2,
+    description: "Explosive burst of fire",
+  },
+];
+
+// ─── Magic projectile instances ───────────────────────────────────────────────
+
+export interface MagicProjectileState {
+  id:        string;
+  spell:     SpellDef;
+  position:  [number, number, number];
+  direction: [number, number, number];
+  spawnedAt: number;          // Date.now()
+  maxLife:   number;          // seconds before auto-despawn
+}
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +117,19 @@ interface GameStore {
   weaponMode: WeaponMode;
   setWeaponMode: (m: WeaponMode) => void;
   cycleWeapon:   () => void;
+
+  // Spell system
+  selectedSpell:   SpellType;
+  showSpellRadial: boolean;
+  spellCooldown:   number;   // remaining cooldown in seconds
+  magicProjectiles: MagicProjectileState[];
+
+  setSelectedSpell:   (s: SpellType) => void;
+  setShowSpellRadial: (v: boolean) => void;
+  setSpellCooldown:   (v: number) => void;
+  tickSpellCooldown:  (dt: number) => void;
+  addMagicProjectile: (p: MagicProjectileState) => void;
+  removeMagicProjectile: (id: string) => void;
 
   // Actions
   takeDamage:  (amount: number) => void;
@@ -105,6 +177,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
   showCameraSettings:  false,
   showCharacterPanel:  false,
   weaponMode:    "pistol",
+
+  // Spell defaults
+  selectedSpell:    "orb",
+  showSpellRadial:  false,
+  spellCooldown:    0,
+  magicProjectiles: [],
+
+  setSelectedSpell:   (s) => set({ selectedSpell: s }),
+  setShowSpellRadial: (v) => set({ showSpellRadial: v }),
+  setSpellCooldown:   (v) => set({ spellCooldown: v }),
+  tickSpellCooldown:  (dt) => set((s) => ({ spellCooldown: Math.max(0, s.spellCooldown - dt) })),
+
+  addMagicProjectile: (p) =>
+    set((s) => ({ magicProjectiles: [...s.magicProjectiles, p] })),
+
+  removeMagicProjectile: (id) =>
+    set((s) => ({ magicProjectiles: s.magicProjectiles.filter((p) => p.id !== id) })),
 
   takeDamage: (amount) => {
     if (get().isInvincible) return;
@@ -156,6 +245,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isReloading: false, isPaused: false, isInvincible: false, wave: 1,
       camera: { ...DEFAULT_CAMERA }, showCameraSettings: false,
       showCharacterPanel: false, weaponMode: "pistol",
+      selectedSpell: "orb", showSpellRadial: false,
+      spellCooldown: 0, magicProjectiles: [],
     }),
 
   setWeaponMode: (m) => set({ weaponMode: m }),

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useGameStore } from "./useGameStore";
+import { useGameStore, SPELLS } from "./useGameStore";
 import { CharacterPanel } from "./CharacterPanel";
 
 // ─── CSS Crosshair ────────────────────────────────────────────────────────────
@@ -318,8 +318,10 @@ export function HUD() {
     ammo, maxAmmo, score, kills,
     isReloading, wave, isInvincible,
     camera, showCameraSettings, showCharacterPanel,
-    weaponMode,
+    weaponMode, selectedSpell, spellCooldown,
   } = useGameStore();
+
+  const selectedSpellDef = SPELLS.find((s) => s.id === selectedSpell);
 
   const WEAPONS = [
     { id: "pistol", label: "PISTOL",  color: "#80cfff", border: "rgba(100,180,255,0.9)", bg: "rgba(40,110,200,0.55)" },
@@ -498,13 +500,64 @@ export function HUD() {
           </div>
         </div>
 
+        {/* Spell bar — bottom center */}
+        {selectedSpellDef && (
+          <div style={{
+            position:       "absolute",
+            bottom:         98,
+            left:           "50%",
+            transform:      "translateX(-50%)",
+            display:        "flex",
+            alignItems:     "center",
+            gap:            8,
+            background:     "rgba(8,4,20,0.75)",
+            border:         `1px solid ${spellCooldown > 0 ? "rgba(255,255,255,0.1)" : selectedSpellDef.color + "66"}`,
+            borderRadius:   8,
+            padding:        "5px 12px",
+            backdropFilter: "blur(8px)",
+            boxShadow:      spellCooldown > 0 ? "none" : `0 0 12px ${selectedSpellDef.color}44`,
+            transition:     "all 0.2s ease",
+          }}>
+            <span style={{ fontSize: 18 }}>{selectedSpellDef.icon}</span>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{
+                fontFamily: "monospace", fontSize: 10, fontWeight: "bold",
+                color: spellCooldown > 0 ? "rgba(255,255,255,0.3)" : selectedSpellDef.color,
+                letterSpacing: 1, textTransform: "uppercase",
+              }}>
+                {selectedSpellDef.name}
+              </span>
+              <span style={{ fontFamily: "monospace", fontSize: 9, color: "rgba(140,200,255,0.7)" }}>
+                {selectedSpellDef.manaCost}mp · dmg {selectedSpellDef.damage}
+              </span>
+            </div>
+            {/* Cooldown overlay */}
+            {spellCooldown > 0 ? (
+              <div style={{
+                fontFamily: "monospace", fontSize: 11, fontWeight: "bold",
+                color: "#FF8888", minWidth: 32, textAlign: "right",
+              }}>
+                {spellCooldown.toFixed(1)}s
+              </div>
+            ) : (
+              <div style={{
+                fontFamily: "monospace", fontSize: 9,
+                color: "rgba(255,255,255,0.35)",
+              }}>
+                F
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Controls — top center */}
         <div className="absolute top-3 left-1/2 -translate-x-1/2 text-white/25 text-xs text-center leading-5">
           WASD move &nbsp;·&nbsp; Shift sprint &nbsp;·&nbsp; Space jump
           &nbsp;·&nbsp; <span className="text-white/40">Alt</span> crouch
           &nbsp;·&nbsp; <span className="text-white/40">Ctrl</span> roll
           &nbsp;·&nbsp; <span className="text-white/40">Q</span> cycle weapon
-          &nbsp;·&nbsp; <span className="text-white/40">R</span> reload
+          &nbsp;·&nbsp; <span className="text-white/40">R</span> spell select
+          &nbsp;·&nbsp; <span className="text-white/40">F</span> cast spell
           &nbsp;·&nbsp; <span className="text-white/40">C</span> character
         </div>
 

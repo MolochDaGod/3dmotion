@@ -3,7 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { RigidBody, CapsuleCollider, useRapier } from "@react-three/rapier";
-import { useGameStore, WeaponMode, WEAPON_CYCLE } from "./useGameStore";
+import { useGameStore, WeaponMode, WEAPON_CYCLE, SPELLS } from "./useGameStore";
 
 // ─── Capsule ──────────────────────────────────────────────────────────────────
 const CAPSULE_HH = 0.5;
@@ -36,8 +36,15 @@ const MELEE_DMG_DELAY  = 350;   // ms after animation start when hit fires
 const MELEE_COMBO_WIN  = 0.70;  // s — window after anim ends to chain combo
 
 // ─── Weapon hand-bone rotations ───────────────────────────────────────────────
-const SWORD_ROT = new THREE.Euler(0, 0, Math.PI / 2);
-const AXE_ROT   = new THREE.Euler(0, 0, Math.PI / 2);
+// For Mixamo-compatible rigs (Meshy AI Corsair King) the right-hand bone's
+// local +X axis points toward the fingertips (along the arm extension).
+// Most weapon packs (craftpix etc.) model the blade/head along +Y and the
+// handle toward -Y. To align handle with grip (bone +X) and blade forward:
+//   Euler(0, 0, -π/2)  rotates the weapon's +Y blade → bone +X (correct grip)
+//   Euler(0, π, -π/2)  additionally flips blade end vs handle if needed
+// The staff (cane) is held vertically — π/2 on X tilts it to stand upright.
+const SWORD_ROT = new THREE.Euler(0, 0, -Math.PI / 2);
+const AXE_ROT   = new THREE.Euler(0, 0, -Math.PI / 2);
 const STAFF_ROT = new THREE.Euler(Math.PI / 2, 0, 0);
 
 // ─── Staff mana costs ─────────────────────────────────────────────────────────
@@ -323,6 +330,9 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     setCameraMode, setShowCameraSettings,
     cycleWeapon,
     useMana, regenMana, toggleCharacterPanel,
+    selectedSpell, setShowSpellRadial,
+    spellCooldown, tickSpellCooldown,
+    addMagicProjectile,
   } = useGameStore();
 
   // ── Always-fresh damage / queue-done callbacks (updated every render) ─────
@@ -635,6 +645,47 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     });
   }, [requestBlockingAnim]);
 
+  // ── Fire selected magic spell (F key) ────────────────────────────────────
+  // Works regardless of weapon mode — a separate ability system.
+  const doFireSpell = useCallback(() => {
+    const store    = useGameStore.getState();
+    if (store.spellCooldown > 0) return;
+
+    const spellDef = SPELLS.find((s) => s.id === store.selectedSpell);
+    if (!spellDef) return;
+
+    const ok = useMana(spellDef.manaCost);
+    if (!ok) return;
+
+    // Set cooldown
+    useGameStore.getState().setSpellCooldown(spellDef.cooldown);
+
+    // Capture spawn position and direction from camera
+    const dir    = new THREE.Vector3();
+    const origin = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    camera.getWorldPosition(origin);
+    origin.addScaledVector(dir, 0.8);   // spawn slightly in front of player
+
+    addMagicProjectile({
+      id:        `spell-${Date.now()}-${Math.random()}`,
+      spell:     spellDef,
+      position:  [origin.x, origin.y, origin.z],
+      direction: [dir.x, dir.y, dir.z],
+      spawnedAt: Date.now(),
+      maxLife:   spellDef.speed > 0 ? 3.5 : 1.2,
+    });
+
+    // Play cast animation if in staff mode
+    const wm = store.weaponMode;
+    if (wm === "staff") {
+      requestBlockingAnim({
+        key:  "staffCast1",
+        fade: blockingOnce.current ? FADE_ATK_CHAIN : FADE_ATK_START,
+      });
+    }
+  }, [camera, useMana, addMagicProjectile, requestBlockingAnim]);
+
   // ─────────────────────────────────────────────────────────────────────────
   // ── CROUCH ───────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────
@@ -741,7 +792,18 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }
     keys.current[e.code] = true;
 
-    if (e.code === "KeyR") reload();
+    if (e.code === "KeyR") {
+      // R = reload for ranged weapons, open spell radial for staff/magic
+      const wm = useGameStore.getState().weaponMode;
+      if (wm === "pistol" || wm === "rifle") {
+        reload();
+      } else {
+        setShowSpellRadial(true);
+      }
+    }
+
+    // F — fire the selected magic spell from the radial wheel
+    if (e.code === "KeyF") doFireSpell();
 
     // Q — cycle weapon
     if (e.code === "KeyQ") {
@@ -810,6 +872,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     setCameraMode, setShowCameraSettings,
     startCrouch, endCrouch, setInvincible,
     toggleCharacterPanel,
+    setShowSpellRadial, doFireSpell,
   ]);
 
   const handleKeyUp   = useCallback((e: KeyboardEvent) => { keys.current[e.code] = false; }, []);
@@ -845,6 +908,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     if (shootCooldown.current > 0) shootCooldown.current -= delta;
     if (rollCooldown.current  > 0) rollCooldown.current  -= delta;
     if (comboWindow.current   > 0) comboWindow.current   -= delta;
+    tickSpellCooldown(delta);
 
     // Staff mana regen
     if (useGameStore.getState().weaponMode === "staff") {
