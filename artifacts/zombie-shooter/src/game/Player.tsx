@@ -8,7 +8,7 @@ import { useGameStore, WeaponMode, WEAPON_CYCLE } from "./useGameStore";
 // ─── Capsule ──────────────────────────────────────────────────────────────────
 const CAPSULE_HH = 0.5;
 const CAPSULE_R  = 0.35;
-const CAPSULE_CY = CAPSULE_HH + CAPSULE_R;   // 0.85 m — centre above feet
+const CAPSULE_CY = CAPSULE_HH + CAPSULE_R;
 
 // ─── Movement ─────────────────────────────────────────────────────────────────
 const WALK_SPEED    = 4.5;
@@ -18,26 +18,24 @@ const PITCH_MIN     = -Math.PI / 2.5;
 const PITCH_MAX_TPS =  Math.PI / 8;
 const PITCH_MAX_FPS =  Math.PI / 2 - 0.05;
 const EYE_HEIGHT    = 1.70;
-
 const ROLL_SPEED    = 14;
 const ROLL_DURATION = 0.45;
 const ROLL_COOLDOWN = 1.2;
 
-// ─── Shooting cooldowns per weapon ───────────────────────────────────────────
+// ─── Shooting cooldowns (ranged only) ─────────────────────────────────────────
 const SHOOT_CD: Record<WeaponMode, number> = {
   pistol: 0.12,
-  rifle:  0.18,  // semi-auto cadence
+  rifle:  0.18,
   sword:  0,
   axe:    0,
   staff:  0,
 };
 
 // ─── Melee timings ────────────────────────────────────────────────────────────
-const MELEE_ATK_CD      = 0.85;
-const MELEE_DMG_DELAY   = 380;   // ms
-const MELEE_COMBO_WIN   = 0.65;  // s
+const MELEE_DMG_DELAY  = 350;   // ms after animation start when hit fires
+const MELEE_COMBO_WIN  = 0.70;  // s — window after anim ends to chain combo
 
-// ─── Weapon hand-bone attachment rotations ────────────────────────────────────
+// ─── Weapon hand-bone rotations ───────────────────────────────────────────────
 const SWORD_ROT = new THREE.Euler(0, 0, Math.PI / 2);
 const AXE_ROT   = new THREE.Euler(0, 0, Math.PI / 2);
 const STAFF_ROT = new THREE.Euler(Math.PI / 2, 0, 0);
@@ -45,9 +43,15 @@ const STAFF_ROT = new THREE.Euler(Math.PI / 2, 0, 0);
 // ─── Staff mana costs ─────────────────────────────────────────────────────────
 const STAFF_CAST1_COST = 20;
 const STAFF_CAST2_COST = 40;
-const STAFF_CAST1_CD   = 0.7;
-const STAFF_CAST2_CD   = 1.4;
-const MANA_REGEN_RATE  = 5;  // per second
+const STAFF_CAST1_DMS  = 480;   // ms — damage moment in Cast1 animation
+const STAFF_CAST2_DMS  = 700;   // ms — damage moment in Cast2 animation
+const MANA_REGEN_RATE  = 5;     // per second
+
+// ─── Crossfade timings ────────────────────────────────────────────────────────
+const FADE_ATK_START = 0.08;   // locomotion → attack initiation
+const FADE_ATK_CHAIN = 0.04;   // attack done → queued attack (crisp cut)
+const FADE_ATK_REST  = 0.18;   // attack done → return to idle
+const FADE_LOCO      = 0.14;   // locomotion ↔ locomotion blend
 
 // ─── Animation keys ───────────────────────────────────────────────────────────
 
@@ -144,7 +148,8 @@ const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "staffJump",    file: "/models/staffJump.fbx" },
 ];
 
-// ─── One-time attack / utility animations (LoopOnce) ─────────────────────────
+// ─── LoopOnce animations (non-looping) ────────────────────────────────────────
+// These clamp at last frame. Attacks are a subset: BLOCKING_ONCE.
 const ONCE_ANIMS = new Set<AnimKey>([
   "meleeAttack1","meleeAttack2","meleeAttack3",
   "meleeCombo1","meleeCombo2","meleeCombo3",
@@ -153,41 +158,55 @@ const ONCE_ANIMS = new Set<AnimKey>([
   "staffCast1","staffCast2",
 ]);
 
-// ─── Animation resolver ───────────────────────────────────────────────────────
+// ─── Blocking animations — must play fully before queue can run ───────────────
+// These are the animations managed by the 1-slot queue system.
+const BLOCKING_ONCE = new Set<AnimKey>([
+  "meleeAttack1","meleeAttack2","meleeAttack3",
+  "meleeCombo1","meleeCombo2","meleeCombo3",
+  "staffCast1","staffCast2",
+  "rifleFire",
+]);
 
+// ─── Idle for each weapon mode ────────────────────────────────────────────────
+function idleForMode(wm: WeaponMode): AnimKey {
+  if (wm === "sword" || wm === "axe") return "meleeIdle";
+  if (wm === "rifle") return "rifleIdle";
+  if (wm === "staff") return "staffIdle";
+  return "pistolIdle";
+}
+
+// ─── Animation resolver (locomotion only — not called during blocking) ─────────
 function resolveAnim(
   wm: WeaponMode,
   fwd: boolean, bwd: boolean, left: boolean, right: boolean,
   sprint: boolean, grounded: boolean, crouching: boolean,
-  attacking: boolean, curAnim: AnimKey,
 ): AnimKey {
 
-  // Sustain attack / transition animations until they self-complete
-  if (ONCE_ANIMS.has(curAnim) && attacking) return curAnim;
-
-  const isMelee  = wm === "sword" || wm === "axe";
-  const isRifle  = wm === "rifle";
-  const isStaff  = wm === "staff";
-  const moving   = fwd || bwd || left || right;
+  const isMelee = wm === "sword" || wm === "axe";
+  const isRifle = wm === "rifle";
+  const isStaff = wm === "staff";
+  const moving  = fwd || bwd || left || right;
 
   if (!grounded) {
-    if (isStaff) return "staffJump";
-    return isMelee ? "meleeJump" : isRifle ? "rifleJump" : "pistolJump";
+    if (isStaff)  return "staffJump";
+    if (isMelee)  return "meleeJump";
+    if (isRifle)  return "rifleJump";
+    return "pistolJump";
   }
 
   if (crouching) return isMelee ? "meleeCrouch" : "pistolCrouchIdle";
 
   if (isStaff) {
     if (!moving) return "staffIdle";
-    if (fwd  && !bwd) return sprint ? "staffRunFwd" : "staffWalkFwd";
-    if (bwd  && !fwd) return sprint ? "staffRunBwd" : "staffWalkBwd";
+    if (fwd && !bwd) return sprint ? "staffRunFwd" : "staffWalkFwd";
+    if (bwd && !fwd) return sprint ? "staffRunBwd" : "staffWalkBwd";
     return "staffIdle";
   }
 
   if (isMelee) {
     if (!moving) return "meleeIdle";
-    if (fwd  && !bwd) return sprint ? "meleeRunFwd" : "meleeWalkFwd";
-    if (bwd  && !fwd) return sprint ? "meleeRunBwd" : "meleeWalkBwd";
+    if (fwd && !bwd) return sprint ? "meleeRunFwd" : "meleeWalkFwd";
+    if (bwd && !fwd) return sprint ? "meleeRunBwd" : "meleeWalkBwd";
     if (left)  return "meleeStrafeL";
     if (right) return "meleeStrafeR";
     return "meleeIdle";
@@ -195,8 +214,8 @@ function resolveAnim(
 
   if (isRifle) {
     if (!moving) return "rifleIdle";
-    if (fwd  && !bwd) return sprint ? "rifleRun" : "rifleWalkFwd";
-    if (bwd  && !fwd) return sprint ? "rifleRunBwd" : "rifleWalkBwd";
+    if (fwd && !bwd) return sprint ? "rifleRun" : "rifleWalkFwd";
+    if (bwd && !fwd) return sprint ? "rifleRunBwd" : "rifleWalkBwd";
     if (left)  return "rifleStrafeL";
     if (right) return "rifleStrafeR";
     return "rifleIdle";
@@ -209,11 +228,19 @@ function resolveAnim(
     if (left)  return "pistolWalkArcL";
     if (right) return "pistolWalkArcR";
   }
-  if (bwd  && !fwd) return "pistolWalkBwd";
+  if (bwd && !fwd) return "pistolWalkBwd";
   if (left)  return "pistolStrafeL";
   if (right) return "pistolStrafeR";
   return "pistolIdle";
 }
+
+// ─── Queue slot type ──────────────────────────────────────────────────────────
+type QueueSlot = {
+  key:       AnimKey;
+  fade:      number;
+  manaCost?: number;   // mana consumed when this animation STARTS playing
+  dmgMs?:    number;   // ms after start to fire damage
+} | null;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -227,13 +254,15 @@ export interface PlayerProps {
 // ─── Player ───────────────────────────────────────────────────────────────────
 
 export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) {
+  // ── Scene refs ────────────────────────────────────────────────────────────
   const rootRef       = useRef<THREE.Group>(null!);
   const modelGroupRef = useRef<THREE.Group>(null!);
-  const swordGroupRef = useRef<THREE.Group>(null!);  // world-space sword
-  const axeGroupRef   = useRef<THREE.Group>(null!);  // world-space axe
-  const caneGroupRef  = useRef<THREE.Group>(null!);  // world-space cane
+  const swordGroupRef = useRef<THREE.Group>(null!);
+  const axeGroupRef   = useRef<THREE.Group>(null!);
+  const caneGroupRef  = useRef<THREE.Group>(null!);
   const playerRBRef   = useRef<any>(null);
 
+  // ── Movement refs ─────────────────────────────────────────────────────────
   const velY     = useRef(0);
   const grounded = useRef(true);
   const yaw      = useRef(0);
@@ -245,30 +274,40 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
 
   const deadFired     = useRef(false);
   const shootCooldown = useRef(0);
-  const meleeCooldown = useRef(0);
 
-  const crouching      = useRef(false);
-  const crouchPending  = useRef<"kneel" | "stand" | null>(null);
+  const crouching     = useRef(false);
+  const crouchPending = useRef<"kneel" | "stand" | null>(null);
 
-  const rolling       = useRef(false);
-  const rollTimer     = useRef(0);
-  const rollDir       = useRef(new THREE.Vector3(0, 0, -1));
-  const rollCooldown  = useRef(0);
+  const rolling      = useRef(false);
+  const rollTimer    = useRef(0);
+  const rollDir      = useRef(new THREE.Vector3(0, 0, -1));
+  const rollCooldown = useRef(0);
 
-  const attacking    = useRef(false);
-  const attackPhase  = useRef(0);
-  const comboWindow  = useRef(0);
-  const staffCastCD  = useRef(0);
+  // ── Attack / combo refs ───────────────────────────────────────────────────
+  const attackPhase = useRef(0);
+  const comboWindow = useRef(0);
 
+  // ── Animation queue system ────────────────────────────────────────────────
+  // blockingOnce: true while a BLOCKING_ONCE animation is playing to completion
+  // animQueue:    single slot holding the NEXT blocking anim to play (editable until it starts)
+  const blockingOnce     = useRef(false);
+  const animQueue        = useRef<QueueSlot>(null);
+  // These refs are updated every render so mixer callbacks always call the latest version
+  const onBlockingDoneRef = useRef<((key: AnimKey) => void) | null>(null);
+  const fireDamageRef     = useRef<(() => void) | null>(null);
+
+  // ── THREE animation state ─────────────────────────────────────────────────
   const mixerRef   = useRef<THREE.AnimationMixer | null>(null);
   const actionsRef = useRef<Partial<Record<AnimKey, THREE.AnimationAction>>>({});
   const curAnim    = useRef<AnimKey>("pistolIdle");
 
+  // ── Hand-bone tracking ────────────────────────────────────────────────────
   const handBoneRef = useRef<THREE.Bone | null>(null);
   const swordQAdj   = useRef(new THREE.Quaternion().setFromEuler(SWORD_ROT));
   const axeQAdj     = useRef(new THREE.Quaternion().setFromEuler(AXE_ROT));
   const caneQAdj    = useRef(new THREE.Quaternion().setFromEuler(STAFF_ROT));
 
+  // ── Model state ───────────────────────────────────────────────────────────
   const [modelObj, setModelObj] = useState<THREE.Group | null>(null);
   const [swordObj, setSwordObj] = useState<THREE.Group | null>(null);
   const [axeObj,   setAxeObj]   = useState<THREE.Group | null>(null);
@@ -285,6 +324,66 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     cycleWeapon,
     useMana, regenMana, toggleCharacterPanel,
   } = useGameStore();
+
+  // ── Always-fresh damage / queue-done callbacks (updated every render) ─────
+  // These use refs internally so there's no stale closure issue when called
+  // from the mixer's 'finished' event which was set up in a useEffect.
+
+  fireDamageRef.current = () => {
+    const dir    = new THREE.Vector3();
+    const origin = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    camera.getWorldPosition(origin);
+    origin.addScaledVector(dir, 0.5);
+    onMelee(origin, dir);
+  };
+
+  onBlockingDoneRef.current = (_finishedKey: AnimKey) => {
+    blockingOnce.current = false;
+
+    const slot = animQueue.current;
+    animQueue.current = null;
+
+    if (slot) {
+      // ── Play queued animation ──────────────────────────────────────────
+      if (slot.manaCost !== undefined) {
+        const ok = useMana(slot.manaCost);
+        if (!ok) {
+          // Not enough mana — fall through to idle
+          const wm = useGameStore.getState().weaponMode;
+          _rawPlay(idleForMode(wm), FADE_ATK_REST);
+          return;
+        }
+      }
+      blockingOnce.current = true;
+      _rawPlay(slot.key, slot.fade);
+      if (slot.dmgMs) {
+        const ms = slot.dmgMs;
+        setTimeout(() => fireDamageRef.current?.(), ms);
+      }
+    } else {
+      // ── No queue — return to locomotion idle ───────────────────────────
+      const wm = useGameStore.getState().weaponMode;
+      _rawPlay(idleForMode(wm), FADE_ATK_REST);
+      // Re-open combo window for melee
+      if (wm === "sword" || wm === "axe") {
+        comboWindow.current = MELEE_COMBO_WIN;
+      }
+    }
+  };
+
+  // ── Raw play helper (direct, no skip-if-same) ─────────────────────────────
+  // Used by the queue system where repeating the same anim (e.g. meleeAttack1
+  // twice in a row) must start fresh.
+  function _rawPlay(key: AnimKey, fade: number) {
+    const prev = actionsRef.current[curAnim.current];
+    if (prev && curAnim.current !== key) prev.fadeOut(fade);
+    const a = actionsRef.current[key];
+    if (a) {
+      a.reset().fadeIn(fade).play();
+      curAnim.current = key;
+    }
+  }
 
   // ── Rapier character controller ───────────────────────────────────────────
   useEffect(() => {
@@ -315,7 +414,8 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   }, [camera, camSettings.fov]);
 
   // ── Sequential FBX loader ─────────────────────────────────────────────────
-  // Loads items one by one to avoid GPU/memory spikes.
+  // Phase 1: model + pistol (serial, model must exist before clips).
+  // Phase 2: rifle, melee, staff loaded in parallel (3 serial chains).
   useEffect(() => {
     let cancelled = false;
     const loader  = new FBXLoader();
@@ -331,7 +431,10 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
         action.clampWhenFinished = true;
       }
       actionsRef.current[key] = action;
-      if (key === "pistolIdle") { action.play(); curAnim.current = "pistolIdle"; }
+      if (key === "pistolIdle") {
+        action.play();
+        curAnim.current = "pistolIdle";
+      }
     }
 
     function loadSeq(
@@ -341,24 +444,43 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     ) {
       if (cancelled || i >= queue.length) { done?.(); return; }
       const { key, file } = queue[i];
-      loader.load(file, (fbx) => {
-        if (cancelled) return;
-        if (key === "__model__") {
-          fbx.scale.setScalar(0.01);
-          fbx.traverse((c) => {
-            if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true; }
-          });
-          mixer = new THREE.AnimationMixer(fbx);
-          mixerRef.current = mixer;
-          setModelObj(fbx);
-        } else {
-          registerClip(key as AnimKey, fbx);
-        }
-        loadSeq(queue, i + 1, done);
-      }, undefined, () => { if (!cancelled) loadSeq(queue, i + 1, done); });
+      loader.load(
+        file,
+        (fbx) => {
+          if (cancelled) return;
+          if (key === "__model__") {
+            fbx.scale.setScalar(0.01);
+            fbx.traverse((c) => {
+              if ((c as THREE.Mesh).isMesh) {
+                c.castShadow    = true;
+                c.receiveShadow = true;
+              }
+            });
+            mixer = new THREE.AnimationMixer(fbx);
+            mixerRef.current = mixer;
+
+            // ── Animation queue: finished event ──────────────────────────
+            // When a BLOCKING_ONCE animation finishes, the always-fresh
+            // onBlockingDoneRef.current is called. It either starts the
+            // queued animation or fades back to locomotion.
+            mixer.addEventListener("finished", (e: any) => {
+              const name = e.action.getClip().name as AnimKey;
+              if (BLOCKING_ONCE.has(name)) {
+                onBlockingDoneRef.current?.(name);
+              }
+            });
+
+            setModelObj(fbx);
+          } else {
+            registerClip(key as AnimKey, fbx);
+          }
+          loadSeq(queue, i + 1, done);
+        },
+        undefined,
+        () => { if (!cancelled) loadSeq(queue, i + 1, done); },
+      );
     }
 
-    // Phase 1 – model + pistol; then rifle, melee, and staff in parallel phases
     loadSeq(PISTOL_QUEUE, 0, () => {
       loadSeq(RIFLE_QUEUE  as typeof PISTOL_QUEUE, 0);
       loadSeq(MELEE_QUEUE  as typeof PISTOL_QUEUE, 0);
@@ -383,7 +505,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     });
   }, [modelObj]);
 
-  // ── Load sword ────────────────────────────────────────────────────────────
+  // ── Load weapon models ────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     new FBXLoader().load("/models/sword.fbx", (fbx) => {
@@ -396,7 +518,6 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     return () => { cancelled = true; };
   }, []);
 
-  // ── Load axe ──────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     new FBXLoader().load("/models/axe.fbx", (fbx) => {
@@ -409,11 +530,9 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     return () => { cancelled = true; };
   }, []);
 
-  // ── Load cane (magic staff) ───────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    const loader  = new FBXLoader();
-    loader.load("/models/cane1.fbx", (fbx) => {
+    new FBXLoader().load("/models/cane1.fbx", (fbx) => {
       if (cancelled) return;
       fbx.scale.setScalar(0.012);
       const texLoader = new THREE.TextureLoader();
@@ -433,8 +552,14 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     return () => { cancelled = true; };
   }, []);
 
-  // ── Animation helper ──────────────────────────────────────────────────────
-  const transitionTo = useCallback((next: AnimKey, fade = 0.15) => {
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── ANIMATION HELPERS ────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // transitionTo — for locomotion only.
+  // Skips if same animation. Does NOT interrupt a blocking-once attack.
+  const transitionTo = useCallback((next: AnimKey, fade = FADE_LOCO) => {
+    if (blockingOnce.current) return;         // never interrupt an attack
     if (curAnim.current === next) return;
     actionsRef.current[curAnim.current]?.fadeOut(fade);
     const a = actionsRef.current[next];
@@ -444,10 +569,38 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }
   }, []);
 
-  // ── Melee swing ───────────────────────────────────────────────────────────
-  const doMeleeAttack = useCallback(() => {
-    if (meleeCooldown.current > 0) return;
+  // requestBlockingAnim — the core of the 1-slot queue system.
+  // • If nothing is blocking: starts the animation immediately.
+  // • If blocking: replaces (or sets) the queue slot.
+  //   The queued animation is "editable" until the current one finishes.
+  // • Mana is consumed when the animation actually starts (not on request).
+  const requestBlockingAnim = useCallback((slot: NonNullable<QueueSlot>) => {
+    if (blockingOnce.current) {
+      // Queue it — replaces any existing queued animation
+      animQueue.current = slot;
+    } else {
+      // Play immediately — consume mana now if required
+      if (slot.manaCost !== undefined) {
+        const ok = useMana(slot.manaCost);
+        if (!ok) return;
+      }
+      blockingOnce.current = true;
+      _rawPlay(slot.key, slot.fade);
+      if (slot.dmgMs) {
+        const ms = slot.dmgMs;
+        setTimeout(() => fireDamageRef.current?.(), ms);
+      }
+    }
+  // _rawPlay uses component-level refs, stable enough with empty deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useMana]);
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── ATTACK ACTIONS ───────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Melee swing — selects the right combo animation and queues/plays it.
+  const doMeleeAttack = useCallback(() => {
     let anim: AnimKey;
     if (comboWindow.current > 0 && attackPhase.current > 0) {
       anim = (["meleeCombo1","meleeCombo2","meleeCombo3"] as const)[
@@ -458,31 +611,34 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
         attackPhase.current % 3
       ];
     }
-
     attackPhase.current++;
-    attacking.current     = true;
-    meleeCooldown.current = MELEE_ATK_CD;
-    comboWindow.current   = MELEE_COMBO_WIN;
 
-    transitionTo(anim, 0.05);
+    requestBlockingAnim({
+      key:   anim,
+      // Chain attacks are a sharp cut; first attack blends from locomotion
+      fade:  blockingOnce.current ? FADE_ATK_CHAIN : FADE_ATK_START,
+      dmgMs: MELEE_DMG_DELAY,
+    });
+  }, [requestBlockingAnim]);
 
-    setTimeout(() => {
-      const dir = new THREE.Vector3();
-      camera.getWorldDirection(dir);
-      const origin = new THREE.Vector3();
-      camera.getWorldPosition(origin);
-      origin.addScaledVector(dir, 0.5);
-      onMelee(origin, dir);
-    }, MELEE_DMG_DELAY);
+  // Staff cast — queues/plays a magic cast animation with mana cost.
+  const doStaffCast = useCallback((
+    castAnim: "staffCast1" | "staffCast2",
+    manaCost: number,
+    dmgMs:    number,
+  ) => {
+    requestBlockingAnim({
+      key:      castAnim,
+      fade:     blockingOnce.current ? FADE_ATK_CHAIN : FADE_ATK_START,
+      manaCost,
+      dmgMs,
+    });
+  }, [requestBlockingAnim]);
 
-    setTimeout(() => {
-      attacking.current = false;
-      const wm = useGameStore.getState().weaponMode;
-      if (wm === "sword" || wm === "axe") transitionTo("meleeIdle", 0.2);
-    }, MELEE_ATK_CD * 1000 + 80);
-  }, [camera, onMelee, transitionTo]);
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── CROUCH ───────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Crouch ────────────────────────────────────────────────────────────────
   const startCrouch = useCallback(() => {
     if (crouching.current || crouchPending.current) return;
     crouchPending.current = "kneel";
@@ -509,7 +665,10 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }, 650);
   }, [transitionTo]);
 
-  // ── Mouse move ────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── INPUT HANDLERS ───────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!locked.current) return;
     const { sensitivity, mode } = useGameStore.getState().camera;
@@ -519,55 +678,32 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     pitch.current = Math.max(PITCH_MIN, Math.min(pMax, pitch.current));
   }, []);
 
-  // ── Staff casts ────────────────────────────────────────────────────────────
-  const doStaffCast = useCallback((castAnim: "staffCast1" | "staffCast2", manaCost: number, cd: number) => {
-    if (staffCastCD.current > 0) return;
-    const spent = useMana(manaCost);
-    if (!spent) return;
-    attacking.current   = true;
-    staffCastCD.current = cd;
-    transitionTo(castAnim, 0.08);
-
-    const delay = castAnim === "staffCast1" ? 480 : 700;
-    setTimeout(() => {
-      const dir    = new THREE.Vector3();
-      const origin = new THREE.Vector3();
-      camera.getWorldDirection(dir);
-      camera.getWorldPosition(origin);
-      origin.addScaledVector(dir, 0.5);
-      onMelee(origin, dir);
-    }, delay);
-
-    setTimeout(() => {
-      attacking.current = false;
-      if (useGameStore.getState().weaponMode === "staff") transitionTo("staffIdle", 0.25);
-    }, cd * 1000 + 100);
-  }, [camera, onMelee, useMana, transitionTo]);
-
   const handleMouseDown = useCallback((e: MouseEvent) => {
     if (e.button === 0) {
       if (!locked.current) { document.body.requestPointerLock(); return; }
-      const wm = useGameStore.getState().weaponMode;
+      const wm      = useGameStore.getState().weaponMode;
       const isMelee = wm === "sword" || wm === "axe";
       const isStaff = wm === "staff";
 
       if (isStaff) {
-        doStaffCast("staffCast1", STAFF_CAST1_COST, STAFF_CAST1_CD);
+        doStaffCast("staffCast1", STAFF_CAST1_COST, STAFF_CAST1_DMS);
       } else if (isMelee) {
         doMeleeAttack();
       } else {
-        // Ranged — pistol or rifle
+        // Ranged
         if (shootCooldown.current > 0 || isReloading) return;
         const fired = shoot();
         if (fired) {
-          shootCooldown.current = SHOOT_CD[wm as "pistol" | "rifle"];
+          shootCooldown.current = SHOOT_CD[wm];
           const dir    = new THREE.Vector3();
           const origin = new THREE.Vector3();
           camera.getWorldDirection(dir);
           camera.getWorldPosition(origin);
           origin.addScaledVector(dir, 0.5);
           onShoot(origin, dir);
-          if (wm === "rifle") transitionTo("rifleFire", 0.05);
+          if (wm === "rifle") {
+            requestBlockingAnim({ key: "rifleFire", fade: FADE_ATK_START });
+          }
         } else if (ammo <= 0) {
           reload();
         }
@@ -579,13 +715,14 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       const wm      = useGameStore.getState().weaponMode;
       const isMelee = wm === "sword" || wm === "axe";
       const isStaff = wm === "staff";
+
       if (isStaff) {
-        doStaffCast("staffCast2", STAFF_CAST2_COST, STAFF_CAST2_CD);
+        doStaffCast("staffCast2", STAFF_CAST2_COST, STAFF_CAST2_DMS);
       } else if (isMelee) {
         transitionTo("meleeBlock", 0.1);
       } else {
-        if (meleeCooldown.current > 0) return;
-        meleeCooldown.current = 0.7;
+        // RMB ranged = quick melee butt
+        if (blockingOnce.current) return;
         const dir    = new THREE.Vector3();
         const origin = new THREE.Vector3();
         camera.getWorldDirection(dir);
@@ -593,9 +730,11 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
         onMelee(origin, dir);
       }
     }
-  }, [shoot, reload, ammo, isReloading, onShoot, onMelee, camera, doMeleeAttack, doStaffCast, transitionTo]);
+  }, [
+    shoot, reload, ammo, isReloading, onShoot, onMelee, camera,
+    doMeleeAttack, doStaffCast, requestBlockingAnim, transitionTo,
+  ]);
 
-  // ── Keyboard ──────────────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (["AltLeft","AltRight","F2","F3","ControlLeft","ControlRight"].includes(e.code)) {
       e.preventDefault();
@@ -604,31 +743,24 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
 
     if (e.code === "KeyR") reload();
 
-    // Q — cycle through pistol → rifle → sword → axe → staff
+    // Q — cycle weapon
     if (e.code === "KeyQ") {
-      cycleWeapon();                                      // updates store synchronously
-      const newWm = useGameStore.getState().weaponMode;   // read the new mode
-      const toIdle: Record<WeaponMode, AnimKey> = {
-        pistol: "pistolIdle",
-        rifle:  "rifleIdle",
-        sword:  "meleeIdle",
-        axe:    "meleeIdle",
-        staff:  "staffIdle",
-      };
-      transitionTo(toIdle[newWm] ?? "pistolIdle", 0.25);
-      attacking.current   = false;
-      attackPhase.current = 0;
-      comboWindow.current = 0;
-      staffCastCD.current = 0;
+      cycleWeapon();
+      const newWm = useGameStore.getState().weaponMode;
+      // Clear queue and blocking state on weapon switch
+      blockingOnce.current  = false;
+      animQueue.current     = null;
+      attackPhase.current   = 0;
+      comboWindow.current   = 0;
+      transitionTo(idleForMode(newWm), 0.25);
     }
 
-    // C — toggle character panel
+    // C — character panel
     if (e.code === "KeyC") {
-      const store = useGameStore.getState();
-      const show  = !store.showCharacterPanel;
+      const show = !useGameStore.getState().showCharacterPanel;
       toggleCharacterPanel();
       if (show) document.exitPointerLock();
-      else      document.body.requestPointerLock();
+      else document.body.requestPointerLock();
     }
 
     // F2 — camera mode toggle
@@ -673,9 +805,12 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       rollCamZ.current = -rightBias * 0.18;
       if (setInvincible) setInvincible(true);
     }
-  }, [reload, cycleWeapon, setCameraMode, setShowCameraSettings,
-      startCrouch, endCrouch, setInvincible, transitionTo,
-      toggleCharacterPanel]);
+  }, [
+    reload, cycleWeapon, transitionTo,
+    setCameraMode, setShowCameraSettings,
+    startCrouch, endCrouch, setInvincible,
+    toggleCharacterPanel,
+  ]);
 
   const handleKeyUp   = useCallback((e: KeyboardEvent) => { keys.current[e.code] = false; }, []);
   const handlePLC     = useCallback(() => { locked.current = document.pointerLockElement === document.body; }, []);
@@ -698,21 +833,25 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     };
   }, [handleMouseMove, handleMouseDown, handleKeyDown, handleKeyUp, handlePLC, handleCtxMenu]);
 
-  // ── Game loop ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── GAME LOOP ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+
   useFrame((_, delta) => {
     if (!rootRef.current) return;
     if (health <= 0 && !deadFired.current) { deadFired.current = true; onDead(); return; }
 
+    // ── Timers ─────────────────────────────────────────────────────────────
     if (shootCooldown.current > 0) shootCooldown.current -= delta;
-    if (meleeCooldown.current > 0) meleeCooldown.current -= delta;
     if (rollCooldown.current  > 0) rollCooldown.current  -= delta;
     if (comboWindow.current   > 0) comboWindow.current   -= delta;
-    if (staffCastCD.current   > 0) staffCastCD.current   -= delta;
 
     // Staff mana regen
-    const wmNow = useGameStore.getState().weaponMode;
-    if (wmNow === "staff") regenMana(MANA_REGEN_RATE * delta);
+    if (useGameStore.getState().weaponMode === "staff") {
+      regenMana(MANA_REGEN_RATE * delta);
+    }
 
+    // ── Roll timer ─────────────────────────────────────────────────────────
     if (rollTimer.current > 0) {
       rollTimer.current -= delta;
       if (rollTimer.current <= 0) {
@@ -724,7 +863,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     mixerRef.current?.update(delta);
     rollCamZ.current *= Math.max(0, 1 - 14 * delta);
 
-    // Camera position
+    // ── Camera ─────────────────────────────────────────────────────────────
     const { mode, shoulderX, shoulderY, shoulderZ } = useGameStore.getState().camera;
     camera.position.set(
       mode === "fps" ? 0         : shoulderX,
@@ -738,13 +877,18 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     rootRef.current.rotation.y = yaw.current;
     if (modelGroupRef.current) modelGroupRef.current.visible = (mode !== "fps");
 
-    // ── Weapon model visibility + hand-bone tracking ───────────────────────
-    const wm      = useGameStore.getState().weaponMode;
-    const isMelee = wm === "sword" || wm === "axe";
+    // ── Weapon model + hand-bone tracking ──────────────────────────────────
+    const wm        = useGameStore.getState().weaponMode;
+    const isMelee   = wm === "sword" || wm === "axe";
     const isStaffWm = wm === "staff";
-    const hand    = handBoneRef.current;
+    const hand      = handBoneRef.current;
 
-    function trackWeapon(grp: THREE.Group, obj: THREE.Group | null, show: boolean, qAdj: THREE.Quaternion) {
+    function trackWeapon(
+      grp: THREE.Group,
+      obj: THREE.Group | null,
+      show: boolean,
+      qAdj: THREE.Quaternion,
+    ) {
       if (!obj) return;
       obj.visible = show;
       if (show && hand && mode !== "fps") {
@@ -761,7 +905,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     if (caneGroupRef.current && caneObj)
       trackWeapon(caneGroupRef.current, caneObj, isStaffWm && mode !== "fps", caneQAdj.current);
 
-    // ── Movement input ─────────────────────────────────────────────────────
+    // ── Movement input ──────────────────────────────────────────────────────
     const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
     const rgtVec = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
 
@@ -774,7 +918,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     const move = new THREE.Vector3();
     if (rolling.current && rollTimer.current > 0) {
       move.copy(rollDir.current).multiplyScalar(ROLL_SPEED * delta);
-    } else if (!crouching.current && !crouchPending.current && !attacking.current) {
+    } else if (!crouching.current && !crouchPending.current) {
       if (fwd)   move.add(fwdVec);
       if (bwd)   move.sub(fwdVec);
       if (left)  move.sub(rgtVec);
@@ -784,11 +928,11 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }
 
     if (keys.current["Space"] && grounded.current && !crouching.current && !rolling.current) {
-      velY.current    = JUMP_FORCE;
+      velY.current     = JUMP_FORCE;
       grounded.current = false;
     }
 
-    // ── Rapier physics ─────────────────────────────────────────────────────
+    // ── Rapier physics ──────────────────────────────────────────────────────
     const rb   = playerRBRef.current;
     const ctrl = charCtrl.current;
 
@@ -806,22 +950,19 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
           velY.current = 0;
           if (!grounded.current) {
             grounded.current = true;
-            const cwm = useGameStore.getState().weaponMode;
-            const landAnim: AnimKey = (cwm === "sword" || cwm === "axe") ? "meleeIdle"
-              : cwm === "rifle" ? "rifleIdle"
-              : cwm === "staff" ? "staffIdle"
-              : "pistolLand";
-            transitionTo(landAnim, 0.08);
-            setTimeout(() => {
-              if (grounded.current) {
-                const cwm2 = useGameStore.getState().weaponMode;
-                const idleAnim: AnimKey = (cwm2 === "sword" || cwm2 === "axe") ? "meleeIdle"
-                  : cwm2 === "rifle" ? "rifleIdle"
-                  : cwm2 === "staff" ? "staffIdle"
-                  : "pistolIdle";
-                transitionTo(idleAnim, 0.2);
-              }
-            }, 320);
+            // Land animation (only if not mid-attack)
+            if (!blockingOnce.current) {
+              const cwm      = useGameStore.getState().weaponMode;
+              const landAnim = cwm === "staff"  ? "staffIdle"
+                : (cwm === "sword" || cwm === "axe") ? "meleeIdle"
+                : cwm === "rifle" ? "rifleIdle" : "pistolLand";
+              transitionTo(landAnim, 0.08);
+              setTimeout(() => {
+                if (grounded.current && !blockingOnce.current) {
+                  transitionTo(idleForMode(useGameStore.getState().weaponMode), 0.2);
+                }
+              }, 320);
+            }
           }
         }
         grounded.current = isGrounded;
@@ -844,15 +985,22 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       playerPosRef.current.copy(rootRef.current.position);
     }
 
-    // ── Animation state machine ────────────────────────────────────────────
-    const next = resolveAnim(
-      wm, fwd, bwd, left, right, sprint,
-      grounded.current, crouching.current, attacking.current, curAnim.current,
-    );
-    if (next !== curAnim.current) transitionTo(next);
+    // ── Locomotion animation state machine ─────────────────────────────────
+    // Only runs when NO blocking attack is playing — attacks drive themselves
+    // through the queue system (finished event → next slot or idle).
+    if (!blockingOnce.current) {
+      const next = resolveAnim(
+        wm, fwd, bwd, left, right, sprint,
+        grounded.current, crouching.current,
+      );
+      if (next !== curAnim.current) transitionTo(next);
+    }
   });
 
-  // ── JSX ───────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // ── JSX ──────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
     <>
       <RigidBody
@@ -865,7 +1013,6 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
         <CapsuleCollider args={[CAPSULE_HH, CAPSULE_R]} />
       </RigidBody>
 
-      {/* Visual root — camera + character model */}
       <group ref={rootRef}>
         <group ref={modelGroupRef} rotation-y={Math.PI}>
           {modelObj ? (
@@ -885,14 +1032,12 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
         </group>
       </group>
 
-      {/* Melee weapon models — world-space, tracked to hand bone in useFrame */}
       <group ref={swordGroupRef}>
         {swordObj && <primitive object={swordObj} />}
       </group>
       <group ref={axeGroupRef}>
         {axeObj && <primitive object={axeObj} />}
       </group>
-      {/* Magic staff — world-space, tracked to hand bone in useFrame */}
       <group ref={caneGroupRef}>
         {caneObj && <primitive object={caneObj} />}
       </group>
