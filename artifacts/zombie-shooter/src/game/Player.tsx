@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { RigidBody, CapsuleCollider, useRapier } from "@react-three/rapier";
 import { useGameStore } from "./useGameStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -22,21 +23,22 @@ export interface PlayerProps {
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Physics capsule constants ────────────────────────────────────────────────
+// The Rapier CapsuleCollider: halfHeight = cylinder half, radius = cap radius.
+// Total height = 2*HH + 2*R = 1.7m.  Centre above feet = HH + R = 0.85m.
+
+const CAPSULE_HH = 0.5;   // half-height of cylinder part
+const CAPSULE_R  = 0.35;  // cap radius
+const CAPSULE_CY = CAPSULE_HH + CAPSULE_R; // capsule centre Y from feet = 0.85
+
+// ─── Movement constants ───────────────────────────────────────────────────────
 
 const WALK_SPEED    = 4.5;
 const RUN_SPEED     = 9.0;
 const JUMP_FORCE    = 9;
-const GRAVITY       = -22;
-const SENSITIVITY   = 0.002;
 const PITCH_MIN     = -Math.PI / 2.5;
-const PITCH_MAX     = Math.PI / 8;
-
-// Camera shoulder rig — LOCAL to the player root (right, up, back)
-// The player root's -Z is the forward direction; +Z is behind.
-const CAM_X =  0.55;   // right of spine
-const CAM_Y =  1.55;   // approximate eye/chest height
-const CAM_Z =  2.8;    // behind the character
+const PITCH_MAX_TPS =  Math.PI / 8;
+const PITCH_MAX_FPS =  Math.PI / 2 - 0.05;
 
 // Roll
 const ROLL_SPEED    = 14;
@@ -45,6 +47,9 @@ const ROLL_COOLDOWN = 1.2;
 
 // Melee
 const MELEE_COOLDOWN = 0.7;
+
+// FPS eye height (local to rootRef — visual feet origin)
+const EYE_HEIGHT = 1.70;
 
 // ─── FBX load queue ───────────────────────────────────────────────────────────
 
@@ -96,24 +101,30 @@ function resolveAnim(inp: MoveInput, cur: AnimKey): AnimKey {
 // ─── Player ───────────────────────────────────────────────────────────────────
 
 export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) {
-  // rootRef is the scene-graph parent of BOTH the character model AND the camera.
-  // rootRef.rotation.y  = world yaw  (only axis that changes on rootRef)
-  // rootRef.position    = world player position
-  const rootRef = useRef<THREE.Group>(null!);
+  // rootRef = visual group (model + camera parent). Position = player's feet in world space.
+  const rootRef       = useRef<THREE.Group>(null!);
+  const modelGroupRef = useRef<THREE.Group>(null!);
+
+  // playerRBRef = the Rapier kinematic rigid body that drives collision resolution.
+  // Its translation Y = CAPSULE_CY above the visual feet.
+  const playerRBRef = useRef<any>(null);
 
   // Physics
   const velY        = useRef(0);
   const grounded    = useRef(true);
 
-  // Look — yaw lives on rootRef, pitch lives on the camera locally
+  // Look
   const yaw   = useRef(0);
   const pitch = useRef(0);
+
+  // Camera roll tilt (set at roll start, decays to 0)
+  const rollCamZ = useRef(0);
 
   // Input
   const keys   = useRef<Record<string, boolean>>({});
   const locked = useRef(false);
 
-  // Action timers / state
+  // Action timers
   const deadFired      = useRef(false);
   const shootCooldown  = useRef(0);
   const meleeCooldown  = useRef(0);
@@ -136,36 +147,61 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const [modelObj, setModelObj] = useState<THREE.Group | null>(null);
 
   const { camera, scene } = useThree();
-  const { health, shoot, reload, ammo, isReloading, setInvincible } = useGameStore();
+  const { world } = useRapier();
 
-  // ── Parent the camera to the player root ─────────────────────────────────
+  // Character controller ref — created once physics world is available
+  const charCtrl = useRef<any>(null);
+
+  const {
+    health, shoot, reload, ammo, isReloading,
+    setInvincible, camera: camSettings,
+    setCameraMode, setShowCameraSettings,
+  } = useGameStore();
+
+  // ── Create Rapier character controller ───────────────────────────────────
+  useEffect(() => {
+    if (!world) return;
+    const ctrl = world.createCharacterController(0.05); // 5cm skin offset
+    ctrl.setMaxSlopeClimbAngle(50 * Math.PI / 180);
+    ctrl.setMinSlopeSlideAngle(30 * Math.PI / 180);
+    // Snap to ground if within 0.3m (handles small steps and ramps)
+    try { ctrl.enableSnapToGround(0.3); } catch { /* API may differ by version */ }
+    ctrl.setApplyImpulsesToDynamicBodies(false);
+    charCtrl.current = ctrl;
+
+    return () => {
+      world.removeCharacterController(ctrl);
+    };
+  }, [world]);
+
+  // ── Parent camera to rootRef via scene graph ──────────────────────────────
   //
-  // This is the critical fix. Instead of computing world-space camera position
-  // every frame (which competes with R3F's scene management), we make the camera
-  // a proper Three.js child of rootRef. Then:
-  //   • rootRef.rotation.y  = yaw  → camera inherits yaw automatically
-  //   • camera.position     = shoulder offset in LOCAL space (constant)
-  //   • camera.rotation.x   = pitch in LOCAL space
-  //   • camera.rotation.y/z = 0    (yaw handled by parent)
+  // rootRef drives: position (feet), rotation.y (yaw)
+  // camera is a CHILD of rootRef so it inherits yaw automatically.
+  // Camera only needs local position + pitch (x rotation).
   //
   useEffect(() => {
-    // Set stable camera properties
     camera.rotation.order = "YXZ";
-    camera.position.set(CAM_X, CAM_Y, CAM_Z);
-    camera.rotation.set(0, 0, 0);
-
-    // R3F's camera starts as a child of the scene. We re-parent to rootRef.
-    // Three.js auto-removes from current parent when add() is called.
     const root = rootRef.current;
     if (root) root.add(camera);
 
+    // Initial camera position (overridden each frame based on mode)
+    camera.position.set(camSettings.shoulderX, camSettings.shoulderY, camSettings.shoulderZ);
+    camera.rotation.set(0, 0, 0);
+
     return () => {
-      // On unmount, return camera to scene so R3F can manage it
-      scene.add(camera);
+      scene.add(camera); // return to scene on unmount
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, scene]);
 
-  // ── Sequential FBX loader ────────────────────────────────────────────────
+  // ── Sync FOV when it changes in settings ─────────────────────────────────
+  useEffect(() => {
+    (camera as THREE.PerspectiveCamera).fov = camSettings.fov;
+    (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
+  }, [camera, camSettings.fov]);
+
+  // ── Sequential FBX loader ─────────────────────────────────────────────────
 
   useEffect(() => {
     let cancelled = false;
@@ -181,11 +217,9 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
 
         if (key === "__model__") {
           fbx.scale.setScalar(0.01);
-          // DO NOT rotate the FBX root — the flip wrapper group in JSX handles orientation.
-          // Setting fbx.rotation.y here can be overridden by the animation system.
           fbx.traverse((c) => {
             if ((c as THREE.Mesh).isMesh) {
-              c.castShadow = true;
+              c.castShadow    = true;
               c.receiveShadow = true;
             }
           });
@@ -218,7 +252,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     return () => { cancelled = true; mixerRef.current?.stopAllAction(); };
   }, []);
 
-  // ── Animation helper ─────────────────────────────────────────────────────
+  // ── Animation helper ──────────────────────────────────────────────────────
 
   const transitionTo = useCallback((next: AnimKey, fade = 0.15) => {
     if (curAnim.current === next) return;
@@ -227,7 +261,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     if (a) { a.reset().fadeIn(fade).play(); curAnim.current = next; }
   }, []);
 
-  // ── Crouch ───────────────────────────────────────────────────────────────
+  // ── Crouch ────────────────────────────────────────────────────────────────
 
   const startCrouch = useCallback(() => {
     if (crouching.current || crouchPending.current) return;
@@ -251,26 +285,28 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }, 650);
   }, [transitionTo]);
 
-  // ── Mouse look ───────────────────────────────────────────────────────────
+  // ── Mouse look ────────────────────────────────────────────────────────────
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!locked.current) return;
-    yaw.current   -= e.movementX * SENSITIVITY;
-    pitch.current -= e.movementY * SENSITIVITY;
-    pitch.current  = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch.current));
+    const sens = useGameStore.getState().camera.sensitivity;
+    yaw.current   -= e.movementX * sens;
+    pitch.current -= e.movementY * sens;
+
+    const pMax = useGameStore.getState().camera.mode === "fps"
+      ? PITCH_MAX_FPS : PITCH_MAX_TPS;
+    pitch.current = Math.max(PITCH_MIN, Math.min(pMax, pitch.current));
   }, []);
 
-  // ── Mouse buttons ────────────────────────────────────────────────────────
+  // ── Mouse buttons ─────────────────────────────────────────────────────────
 
   const handleMouseDown = useCallback((e: MouseEvent) => {
-    // LMB: shoot (or acquire pointer lock)
     if (e.button === 0) {
       if (!locked.current) { document.body.requestPointerLock(); return; }
       if (shootCooldown.current > 0 || isReloading) return;
       const fired = shoot();
       if (fired) {
         shootCooldown.current = 0.12;
-        // Bullet direction = exactly where camera is looking = crosshair center
         const dir = new THREE.Vector3();
         camera.getWorldDirection(dir);
         const origin = new THREE.Vector3();
@@ -281,7 +317,6 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
         reload();
       }
     }
-    // RMB: melee
     if (e.button === 2) {
       if (!locked.current) return;
       if (meleeCooldown.current > 0) return;
@@ -294,20 +329,42 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }
   }, [shoot, reload, ammo, isReloading, onShoot, onMelee, camera]);
 
-  // ── Keyboard ─────────────────────────────────────────────────────────────
+  // ── Keyboard ──────────────────────────────────────────────────────────────
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.code === "AltLeft" || e.code === "AltRight") e.preventDefault();
+    // Prevent browser defaults for game keys
+    if (["AltLeft","AltRight","F2","F3","ControlLeft","ControlRight"].includes(e.code)) {
+      e.preventDefault();
+    }
+
     keys.current[e.code] = true;
 
     if (e.code === "KeyR") reload();
 
-    // Alt = crouch toggle
+    // F2 — toggle camera mode (TPS ↔ FPS)
+    if (e.code === "F2") {
+      const store = useGameStore.getState();
+      const next  = store.camera.mode === "tps" ? "fps" : "tps";
+      setCameraMode(next);
+    }
+
+    // F3 — toggle camera settings panel
+    if (e.code === "F3") {
+      const store = useGameStore.getState();
+      const next  = !store.showCameraSettings;
+      setShowCameraSettings(next);
+      if (next) {
+        // Releasing pointer lock so the user can click the sliders
+        document.exitPointerLock();
+      }
+    }
+
+    // Alt — crouch toggle
     if (e.code === "AltLeft" || e.code === "AltRight") {
       crouching.current ? endCrouch() : startCrouch();
     }
 
-    // Ctrl = dodge roll
+    // Ctrl — dodge roll
     if ((e.code === "ControlLeft" || e.code === "ControlRight")
       && grounded.current && !rolling.current && !crouching.current
       && rollCooldown.current <= 0) {
@@ -316,7 +373,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       rollTimer.current    = ROLL_DURATION;
       rollCooldown.current = ROLL_COOLDOWN;
 
-      // Roll direction from WASD intent, default forward
+      // Roll direction from WASD intent, default to camera forward
       const fwd = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
       const rgt = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
       const d = new THREE.Vector3();
@@ -327,13 +384,13 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       if (d.lengthSq() < 0.01) d.copy(fwd);
       rollDir.current.copy(d.normalize());
 
+      // Camera tilt in the roll direction (left/right bias)
+      const rightBias = rollDir.current.dot(rgt);
+      rollCamZ.current = -rightBias * 0.18;
+
       if (setInvincible) setInvincible(true);
-      setTimeout(() => {
-        rolling.current = false;
-        if (setInvincible) setInvincible(false);
-      }, ROLL_DURATION * 1000);
     }
-  }, [reload, startCrouch, endCrouch, setInvincible]);
+  }, [reload, startCrouch, endCrouch, setInvincible, setCameraMode, setShowCameraSettings]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     keys.current[e.code] = false;
@@ -362,31 +419,53 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     };
   }, [handleMouseMove, handleMouseDown, handleKeyDown, handleKeyUp, handlePLC, handleCtxMenu]);
 
-  // ── Game loop ────────────────────────────────────────────────────────────
+  // ── Game loop ─────────────────────────────────────────────────────────────
 
   useFrame((_, delta) => {
     if (!rootRef.current) return;
     if (health <= 0 && !deadFired.current) { deadFired.current = true; onDead(); return; }
 
-    // Countdown timers
+    // Countdown cooldowns
     if (shootCooldown.current > 0) shootCooldown.current  -= delta;
     if (meleeCooldown.current > 0) meleeCooldown.current  -= delta;
     if (rollCooldown.current  > 0) rollCooldown.current   -= delta;
-    if (rollTimer.current     > 0) rollTimer.current      -= delta;
+
+    // Roll timer (drives movement + invincibility)
+    if (rollTimer.current > 0) {
+      rollTimer.current -= delta;
+      if (rollTimer.current <= 0) {
+        rolling.current = false;
+        if (setInvincible) setInvincible(false);
+      }
+    }
 
     mixerRef.current?.update(delta);
 
-    // ── Yaw applied to root — camera inherits it via scene graph ─────────
-    rootRef.current.rotation.y = yaw.current;
+    // ── Camera Z tilt decays to 0 after roll ─────────────────────────────
+    rollCamZ.current *= Math.max(0, 1 - 14 * delta);
 
-    // ── Camera pitch in LOCAL space (yaw already inherited from parent) ───
+    // ── Camera mode-dependent local position ─────────────────────────────
+    const { mode, shoulderX, shoulderY, shoulderZ } = useGameStore.getState().camera;
+    if (mode === "fps") {
+      camera.position.set(0, EYE_HEIGHT, 0.1);
+    } else {
+      camera.position.set(shoulderX, shoulderY, shoulderZ);
+    }
+
+    // ── Apply yaw/pitch/tilt to camera (yaw is inherited from rootRef) ───
     camera.rotation.x = pitch.current;
     camera.rotation.y = 0;
-    camera.rotation.z = 0;
+    camera.rotation.z = rollCamZ.current;
 
-    // ── Movement ─────────────────────────────────────────────────────────
+    // ── Yaw on rootRef — camera + model both inherit it ──────────────────
+    rootRef.current.rotation.y = yaw.current;
 
-    // Forward/right vectors derived from YAW (not camera pitch)
+    // ── Hide/show model in FPS mode ───────────────────────────────────────
+    if (modelGroupRef.current) {
+      modelGroupRef.current.visible = (mode !== "fps");
+    }
+
+    // ── Input vectors (yaw-aligned, horizontal plane only) ───────────────
     const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
     const rgtVec = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
 
@@ -394,53 +473,88 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     const bwd   = !!(keys.current["KeyS"] || keys.current["ArrowDown"]);
     const left  = !!(keys.current["KeyA"] || keys.current["ArrowLeft"]);
     const right = !!(keys.current["KeyD"] || keys.current["ArrowRight"]);
-    const sprint = (keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !crouching.current;
+    const sprint = !!(keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !crouching.current;
+
+    // ── Desired horizontal movement ───────────────────────────────────────
+    const move = new THREE.Vector3();
 
     if (rolling.current && rollTimer.current > 0) {
-      // Roll dash overrides normal movement
-      rootRef.current.position.addScaledVector(rollDir.current, ROLL_SPEED * delta);
-    } else {
-      const canMove = !crouching.current && crouchPending.current === null;
-      if (canMove) {
-        const move = new THREE.Vector3();
-        if (fwd)   move.add(fwdVec);
-        if (bwd)   move.sub(fwdVec);
-        if (left)  move.sub(rgtVec);
-        if (right) move.add(rgtVec);
-        if (move.lengthSq() > 0) {
-          const speed = sprint ? RUN_SPEED : WALK_SPEED;
-          rootRef.current.position.addScaledVector(move.normalize(), speed * delta);
-        }
+      // Roll dash: fixed direction, high speed, no steering
+      move.copy(rollDir.current).multiplyScalar(ROLL_SPEED * delta);
+    } else if (!crouching.current && crouchPending.current === null) {
+      if (fwd)   move.add(fwdVec);
+      if (bwd)   move.sub(fwdVec);
+      if (left)  move.sub(rgtVec);
+      if (right) move.add(rgtVec);
+      if (move.lengthSq() > 0) {
+        const speed = sprint ? RUN_SPEED : WALK_SPEED;
+        move.normalize().multiplyScalar(speed * delta);
       }
     }
 
-    // ── Jump / gravity ────────────────────────────────────────────────────
-
+    // ── Jump input (consumed once per grounded landing) ───────────────────
     if (keys.current["Space"] && grounded.current && !crouching.current && !rolling.current) {
-      velY.current     = JUMP_FORCE;
+      velY.current    = JUMP_FORCE;
       grounded.current = false;
     }
-    velY.current += GRAVITY * delta;
-    rootRef.current.position.y += velY.current * delta;
-    if (rootRef.current.position.y <= 0) {
-      rootRef.current.position.y = 0;
-      if (!grounded.current) {
-        grounded.current = true;
-        transitionTo("jumpLand", 0.08);
-        setTimeout(() => { if (grounded.current) transitionTo("idle", 0.2); }, 320);
+
+    // ── Rapier character controller ───────────────────────────────────────
+    const rb   = playerRBRef.current;
+    const ctrl = charCtrl.current;
+
+    if (rb && ctrl) {
+      // Gravity
+      velY.current += -22 * delta;
+      move.y = velY.current * delta;
+
+      // Compute collision-resolved movement
+      const collider = rb.collider(0);
+      if (collider) {
+        ctrl.computeColliderMovement(collider, { x: move.x, y: move.y, z: move.z });
+        const resolved = ctrl.computedMovement();
+        const isGrounded = ctrl.computedGrounded();
+
+        // Landing
+        if (isGrounded && velY.current < 0) {
+          velY.current = 0;
+          if (!grounded.current) {
+            grounded.current = true;
+            transitionTo("jumpLand", 0.08);
+            setTimeout(() => { if (grounded.current) transitionTo("idle", 0.2); }, 320);
+          }
+        }
+        grounded.current = isGrounded;
+
+        // Advance the physics body
+        const pos = rb.translation();
+        const next = {
+          x: pos.x + resolved.x,
+          y: pos.y + resolved.y,
+          z: pos.z + resolved.z,
+        };
+        rb.setNextKinematicTranslation(next);
+
+        // Sync visual group (rootRef) to feet position
+        // Physics body Y = capsule centre = feet + CAPSULE_CY
+        rootRef.current.position.set(next.x, next.y - CAPSULE_CY, next.z);
+        playerPosRef.current.copy(rootRef.current.position);
       }
-      velY.current = 0;
+    } else {
+      // Physics not ready yet — fallback manual movement
+      rootRef.current.position.addScaledVector(
+        new THREE.Vector3(move.x, 0, move.z), 1
+      );
+      velY.current += -22 * delta;
+      rootRef.current.position.y += velY.current * delta;
+      if (rootRef.current.position.y <= 0) {
+        rootRef.current.position.y = 0;
+        velY.current = 0;
+        grounded.current = true;
+      }
+      playerPosRef.current.copy(rootRef.current.position);
     }
 
-    // World bounds
-    const HALF = 49;
-    rootRef.current.position.x = Math.max(-HALF, Math.min(HALF, rootRef.current.position.x));
-    rootRef.current.position.z = Math.max(-HALF, Math.min(HALF, rootRef.current.position.z));
-
-    playerPosRef.current.copy(rootRef.current.position);
-
     // ── Animation state machine ───────────────────────────────────────────
-
     const inp: MoveInput = {
       fwd, bwd, left, right, sprint,
       grounded: grounded.current,
@@ -448,45 +562,57 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       jumping: velY.current > 0.5,
       rolling: rolling.current,
     };
-    const LOCKED: AnimKey[] = ["standToKneel", "kneelToStand"];
-    if (!LOCKED.includes(curAnim.current)) {
+    const LOCKED_ANIMS: AnimKey[] = ["standToKneel", "kneelToStand"];
+    if (!LOCKED_ANIMS.includes(curAnim.current)) {
       transitionTo(resolveAnim(inp, curAnim.current));
     }
   });
 
-  // ─── JSX ─────────────────────────────────────────────────────────────────
+  // ── JSX ───────────────────────────────────────────────────────────────────
   //
-  // rootRef is the player root:
-  //   • rotation.y = yaw  (set in useFrame)
-  //   • camera is added as a Three.js child in useEffect (not in JSX)
+  // Two separate scene objects:
+  //   1. <RigidBody>  — the invisible Rapier physics capsule. Starts at
+  //      (0, CAPSULE_CY, 0) so its base sits exactly on the ground.
+  //      Rotations locked — yaw handled by rootRef, not physics.
   //
-  // The character model lives here with a flip wrapper.
-  // The FBX model's original +Z facing becomes -Z (player forward) via the
-  // rotation-y={Math.PI} wrapper — applied in JSX so the animation system
-  // can't override it (it only affects this wrapper's local transform, not
-  // the FBX internal root bone).
-  //
+  //   2. <group ref={rootRef}>  — the visible character + camera parent.
+  //      Position is synced to the physics body each frame (feet = body.y - CY).
+  //      Camera is added as a child via useEffect so it inherits yaw from rootRef.
+
   return (
-    <group ref={rootRef}>
-      {/* Flip wrapper: corrects FBX +Z facing → player's -Z forward.
-          Applied to a parent group so animation clips cannot override it. */}
-      <group rotation-y={Math.PI}>
-        {modelObj ? (
-          <primitive object={modelObj} />
-        ) : (
-          /* Placeholder capsule while model loads */
-          <group>
-            <mesh position={[0, 0.9, 0]} castShadow>
-              <capsuleGeometry args={[0.35, 1.0, 4, 8]} />
-              <meshStandardMaterial color="#4a90d9" />
-            </mesh>
-            <mesh position={[0, 1.75, 0]} castShadow>
-              <sphereGeometry args={[0.28, 8, 8]} />
-              <meshStandardMaterial color="#f4c896" />
-            </mesh>
-          </group>
-        )}
+    <>
+      {/* ── Physics capsule ── */}
+      <RigidBody
+        ref={playerRBRef}
+        type="kinematicPosition"
+        position={[0, CAPSULE_CY, 0]}
+        colliders={false}
+        enabledRotations={[false, false, false]}
+      >
+        <CapsuleCollider args={[CAPSULE_HH, CAPSULE_R]} />
+      </RigidBody>
+
+      {/* ── Visual group (model + camera) ── */}
+      <group ref={rootRef}>
+        {/* FBX flip wrapper — applied here so animation system can't undo it */}
+        <group ref={modelGroupRef} rotation-y={Math.PI}>
+          {modelObj ? (
+            <primitive object={modelObj} />
+          ) : (
+            /* Loading placeholder */
+            <group>
+              <mesh position={[0, 0.9, 0]} castShadow>
+                <capsuleGeometry args={[0.35, 1.0, 4, 8]} />
+                <meshStandardMaterial color="#4a90d9" />
+              </mesh>
+              <mesh position={[0, 1.75, 0]} castShadow>
+                <sphereGeometry args={[0.28, 8, 8]} />
+                <meshStandardMaterial color="#f4c896" />
+              </mesh>
+            </group>
+          )}
+        </group>
       </group>
-    </group>
+    </>
   );
 }

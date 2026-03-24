@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Sky, Stars } from "@react-three/drei";
+import { Physics } from "@react-three/rapier";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
 import { Player } from "./Player";
@@ -83,14 +84,17 @@ function SceneContent({
       />
       <pointLight position={[0, 8, 0]} intensity={0.3} color="#ffaa44" />
 
-      <Map />
+      {/* All physics objects (environment + player) must live inside Physics */}
+      <Physics gravity={[0, -22, 0]} timeStep="vary">
+        <Map />
 
-      <Player
-        onShoot={onShoot}
-        onMelee={onMelee}
-        onDead={onPlayerDead}
-        playerPosRef={playerPosRef}
-      />
+        <Player
+          onShoot={onShoot}
+          onMelee={onMelee}
+          onDead={onPlayerDead}
+          playerPosRef={playerPosRef}
+        />
+      </Physics>
 
       {bullets.map((b) => (
         <Bullet key={b.id} data={b} onExpire={onBulletExpire} />
