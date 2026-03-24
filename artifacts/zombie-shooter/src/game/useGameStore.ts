@@ -4,11 +4,11 @@ import { create } from "zustand";
 
 export interface CameraSettings {
   mode:        "tps" | "fps";
-  fov:         number;   // degrees
-  sensitivity: number;   // radians per pixel
-  shoulderX:   number;   // TPS shoulder offset right
-  shoulderY:   number;   // TPS shoulder offset up
-  shoulderZ:   number;   // TPS shoulder offset back
+  fov:         number;
+  sensitivity: number;
+  shoulderX:   number;
+  shoulderY:   number;
+  shoulderZ:   number;
 }
 
 export const DEFAULT_CAMERA: CameraSettings = {
@@ -19,6 +19,16 @@ export const DEFAULT_CAMERA: CameraSettings = {
   shoulderY:   1.55,
   shoulderZ:   2.8,
 };
+
+// ─── Weapon modes ─────────────────────────────────────────────────────────────
+//  "pistol" → one-hand sidearm (pistol animations)
+//  "rifle"  → two-hand ranged (rifle/crossbow/sniper animations)
+//  "sword"  → two-hand melee, sword model
+//  "axe"    → two-hand melee, axe model
+
+export type WeaponMode = "pistol" | "rifle" | "sword" | "axe";
+
+export const WEAPON_CYCLE: WeaponMode[] = ["pistol", "rifle", "sword", "axe"];
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -35,12 +45,13 @@ interface GameStore {
   wave:          number;
 
   // Camera
-  camera:           CameraSettings;
+  camera:             CameraSettings;
   showCameraSettings: boolean;
 
   // Weapon
-  weaponMode: "ranged" | "melee";
-  setWeaponMode: (m: "ranged" | "melee") => void;
+  weaponMode: WeaponMode;
+  setWeaponMode: (m: WeaponMode) => void;
+  cycleWeapon:   () => void;
 
   // Actions
   takeDamage: (amount: number) => void;
@@ -49,11 +60,11 @@ interface GameStore {
   reload:     () => void;
   addScore:   (points: number) => void;
   addKill:    () => void;
-  setReloading:   (val: boolean) => void;
-  setPaused:      (val: boolean) => void;
-  setInvincible:  (val: boolean) => void;
-  nextWave:       () => void;
-  reset:          () => void;
+  setReloading:    (val: boolean) => void;
+  setPaused:       (val: boolean) => void;
+  setInvincible:   (val: boolean) => void;
+  nextWave:        () => void;
+  reset:           () => void;
 
   // Camera
   setCameraMode:        (m: "tps" | "fps") => void;
@@ -66,19 +77,19 @@ interface GameStore {
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  health:     100,
-  maxHealth:  100,
-  ammo:       15,
-  maxAmmo:    15,
-  score:      0,
-  kills:      0,
+  health:        100,
+  maxHealth:     100,
+  ammo:          15,
+  maxAmmo:       15,
+  score:         0,
+  kills:         0,
   isReloading:   false,
   isPaused:      false,
   isInvincible:  false,
   wave:          1,
   camera:        { ...DEFAULT_CAMERA },
   showCameraSettings: false,
-  weaponMode:    "ranged",
+  weaponMode:    "pistol",
 
   takeDamage: (amount) => {
     if (get().isInvincible) return;
@@ -118,10 +129,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       health: 100, ammo: 15, score: 0, kills: 0,
       isReloading: false, isPaused: false, isInvincible: false, wave: 1,
       camera: { ...DEFAULT_CAMERA }, showCameraSettings: false,
-      weaponMode: "ranged" as const,
+      weaponMode: "pistol",
     }),
 
-  setWeaponMode:        (m) => set({ weaponMode: m }),
+  setWeaponMode: (m) => set({ weaponMode: m }),
+
+  cycleWeapon: () => {
+    const cur = get().weaponMode;
+    const idx = WEAPON_CYCLE.indexOf(cur);
+    const next = WEAPON_CYCLE[(idx + 1) % WEAPON_CYCLE.length];
+    set({ weaponMode: next });
+  },
 
   setCameraMode:        (m) => set((s) => ({ camera: { ...s.camera, mode:        m } })),
   setCameraFOV:         (v) => set((s) => ({ camera: { ...s.camera, fov:         v } })),
