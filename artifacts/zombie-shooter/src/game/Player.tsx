@@ -18,7 +18,7 @@ type AnimKey =
 export interface PlayerProps {
   onShoot: (origin: THREE.Vector3, direction: THREE.Vector3) => void;
   onMelee: (origin: THREE.Vector3, direction: THREE.Vector3) => void;
-  onDead: () => void;
+  onDead:  () => void;
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
 }
 
@@ -29,14 +29,14 @@ const RUN_SPEED     = 9.0;
 const JUMP_FORCE    = 9;
 const GRAVITY       = -22;
 const SENSITIVITY   = 0.002;
-const PITCH_MIN     = -Math.PI / 2.8;
-const PITCH_MAX     = Math.PI / 7;
+const PITCH_MIN     = -Math.PI / 2.5;
+const PITCH_MAX     = Math.PI / 8;
 
-// Over-the-shoulder offset in PLAYER LOCAL SPACE (right, up, back)
-const SHOULDER_R    = 0.6;   // right of player center
-const SHOULDER_U    = 1.55;  // above player origin
-const SHOULDER_B    = 3.0;   // behind player
-const EYE_H         = 0;     // extra height (already in SHOULDER_U)
+// Camera shoulder rig — LOCAL to the player root (right, up, back)
+// The player root's -Z is the forward direction; +Z is behind.
+const CAM_X =  0.55;   // right of spine
+const CAM_Y =  1.55;   // approximate eye/chest height
+const CAM_Z =  2.8;    // behind the character
 
 // Roll
 const ROLL_SPEED    = 14;
@@ -44,10 +44,9 @@ const ROLL_DURATION = 0.45;
 const ROLL_COOLDOWN = 1.2;
 
 // Melee
-const MELEE_RANGE    = 2.6;
 const MELEE_COOLDOWN = 0.7;
 
-// ─── FBX load queue (model first, then 13 animations) ────────────────────────
+// ─── FBX load queue ───────────────────────────────────────────────────────────
 
 const LOAD_QUEUE: Array<{ key: AnimKey | "__model__"; file: string }> = [
   { key: "__model__",    file: "/models/Meshy_AI_Corsair_King_0323082850_texture_fbx.fbx" },
@@ -70,23 +69,23 @@ const LOAD_QUEUE: Array<{ key: AnimKey | "__model__"; file: string }> = [
 
 interface MoveInput {
   fwd: boolean; bwd: boolean; left: boolean; right: boolean;
-  sprint: boolean; grounded: boolean; crouching: boolean; jumping: boolean;
-  rolling: boolean;
+  sprint: boolean; grounded: boolean; crouching: boolean;
+  jumping: boolean; rolling: boolean;
 }
 
 function resolveAnim(inp: MoveInput, cur: AnimKey): AnimKey {
   if (cur === "standToKneel" || cur === "kneelToStand") return cur;
   if (!inp.grounded) return inp.jumping ? "jump" : "jumpLand";
   if (inp.crouching)  return "kneelingIdle";
-  if (inp.rolling)    return "runFwd"; // closest we have to a dive
+  if (inp.rolling)    return "runFwd";
 
   const { fwd, bwd, left, right, sprint } = inp;
   if (!fwd && !bwd && !left && !right) return "idle";
 
   if (fwd && !bwd) {
     if (!left && !right) return sprint ? "runFwd" : "walkFwd";
-    if (left)            return "walkArcL";
-    if (right)           return "walkArcR";
+    if (left)  return "walkArcL";
+    if (right) return "walkArcR";
   }
   if (bwd && !fwd) return "walkBwd";
   if (left)  return "strafeL";
@@ -94,26 +93,19 @@ function resolveAnim(inp: MoveInput, cur: AnimKey): AnimKey {
   return "idle";
 }
 
-// ─── Reusable temporaries (avoid per-frame alloc) ────────────────────────────
-
-const _up    = new THREE.Vector3(0, 1, 0);
-const _yawQ  = new THREE.Quaternion();
-const _euler = new THREE.Euler(0, 0, 0, "YXZ");
-const _offset = new THREE.Vector3();
-const _camPos = new THREE.Vector3();
-
 // ─── Player ───────────────────────────────────────────────────────────────────
 
 export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) {
-  const rootRef      = useRef<THREE.Group>(null!);
-  const bodyRef      = useRef<THREE.Group>(null!); // for roll tilt
+  // rootRef is the scene-graph parent of BOTH the character model AND the camera.
+  // rootRef.rotation.y  = world yaw  (only axis that changes on rootRef)
+  // rootRef.position    = world player position
+  const rootRef = useRef<THREE.Group>(null!);
 
   // Physics
   const velY        = useRef(0);
   const grounded    = useRef(true);
-  const wasGrounded = useRef(true);
 
-  // Look
+  // Look — yaw lives on rootRef, pitch lives on the camera locally
   const yaw   = useRef(0);
   const pitch = useRef(0);
 
@@ -121,7 +113,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const keys   = useRef<Record<string, boolean>>({});
   const locked = useRef(false);
 
-  // Action state
+  // Action timers / state
   const deadFired      = useRef(false);
   const shootCooldown  = useRef(0);
   const meleeCooldown  = useRef(0);
@@ -131,11 +123,10 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const crouchPending = useRef<"kneel" | "stand" | null>(null);
 
   // Roll
-  const rolling      = useRef(false);
-  const rollTimer    = useRef(0);
-  const rollDir      = useRef(new THREE.Vector3(0, 0, -1));
-  const rollCooldown = useRef(0);
-  const rollInvin    = useRef(false); // invincibility frames
+  const rolling        = useRef(false);
+  const rollTimer      = useRef(0);
+  const rollDir        = useRef(new THREE.Vector3(0, 0, -1));
+  const rollCooldown   = useRef(0);
 
   // Animation
   const mixerRef   = useRef<THREE.AnimationMixer | null>(null);
@@ -144,8 +135,35 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
 
   const [modelObj, setModelObj] = useState<THREE.Group | null>(null);
 
-  const { camera } = useThree();
+  const { camera, scene } = useThree();
   const { health, shoot, reload, ammo, isReloading, setInvincible } = useGameStore();
+
+  // ── Parent the camera to the player root ─────────────────────────────────
+  //
+  // This is the critical fix. Instead of computing world-space camera position
+  // every frame (which competes with R3F's scene management), we make the camera
+  // a proper Three.js child of rootRef. Then:
+  //   • rootRef.rotation.y  = yaw  → camera inherits yaw automatically
+  //   • camera.position     = shoulder offset in LOCAL space (constant)
+  //   • camera.rotation.x   = pitch in LOCAL space
+  //   • camera.rotation.y/z = 0    (yaw handled by parent)
+  //
+  useEffect(() => {
+    // Set stable camera properties
+    camera.rotation.order = "YXZ";
+    camera.position.set(CAM_X, CAM_Y, CAM_Z);
+    camera.rotation.set(0, 0, 0);
+
+    // R3F's camera starts as a child of the scene. We re-parent to rootRef.
+    // Three.js auto-removes from current parent when add() is called.
+    const root = rootRef.current;
+    if (root) root.add(camera);
+
+    return () => {
+      // On unmount, return camera to scene so R3F can manage it
+      scene.add(camera);
+    };
+  }, [camera, scene]);
 
   // ── Sequential FBX loader ────────────────────────────────────────────────
 
@@ -163,7 +181,8 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
 
         if (key === "__model__") {
           fbx.scale.setScalar(0.01);
-          fbx.rotation.y = Math.PI;
+          // DO NOT rotate the FBX root — the flip wrapper group in JSX handles orientation.
+          // Setting fbx.rotation.y here can be overridden by the animation system.
           fbx.traverse((c) => {
             if ((c as THREE.Mesh).isMesh) {
               c.castShadow = true;
@@ -208,7 +227,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     if (a) { a.reset().fadeIn(fade).play(); curAnim.current = next; }
   }, []);
 
-  // ── Crouch helpers ───────────────────────────────────────────────────────
+  // ── Crouch ───────────────────────────────────────────────────────────────
 
   const startCrouch = useCallback(() => {
     if (crouching.current || crouchPending.current) return;
@@ -216,7 +235,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     crouching.current = true;
     transitionTo("standToKneel", 0.1);
     setTimeout(() => {
-      if (crouching.current && !rolling.current) transitionTo("kneelingIdle", 0.15);
+      if (crouching.current) transitionTo("kneelingIdle", 0.15);
       crouchPending.current = null;
     }, 650);
   }, [transitionTo]);
@@ -232,7 +251,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }, 650);
   }, [transitionTo]);
 
-  // ── Input listeners ──────────────────────────────────────────────────────
+  // ── Mouse look ───────────────────────────────────────────────────────────
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!locked.current) return;
@@ -241,37 +260,43 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     pitch.current  = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch.current));
   }, []);
 
-  // LMB = shoot
+  // ── Mouse buttons ────────────────────────────────────────────────────────
+
   const handleMouseDown = useCallback((e: MouseEvent) => {
+    // LMB: shoot (or acquire pointer lock)
     if (e.button === 0) {
       if (!locked.current) { document.body.requestPointerLock(); return; }
       if (shootCooldown.current > 0 || isReloading) return;
       const fired = shoot();
       if (fired) {
         shootCooldown.current = 0.12;
-        // Bullet direction = EXACTLY where camera is looking = screen center crosshair
+        // Bullet direction = exactly where camera is looking = crosshair center
         const dir = new THREE.Vector3();
         camera.getWorldDirection(dir);
-        // Muzzle comes from camera pos so shots match crosshair perfectly
-        const origin = camera.position.clone().add(dir.clone().multiplyScalar(0.5));
+        const origin = new THREE.Vector3();
+        camera.getWorldPosition(origin);
+        origin.addScaledVector(dir, 0.5);
         onShoot(origin, dir);
-      } else if (ammo <= 0) reload();
+      } else if (ammo <= 0) {
+        reload();
+      }
     }
-
-    // RMB = melee
+    // RMB: melee
     if (e.button === 2) {
       if (!locked.current) return;
       if (meleeCooldown.current > 0) return;
       meleeCooldown.current = MELEE_COOLDOWN;
       const dir = new THREE.Vector3();
       camera.getWorldDirection(dir);
-      const origin = rootRef.current.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+      const origin = new THREE.Vector3();
+      camera.getWorldPosition(origin);
       onMelee(origin, dir);
     }
   }, [shoot, reload, ammo, isReloading, onShoot, onMelee, camera]);
 
+  // ── Keyboard ─────────────────────────────────────────────────────────────
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // Prevent Alt from opening browser menu
     if (e.code === "AltLeft" || e.code === "AltRight") e.preventDefault();
     keys.current[e.code] = true;
 
@@ -282,33 +307,30 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       crouching.current ? endCrouch() : startCrouch();
     }
 
-    // Ctrl = roll (if grounded, not crouching, off cooldown)
+    // Ctrl = dodge roll
     if ((e.code === "ControlLeft" || e.code === "ControlRight")
       && grounded.current && !rolling.current && !crouching.current
       && rollCooldown.current <= 0) {
 
-      rolling.current   = true;
-      rollTimer.current = ROLL_DURATION;
+      rolling.current      = true;
+      rollTimer.current    = ROLL_DURATION;
       rollCooldown.current = ROLL_COOLDOWN;
-      rollInvin.current = true;
 
-      // Roll direction = current movement intent or forward
-      const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
-      const rgtVec = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
+      // Roll direction from WASD intent, default forward
+      const fwd = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+      const rgt = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
       const d = new THREE.Vector3();
-      if (keys.current["KeyW"])   d.add(fwdVec);
-      if (keys.current["KeyS"])   d.sub(fwdVec);
-      if (keys.current["KeyA"])   d.sub(rgtVec);
-      if (keys.current["KeyD"])   d.add(rgtVec);
-      if (d.lengthSq() < 0.01)   d.copy(fwdVec); // default: roll forward
+      if (keys.current["KeyW"]) d.add(fwd);
+      if (keys.current["KeyS"]) d.sub(fwd);
+      if (keys.current["KeyA"]) d.sub(rgt);
+      if (keys.current["KeyD"]) d.add(rgt);
+      if (d.lengthSq() < 0.01) d.copy(fwd);
       rollDir.current.copy(d.normalize());
 
-      // Store invincibility via game store
       if (setInvincible) setInvincible(true);
       setTimeout(() => {
         rolling.current = false;
         if (setInvincible) setInvincible(false);
-        rollInvin.current = false;
       }, ROLL_DURATION * 1000);
     }
   }, [reload, startCrouch, endCrouch, setInvincible]);
@@ -321,7 +343,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     locked.current = document.pointerLockElement === document.body;
   }, []);
 
-  const handleContextMenu = useCallback((e: MouseEvent) => e.preventDefault(), []);
+  const handleCtxMenu = useCallback((e: MouseEvent) => e.preventDefault(), []);
 
   useEffect(() => {
     document.addEventListener("mousemove",         handleMouseMove);
@@ -329,16 +351,16 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     document.addEventListener("keydown",           handleKeyDown);
     document.addEventListener("keyup",             handleKeyUp);
     document.addEventListener("pointerlockchange", handlePLC);
-    document.addEventListener("contextmenu",       handleContextMenu);
+    document.addEventListener("contextmenu",       handleCtxMenu);
     return () => {
       document.removeEventListener("mousemove",         handleMouseMove);
       document.removeEventListener("mousedown",         handleMouseDown);
       document.removeEventListener("keydown",           handleKeyDown);
       document.removeEventListener("keyup",             handleKeyUp);
       document.removeEventListener("pointerlockchange", handlePLC);
-      document.removeEventListener("contextmenu",       handleContextMenu);
+      document.removeEventListener("contextmenu",       handleCtxMenu);
     };
-  }, [handleMouseMove, handleMouseDown, handleKeyDown, handleKeyUp, handlePLC, handleContextMenu]);
+  }, [handleMouseMove, handleMouseDown, handleKeyDown, handleKeyUp, handlePLC, handleCtxMenu]);
 
   // ── Game loop ────────────────────────────────────────────────────────────
 
@@ -346,42 +368,38 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     if (!rootRef.current) return;
     if (health <= 0 && !deadFired.current) { deadFired.current = true; onDead(); return; }
 
-    // Cooldown ticks
-    if (shootCooldown.current  > 0) shootCooldown.current  -= delta;
-    if (meleeCooldown.current  > 0) meleeCooldown.current  -= delta;
-    if (rollCooldown.current   > 0) rollCooldown.current   -= delta;
-    if (rollTimer.current      > 0) rollTimer.current      -= delta;
+    // Countdown timers
+    if (shootCooldown.current > 0) shootCooldown.current  -= delta;
+    if (meleeCooldown.current > 0) meleeCooldown.current  -= delta;
+    if (rollCooldown.current  > 0) rollCooldown.current   -= delta;
+    if (rollTimer.current     > 0) rollTimer.current      -= delta;
 
     mixerRef.current?.update(delta);
 
+    // ── Yaw applied to root — camera inherits it via scene graph ─────────
+    rootRef.current.rotation.y = yaw.current;
+
+    // ── Camera pitch in LOCAL space (yaw already inherited from parent) ───
+    camera.rotation.x = pitch.current;
+    camera.rotation.y = 0;
+    camera.rotation.z = 0;
+
     // ── Movement ─────────────────────────────────────────────────────────
 
-    const sprint  = (keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !crouching.current;
-    const fwdVec  = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
-    const rgtVec  = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
+    // Forward/right vectors derived from YAW (not camera pitch)
+    const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+    const rgtVec = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
 
     const fwd   = !!(keys.current["KeyW"] || keys.current["ArrowUp"]);
     const bwd   = !!(keys.current["KeyS"] || keys.current["ArrowDown"]);
     const left  = !!(keys.current["KeyA"] || keys.current["ArrowLeft"]);
     const right = !!(keys.current["KeyD"] || keys.current["ArrowRight"]);
+    const sprint = (keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !crouching.current;
 
-    // During roll: override movement with roll direction
     if (rolling.current && rollTimer.current > 0) {
-      const rollMove = rollDir.current.clone().multiplyScalar(ROLL_SPEED * delta);
-      rootRef.current.position.add(rollMove);
-
-      // Visual tilt: dip the body group forward over roll arc
-      if (bodyRef.current) {
-        const t = 1 - rollTimer.current / ROLL_DURATION;
-        const tilt = Math.sin(t * Math.PI) * 0.9; // rises and falls
-        bodyRef.current.rotation.x = -tilt;
-      }
+      // Roll dash overrides normal movement
+      rootRef.current.position.addScaledVector(rollDir.current, ROLL_SPEED * delta);
     } else {
-      // Reset body tilt after roll
-      if (bodyRef.current && Math.abs(bodyRef.current.rotation.x) > 0.01) {
-        bodyRef.current.rotation.x *= 0.8;
-      }
-
       const canMove = !crouching.current && crouchPending.current === null;
       if (canMove) {
         const move = new THREE.Vector3();
@@ -391,16 +409,14 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
         if (right) move.add(rgtVec);
         if (move.lengthSq() > 0) {
           const speed = sprint ? RUN_SPEED : WALK_SPEED;
-          move.normalize().multiplyScalar(speed * delta);
-          rootRef.current.position.add(move);
+          rootRef.current.position.addScaledVector(move.normalize(), speed * delta);
         }
       }
     }
 
-    // ── Vertical physics ──────────────────────────────────────────────────
+    // ── Jump / gravity ────────────────────────────────────────────────────
 
-    const canJump = grounded.current && !crouching.current && !rolling.current;
-    if (keys.current["Space"] && canJump) {
+    if (keys.current["Space"] && grounded.current && !crouching.current && !rolling.current) {
       velY.current     = JUMP_FORCE;
       grounded.current = false;
     }
@@ -408,67 +424,57 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     rootRef.current.position.y += velY.current * delta;
     if (rootRef.current.position.y <= 0) {
       rootRef.current.position.y = 0;
-      velY.current = 0;
       if (!grounded.current) {
         grounded.current = true;
         transitionTo("jumpLand", 0.08);
         setTimeout(() => { if (grounded.current) transitionTo("idle", 0.2); }, 320);
       }
+      velY.current = 0;
     }
-    wasGrounded.current = grounded.current;
 
     // World bounds
-    const half = 49;
-    rootRef.current.position.x = Math.max(-half, Math.min(half, rootRef.current.position.x));
-    rootRef.current.position.z = Math.max(-half, Math.min(half, rootRef.current.position.z));
+    const HALF = 49;
+    rootRef.current.position.x = Math.max(-HALF, Math.min(HALF, rootRef.current.position.x));
+    rootRef.current.position.z = Math.max(-HALF, Math.min(HALF, rootRef.current.position.z));
 
     playerPosRef.current.copy(rootRef.current.position);
-    rootRef.current.rotation.y = yaw.current;
 
     // ── Animation state machine ───────────────────────────────────────────
 
-    const goingUp = velY.current > 0.5;
     const inp: MoveInput = {
       fwd, bwd, left, right, sprint,
       grounded: grounded.current,
       crouching: crouching.current,
-      jumping: goingUp,
+      jumping: velY.current > 0.5,
       rolling: rolling.current,
     };
-    const locked_ = ["standToKneel", "kneelToStand"] as AnimKey[];
-    if (!locked_.includes(curAnim.current)) {
+    const LOCKED: AnimKey[] = ["standToKneel", "kneelToStand"];
+    if (!LOCKED.includes(curAnim.current)) {
       transitionTo(resolveAnim(inp, curAnim.current));
     }
-
-    // ── Camera: directly attached to player (zero rubber-band) ───────────
-    //
-    // Algorithm:
-    //   1. Rotate shoulder offset by YAW ONLY — keeps camera behind player
-    //      regardless of pitch (no vertical swinging)
-    //   2. Camera position = playerPos + offset  (no lerp = no lag)
-    //   3. Camera rotation = set via YXZ Euler directly  (no lookAt fight)
-    //
-    _yawQ.setFromAxisAngle(_up, yaw.current);
-
-    _offset.set(SHOULDER_R, SHOULDER_U, SHOULDER_B);
-    _offset.applyQuaternion(_yawQ);
-
-    _camPos.copy(rootRef.current.position).add(_offset);
-    camera.position.copy(_camPos);
-
-    // Direct rotation — pitch + yaw, no lerp, no lookAt
-    _euler.set(pitch.current, yaw.current, 0, "YXZ");
-    camera.quaternion.setFromEuler(_euler);
   });
 
-  // ─── Render ──────────────────────────────────────────────────────────────
-
+  // ─── JSX ─────────────────────────────────────────────────────────────────
+  //
+  // rootRef is the player root:
+  //   • rotation.y = yaw  (set in useFrame)
+  //   • camera is added as a Three.js child in useEffect (not in JSX)
+  //
+  // The character model lives here with a flip wrapper.
+  // The FBX model's original +Z facing becomes -Z (player forward) via the
+  // rotation-y={Math.PI} wrapper — applied in JSX so the animation system
+  // can't override it (it only affects this wrapper's local transform, not
+  // the FBX internal root bone).
+  //
   return (
     <group ref={rootRef}>
-      <group ref={bodyRef}>
+      {/* Flip wrapper: corrects FBX +Z facing → player's -Z forward.
+          Applied to a parent group so animation clips cannot override it. */}
+      <group rotation-y={Math.PI}>
         {modelObj ? (
           <primitive object={modelObj} />
         ) : (
+          /* Placeholder capsule while model loads */
           <group>
             <mesh position={[0, 0.9, 0]} castShadow>
               <capsuleGeometry args={[0.35, 1.0, 4, 8]} />
