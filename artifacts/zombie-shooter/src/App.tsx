@@ -34,8 +34,8 @@ function App() {
           <p className="text-gray-400 mb-2 text-lg">Third Person Shooter</p>
           <div className="text-gray-500 text-sm mb-8 space-y-1">
             <p>WASD — Move &nbsp;·&nbsp; Shift — Sprint &nbsp;·&nbsp; Space — Jump</p>
-            <p>Mouse — Aim &nbsp;·&nbsp; LMB — Shoot &nbsp;·&nbsp; R — Reload</p>
-            <p>RMB — Melee &nbsp;·&nbsp; Ctrl — Roll (dodge) &nbsp;·&nbsp; Alt — Crouch</p>
+            <p>Mouse — Aim &nbsp;·&nbsp; LMB — Shoot / Attack &nbsp;·&nbsp; R — Reload</p>
+            <p>Q — Ranged ↔ Melee &nbsp;·&nbsp; Ctrl — Roll &nbsp;·&nbsp; Alt — Crouch</p>
           </div>
           <button
             onClick={handleStart}

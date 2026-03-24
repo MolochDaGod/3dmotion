@@ -300,7 +300,7 @@ export function HUD() {
   const {
     health, maxHealth, ammo, maxAmmo, score, kills,
     isReloading, wave, isInvincible,
-    camera, showCameraSettings,
+    camera, showCameraSettings, weaponMode,
   } = useGameStore();
 
   const healthPct   = (health / maxHealth) * 100;
@@ -347,28 +347,78 @@ export function HUD() {
           </div>
         </div>
 
-        {/* Ammo — bottom right */}
+        {/* Weapon mode + Ammo — bottom right */}
         <div className="absolute bottom-8 right-8 text-white text-right">
-          <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Ammo</div>
-          <div className="text-3xl font-mono font-bold">
-            {isReloading ? (
-              <span className="text-yellow-400 animate-pulse text-lg">RELOADING...</span>
-            ) : (
-              <>
-                <span className={ammo <= 3 ? "text-red-400" : "text-white"}>{ammo}</span>
-                <span className="text-gray-500 text-lg"> / {maxAmmo}</span>
-              </>
-            )}
+
+          {/* Weapon mode toggle badge */}
+          <div className="flex justify-end gap-2 mb-3 items-center">
+            <span style={{
+              fontSize: 9, letterSpacing: 2, color: "rgba(255,255,255,0.35)",
+              fontFamily: "monospace", textTransform: "uppercase",
+            }}>Q</span>
+            {/* Ranged pill */}
+            <div style={{
+              padding: "3px 10px", borderRadius: 4,
+              border: weaponMode === "ranged"
+                ? "1px solid rgba(100,180,255,0.9)"
+                : "1px solid rgba(255,255,255,0.15)",
+              background: weaponMode === "ranged" ? "rgba(40,110,200,0.55)" : "transparent",
+              color: weaponMode === "ranged" ? "#80cfff" : "rgba(255,255,255,0.25)",
+              fontSize: 11, letterSpacing: 1, fontFamily: "monospace",
+              transition: "all 0.25s",
+            }}>
+              RANGED
+            </div>
+            {/* Melee pill */}
+            <div style={{
+              padding: "3px 10px", borderRadius: 4,
+              border: weaponMode === "melee"
+                ? "1px solid rgba(255,150,60,0.9)"
+                : "1px solid rgba(255,255,255,0.15)",
+              background: weaponMode === "melee" ? "rgba(200,80,20,0.55)" : "transparent",
+              color: weaponMode === "melee" ? "#ffaa55" : "rgba(255,255,255,0.25)",
+              fontSize: 11, letterSpacing: 1, fontFamily: "monospace",
+              transition: "all 0.25s",
+            }}>
+              MELEE
+            </div>
           </div>
-          <div className="flex justify-end gap-1 mt-2">
-            {Array.from({ length: maxAmmo }).map((_, i) => (
-              <div
-                key={i}
-                className="w-1.5 h-4 rounded-sm transition-colors duration-100"
-                style={{ backgroundColor: i < ammo ? "#ffdd44" : "#333" }}
-              />
-            ))}
-          </div>
+
+          {/* Ammo — hidden in melee, replaced by attack hint */}
+          {weaponMode === "ranged" ? (
+            <>
+              <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Ammo</div>
+              <div className="text-3xl font-mono font-bold">
+                {isReloading ? (
+                  <span className="text-yellow-400 animate-pulse text-lg">RELOADING...</span>
+                ) : (
+                  <>
+                    <span className={ammo <= 3 ? "text-red-400" : "text-white"}>{ammo}</span>
+                    <span className="text-gray-500 text-lg"> / {maxAmmo}</span>
+                  </>
+                )}
+              </div>
+              <div className="flex justify-end gap-1 mt-2">
+                {Array.from({ length: maxAmmo }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-1.5 h-4 rounded-sm transition-colors duration-100"
+                    style={{ backgroundColor: i < ammo ? "#ffdd44" : "#333" }}
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Sword</div>
+              <div style={{ color: "#ffaa55", fontSize: 13, fontFamily: "monospace", letterSpacing: 1 }}>
+                LMB Attack &nbsp;·&nbsp; RMB Block
+              </div>
+              <div style={{ color: "rgba(255,170,85,0.5)", fontSize: 10, marginTop: 4, letterSpacing: 1 }}>
+                Rapid LMB = Combo
+              </div>
+            </>
+          )}
         </div>
 
         {/* Score — top right */}
@@ -387,7 +437,7 @@ export function HUD() {
           WASD move &nbsp;·&nbsp; Shift sprint &nbsp;·&nbsp; Space jump
           &nbsp;·&nbsp; <span className="text-white/40">Alt</span> crouch
           &nbsp;·&nbsp; <span className="text-white/40">Ctrl</span> roll
-          &nbsp;·&nbsp; <span className="text-white/40">RMB</span> melee
+          &nbsp;·&nbsp; <span className="text-white/40">Q</span> ranged↔melee
           &nbsp;·&nbsp; <span className="text-white/40">R</span> reload
         </div>
 

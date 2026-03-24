@@ -38,6 +38,10 @@ interface GameStore {
   camera:           CameraSettings;
   showCameraSettings: boolean;
 
+  // Weapon
+  weaponMode: "ranged" | "melee";
+  setWeaponMode: (m: "ranged" | "melee") => void;
+
   // Actions
   takeDamage: (amount: number) => void;
   heal:       (amount: number) => void;
@@ -74,6 +78,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   wave:          1,
   camera:        { ...DEFAULT_CAMERA },
   showCameraSettings: false,
+  weaponMode:    "ranged",
 
   takeDamage: (amount) => {
     if (get().isInvincible) return;
@@ -113,7 +118,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       health: 100, ammo: 15, score: 0, kills: 0,
       isReloading: false, isPaused: false, isInvincible: false, wave: 1,
       camera: { ...DEFAULT_CAMERA }, showCameraSettings: false,
+      weaponMode: "ranged" as const,
     }),
+
+  setWeaponMode:        (m) => set({ weaponMode: m }),
 
   setCameraMode:        (m) => set((s) => ({ camera: { ...s.camera, mode:        m } })),
   setCameraFOV:         (v) => set((s) => ({ camera: { ...s.camera, fov:         v } })),
