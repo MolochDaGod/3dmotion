@@ -319,6 +319,7 @@ export function HUD() {
     isReloading, wave, isInvincible,
     camera, showCameraSettings, showCharacterPanel,
     weaponMode, selectedSpell, spellCooldown,
+    isPaused,
   } = useGameStore();
 
   const selectedSpellDef = SPELLS.find((s) => s.id === selectedSpell);
@@ -347,10 +348,50 @@ export function HUD() {
       {showCharacterPanel && <CharacterPanel />}
       {showCameraSettings && !showCharacterPanel && <CameraSettingsPanel />}
 
+      {/* Pause / free-cursor overlay ─────────────────────────────────────── */}
+      {isPaused && !showCharacterPanel && !showCameraSettings && (
+        <div
+          style={{
+            position:        "fixed",
+            inset:           0,
+            display:         "flex",
+            flexDirection:   "column",
+            alignItems:      "center",
+            justifyContent:  "center",
+            background:      "rgba(0,0,0,0.55)",
+            backdropFilter:  "blur(6px)",
+            zIndex:          9999,
+            userSelect:      "none",
+          }}
+          onClick={() => document.body.requestPointerLock()}
+        >
+          <div style={{
+            fontFamily:    "monospace",
+            fontSize:      38,
+            fontWeight:    "bold",
+            color:         "#ffffff",
+            letterSpacing: 6,
+            textTransform: "uppercase",
+            textShadow:    "0 0 24px rgba(255,255,255,0.4)",
+            marginBottom:  16,
+          }}>
+            PAUSED
+          </div>
+          <div style={{
+            fontFamily:    "monospace",
+            fontSize:      13,
+            color:         "rgba(255,255,255,0.55)",
+            letterSpacing: 2,
+          }}>
+            Click anywhere or press <strong style={{ color: "#fff" }}>P</strong> to resume
+          </div>
+        </div>
+      )}
+
       <div className="fixed inset-0 pointer-events-none select-none">
 
-        {/* Crosshair */}
-        <Crosshair fps={isFPS} staff={isStaffMode} />
+        {/* Crosshair — hidden when paused */}
+        {!isPaused && <Crosshair fps={isFPS} staff={isStaffMode} />}
 
         {/* Camera mode badge */}
         <div style={{
@@ -574,6 +615,7 @@ export function HUD() {
           &nbsp;·&nbsp; <span className="text-white/40">R</span> spell select
           &nbsp;·&nbsp; <span className="text-white/40">F</span> cast spell
           &nbsp;·&nbsp; <span className="text-white/40">C</span> character
+          &nbsp;·&nbsp; <span className="text-white/40">P</span> pause
         </div>
 
         {/* Warnings */}

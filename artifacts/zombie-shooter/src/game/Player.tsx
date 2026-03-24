@@ -406,6 +406,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     selectedSpell, setShowSpellRadial,
     spellCooldown, tickSpellCooldown,
     addMagicProjectile,
+    setPaused,
   } = useGameStore();
 
   // ── Always-fresh damage / queue-done callbacks (updated every render) ─────
@@ -981,6 +982,15 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       else document.body.requestPointerLock();
     }
 
+    // P — toggle pointer lock (game ↔ free cursor / menu)
+    if (e.code === "KeyP") {
+      if (locked.current) {
+        document.exitPointerLock();
+      } else {
+        document.body.requestPointerLock();
+      }
+    }
+
     // F2 — camera mode toggle
     if (e.code === "F2") {
       const store = useGameStore.getState();
@@ -1032,7 +1042,10 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   ]);
 
   const handleKeyUp   = useCallback((e: KeyboardEvent) => { keys.current[e.code] = false; }, []);
-  const handlePLC     = useCallback(() => { locked.current = document.pointerLockElement === document.body; }, []);
+  const handlePLC = useCallback(() => {
+    locked.current = document.pointerLockElement === document.body;
+    setPaused(!locked.current);
+  }, [setPaused]);
   const handleCtxMenu = useCallback((e: MouseEvent) => e.preventDefault(), []);
 
   useEffect(() => {

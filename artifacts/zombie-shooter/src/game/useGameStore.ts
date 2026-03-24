@@ -170,7 +170,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   score:         0,
   kills:         0,
   isReloading:   false,
-  isPaused:      false,
+  isPaused:      true,   // starts paused so overlay shows on first load
   isInvincible:  false,
   wave:          1,
   camera:        { ...DEFAULT_CAMERA },
@@ -242,7 +242,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   reset: () =>
     set({
       health: 100, mana: 100, ammo: 15, score: 0, kills: 0,
-      isReloading: false, isPaused: false, isInvincible: false, wave: 1,
+      isReloading: false, isPaused: true, isInvincible: false, wave: 1,
       camera: { ...DEFAULT_CAMERA }, showCameraSettings: false,
       showCharacterPanel: false, weaponMode: "pistol",
       selectedSpell: "orb", showSpellRadial: false,
