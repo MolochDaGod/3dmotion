@@ -36,6 +36,7 @@ function App() {
             <p>WASD — Move &nbsp;·&nbsp; Shift — Sprint &nbsp;·&nbsp; Space — Jump</p>
             <p>Mouse — Aim &nbsp;·&nbsp; LMB — Shoot / Attack &nbsp;·&nbsp; R — Reload</p>
             <p>Q — Cycle Weapon (Pistol → Rifle → Sword → Axe → Staff) &nbsp;·&nbsp; Ctrl — Roll &nbsp;·&nbsp; C — Character</p>
+            <p>1 / 2 / 3 / 4 — Weapon Skills &nbsp;·&nbsp; P — Camera Mode &nbsp;·&nbsp; Alt — Crouch</p>
           </div>
           <button
             onClick={handleStart}

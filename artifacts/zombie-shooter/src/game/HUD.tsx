@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useGameStore, SPELLS, CAMERA_CYCLE, type CameraViewMode } from "./useGameStore";
+import { WEAPON_SKILLS } from "./SkillSystem";
 import { CharacterPanel } from "./CharacterPanel";
 
 // ─── CSS Crosshair ────────────────────────────────────────────────────────────
@@ -309,6 +310,30 @@ function CameraSettingsPanel() {
   );
 }
 
+// ─── Skill effect → emoji icon map ────────────────────────────────────────────
+const SKILL_ICONS: Record<string, string> = {
+  slash:    "⚔️",
+  spin:     "🌀",
+  thrust:   "🗡️",
+  charge:   "💨",
+  blast:    "💥",
+  nova:     "✨",
+  beam:     "🔦",
+  bolt:     "⚡",
+  arrow:    "🏹",
+  hail:     "🌧️",
+  storm:    "🌪️",
+  bash:     "🛡️",
+  buff:     "💚",
+  fire:     "🔥",
+  ice:      "❄️",
+  earth:    "🪨",
+  heal:     "💊",
+  burst:    "🌟",
+  wave:     "〰️",
+  cleave:   "🪓",
+};
+
 // ─── HUD ──────────────────────────────────────────────────────────────────────
 
 export function HUD() {
@@ -318,6 +343,7 @@ export function HUD() {
     isReloading, wave, isInvincible,
     camera, showCameraSettings, showCharacterPanel,
     weaponMode, selectedSpell, spellCooldown,
+    skillCooldowns,
     isPaused,
   } = useGameStore();
 
@@ -447,6 +473,102 @@ export function HUD() {
             {Math.ceil(mana)} / {maxMana}
           </div>
         </div>
+
+        {/* ── Skill Bar — bottom center ──────────────────────────────── */}
+        {(() => {
+          const skills = WEAPON_SKILLS[weaponMode] ?? [];
+          if (skills.length === 0) return null;
+          // Weapon accent colour (matches weapon cycle bar)
+          const WEAPON_ACCENTS: Record<string, string> = {
+            pistol: "#80cfff", rifle: "#aaffaa", sword: "#ffaa55",
+            axe: "#ff7777", staff: "#cc88ff", bow: "#aed67a", shield: "#c0c8d8",
+          };
+          const accent = WEAPON_ACCENTS[weaponMode] ?? "#ffffff";
+          return (
+            <div style={{
+              position: "absolute",
+              bottom: 24, left: "50%",
+              transform: "translateX(-50%)",
+              display: "flex", gap: 8,
+              alignItems: "flex-end",
+            }}>
+              {skills.map((sk, i) => {
+                const cd     = skillCooldowns[sk.id] ?? 0;
+                const maxCd  = sk.cooldown;
+                const pct    = maxCd > 0 ? Math.min(1, cd / maxCd) : 0;
+                const ready  = pct <= 0;
+                return (
+                  <div key={sk.id} style={{
+                    position: "relative",
+                    width: 58, height: 64,
+                    borderRadius: 7,
+                    border: `1.5px solid ${ready ? accent : "rgba(255,255,255,0.15)"}`,
+                    background: ready
+                      ? "rgba(0,0,0,0.55)"
+                      : "rgba(0,0,0,0.75)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                    boxShadow: ready ? `0 0 8px ${accent}55` : "none",
+                    transition: "box-shadow 0.2s",
+                  }}>
+                    {/* Cooldown fill overlay (sweeps bottom-to-top) */}
+                    {pct > 0 && (
+                      <div style={{
+                        position: "absolute", bottom: 0, left: 0, right: 0,
+                        height: `${Math.round(pct * 100)}%`,
+                        background: "rgba(0,0,0,0.52)",
+                        pointerEvents: "none",
+                        transition: "height 0.1s linear",
+                      }} />
+                    )}
+
+                    {/* Hotkey badge */}
+                    <div style={{
+                      position: "absolute", top: 3, right: 5,
+                      fontSize: 9, fontFamily: "monospace",
+                      color: ready ? accent : "rgba(255,255,255,0.25)",
+                      fontWeight: "bold", letterSpacing: 1,
+                    }}>{i + 1}</div>
+
+                    {/* Skill icon — first word short */}
+                    <div style={{
+                      fontSize: 18, lineHeight: 1,
+                      filter: ready ? "none" : "grayscale(0.7) opacity(0.5)",
+                    }}>
+                      {SKILL_ICONS[sk.effect] ?? "✦"}
+                    </div>
+
+                    {/* Skill name */}
+                    <div style={{
+                      fontSize: 7.5, textAlign: "center",
+                      color: ready ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.3)",
+                      fontFamily: "monospace", letterSpacing: 0.5,
+                      marginTop: 3, padding: "0 2px",
+                      maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis",
+                      whiteSpace: "nowrap", lineHeight: 1.2,
+                    }}>
+                      {sk.name.toUpperCase()}
+                    </div>
+
+                    {/* Cooldown seconds remaining */}
+                    {pct > 0 && (
+                      <div style={{
+                        position: "absolute", bottom: 3,
+                        fontSize: 9, fontFamily: "monospace",
+                        color: "rgba(255,200,100,0.9)", fontWeight: "bold",
+                      }}>
+                        {cd.toFixed(1)}s
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Weapon mode + Ammo — bottom right */}
         <div className="absolute bottom-8 right-8 text-white text-right">

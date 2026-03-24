@@ -13,6 +13,19 @@ import { MagicSystem } from "./MagicProjectile";
 import { SpellRadial } from "./SpellRadial";
 import { useGameStore, MagicProjectileState } from "./useGameStore";
 
+// ─── Skill hit payload ────────────────────────────────────────────────────────
+// Player resolves who got hit (via Rapier shape cast or geometry) then calls
+// onSkillHit with either a list of zombie IDs (shape-based) or a ray origin+dir
+// (for ranged skills). Game.tsx applies damage in both cases.
+export interface SkillHitPayload {
+  zombieIds?: string[];                     // shape-cast result
+  origin?:    THREE.Vector3;                // ray-based: start point
+  dir?:       THREE.Vector3;                // ray-based: direction
+  damage:     number;
+  range:      number;
+  arcDeg:     number;
+}
+
 interface GameProps {
   onGameOver: (score: number) => void;
 }
@@ -52,6 +65,7 @@ function SceneContent({
   playerPosRef,
   onShoot,
   onMelee,
+  onSkillHit,
   onBulletExpire,
   onZombieDied,
   onDamagePlayer,
@@ -61,12 +75,13 @@ function SceneContent({
   zombies: ZombieData[];
   bullets: BulletData[];
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
-  onShoot: (pos: THREE.Vector3, dir: THREE.Vector3) => void;
-  onMelee: (pos: THREE.Vector3, dir: THREE.Vector3) => void;
+  onShoot:      (pos: THREE.Vector3, dir: THREE.Vector3) => void;
+  onMelee:      (pos: THREE.Vector3, dir: THREE.Vector3) => void;
+  onSkillHit:   (payload: SkillHitPayload) => void;
   onBulletExpire: (id: string) => void;
-  onZombieDied: (id: string) => void;
+  onZombieDied:   (id: string) => void;
   onDamagePlayer: (amount: number) => void;
-  onPlayerDead: () => void;
+  onPlayerDead:   () => void;
   onMagicHit: (id: string, pos: THREE.Vector3, spell: MagicProjectileState["spell"]) => void;
 }) {
   return (
@@ -88,28 +103,31 @@ function SceneContent({
       />
       <pointLight position={[0, 8, 0]} intensity={0.3} color="#ffaa44" />
 
+      {/* ── All physics bodies — player, map, AND zombie sensors ── */}
       <Physics gravity={[0, -22, 0]} timeStep="vary">
         <Map />
         <Player
           onShoot={onShoot}
           onMelee={onMelee}
+          onSkillHit={onSkillHit}
           onDead={onPlayerDead}
           playerPosRef={playerPosRef}
         />
+
+        {/* Zombies inside Physics so their Rapier sensor bodies are registered */}
+        {zombies.map((z) => (
+          <Zombie
+            key={z.id}
+            data={z}
+            playerPosition={playerPosRef}
+            onDamagePlayer={onDamagePlayer}
+            onDied={onZombieDied}
+          />
+        ))}
       </Physics>
 
       {bullets.map((b) => (
         <Bullet key={b.id} data={b} onExpire={onBulletExpire} />
-      ))}
-
-      {zombies.map((z) => (
-        <Zombie
-          key={z.id}
-          data={z}
-          playerPosition={playerPosRef}
-          onDamagePlayer={onDamagePlayer}
-          onDied={onZombieDied}
-        />
       ))}
 
       {/* Magic projectile VFX — lives outside Physics since projectiles fly freely */}
@@ -231,6 +249,52 @@ export default function Game({ onGameOver }: GameProps) {
     }
   }, [addKill, addScore, removeMagicProjectile]);
 
+  // ── Skill hit — called by Player after Rapier shape cast or ray check ─────────
+  const handleSkillHit = useCallback((payload: SkillHitPayload) => {
+    const { damage, range, arcDeg } = payload;
+    const halfArcRad = (arcDeg / 2) * (Math.PI / 180);
+
+    let killsScored = 0;
+    let scoreGained = 0;
+
+    setZombies((prev) => prev.map((z) => {
+      if (z.isDead) return z;
+
+      let hit = false;
+
+      if (payload.zombieIds) {
+        // Shape-cast path: Player already resolved IDs via Rapier
+        hit = payload.zombieIds.includes(z.id);
+      } else if (payload.origin && payload.dir) {
+        // Ray path: re-run geometry check (ranged skills, multi-ray)
+        const zCenter = z.position.clone().add(new THREE.Vector3(0, 1, 0));
+        const toZ     = zCenter.sub(payload.origin);
+        const dist    = toZ.length();
+        if (dist <= range) {
+          const dot = payload.dir.clone().normalize().dot(toZ.clone().normalize());
+          hit = dot >= Math.cos(halfArcRad);
+        }
+      }
+
+      if (!hit) return z;
+
+      const newHealth = z.health - damage;
+      if (newHealth <= 0) {
+        killsScored += 1;
+        scoreGained += 80 + waveRef.current * 40;
+        return { ...z, health: 0, isDead: true };
+      }
+      return { ...z, health: newHealth };
+    }));
+
+    if (killsScored > 0) {
+      setTimeout(() => {
+        for (let i = 0; i < killsScored; i++) addKill();
+        addScore(scoreGained);
+      }, 0);
+    }
+  }, [addKill, addScore]);
+
   const handleBulletExpire  = useCallback((id: string) => setBullets((p) => p.filter((b) => b.id !== id)), []);
   const handleZombieDied    = useCallback((id: string) => setZombies((p) => p.filter((z) => z.id !== id)), []);
   const handleDamagePlayer  = useCallback((amount: number) => takeDamage(amount), [takeDamage]);
@@ -264,6 +328,7 @@ export default function Game({ onGameOver }: GameProps) {
           playerPosRef={playerPosRef}
           onShoot={handleShoot}
           onMelee={handleMelee}
+          onSkillHit={handleSkillHit}
           onBulletExpire={handleBulletExpire}
           onZombieDied={handleZombieDied}
           onDamagePlayer={handleDamagePlayer}

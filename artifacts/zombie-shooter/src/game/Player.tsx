@@ -4,6 +4,9 @@ import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { RigidBody, CapsuleCollider, useRapier } from "@react-three/rapier";
 import { useGameStore, WeaponMode, WEAPON_CYCLE, SPELLS } from "./useGameStore";
+import { WEAPON_SKILLS, type SkillDef } from "./SkillSystem";
+import { SkillEffects, type SkillEffectsHandle } from "./SkillEffects";
+import type { SkillHitPayload } from "./Game";
 
 // ─── Capsule ──────────────────────────────────────────────────────────────────
 const CAPSULE_HH = 0.5;
@@ -432,15 +435,16 @@ type QueueSlot = {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface PlayerProps {
-  onShoot: (origin: THREE.Vector3, direction: THREE.Vector3) => void;
-  onMelee: (origin: THREE.Vector3, direction: THREE.Vector3) => void;
-  onDead:  () => void;
+  onShoot:     (origin: THREE.Vector3, direction: THREE.Vector3) => void;
+  onMelee:     (origin: THREE.Vector3, direction: THREE.Vector3) => void;
+  onSkillHit:  (payload: SkillHitPayload) => void;
+  onDead:      () => void;
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
 }
 
 // ─── Player ───────────────────────────────────────────────────────────────────
 
-export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) {
+export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: PlayerProps) {
   // ── Scene refs ────────────────────────────────────────────────────────────
   const rootRef       = useRef<THREE.Group>(null!);
   const modelGroupRef       = useRef<THREE.Group>(null!);
@@ -525,8 +529,14 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const ssBlocking   = useRef(false);   // RMB held while in shield mode
   const ssAttackPhase = useRef(0);      // cycles ssAttack1-4
 
+  // ── Skill system refs ─────────────────────────────────────────────────────
+  const effectsRef         = useRef<SkillEffectsHandle>(null!);
+  const skillCooldownsRef  = useRef<Record<string, number>>({});
+  // Always-fresh skill executor — updated every render like fireDamageRef
+  const executeSkillRef    = useRef<((slotIdx: number) => void) | null>(null);
+
   const { camera, scene } = useThree();
-  const { world }         = useRapier();
+  const { world, rapier } = useRapier() as any;
   const charCtrl          = useRef<any>(null);
 
   const {
@@ -534,11 +544,12 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     setInvincible, camera: camSettings,
     setCameraMode, cycleCameraMode, setShowCameraSettings,
     cycleWeapon,
-    useMana, regenMana, toggleCharacterPanel,
+    useMana, regenMana, heal, toggleCharacterPanel,
     selectedSpell, setShowSpellRadial,
     spellCooldown, tickSpellCooldown,
     addMagicProjectile,
     setPaused,
+    setSkillCooldown, tickSkillCooldowns,
   } = useGameStore();
 
   // ── Always-fresh damage / queue-done callbacks (updated every render) ─────
@@ -602,6 +613,151 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       curAnim.current = key;
     }
   }
+
+  // ── Always-fresh skill executor ───────────────────────────────────────────
+  // Rapier shape-cast helper (inline so it closes over world/rapier/refs).
+  // Called at dmgDelayMs for capsule/sphere shapes; ray skills call onSkillHit
+  // with origin+dir so Game.tsx runs its own ray geometry check.
+  executeSkillRef.current = (slotIdx: number) => {
+    const wm     = useGameStore.getState().weaponMode;
+    const skills = WEAPON_SKILLS[wm];
+    if (!skills) return;
+    const skill: SkillDef = skills[slotIdx];
+    if (!skill) return;
+
+    // ── Cooldown check (local ref — no store read) ───────────────────────
+    if ((skillCooldownsRef.current[skill.id] ?? 0) > 0) return;
+
+    // ── Mana check ───────────────────────────────────────────────────────
+    if (skill.manaCost > 0 && !useMana(skill.manaCost)) return;
+
+    // ── Set cooldown immediately ─────────────────────────────────────────
+    skillCooldownsRef.current[skill.id] = skill.cooldown;
+    setSkillCooldown(skill.id, skill.cooldown); // sync to store for HUD
+
+    // ── Buff skill (Rally — no hit, just heal) ───────────────────────────
+    if (skill.effect === "buff") {
+      heal(30);
+      if (!blockingOnce.current) {
+        _rawPlay(skill.animation as AnimKey, FADE_ATK_START, skill.timeScale);
+        blockingOnce.current = true;
+      }
+      // Spawn heal ring
+      const pp = playerPosRef.current;
+      effectsRef.current?.spawnRing(
+        new THREE.Vector3(pp.x, 0.1, pp.z),
+        skill.effectColor, skill.effectRadius, 0.7,
+      );
+      return;
+    }
+
+    // ── Play animation ───────────────────────────────────────────────────
+    const animKey = skill.animation as AnimKey;
+    if (!blockingOnce.current) {
+      _rawPlay(animKey, FADE_ATK_START, skill.timeScale);
+      if (BLOCKING_ONCE.has(animKey)) blockingOnce.current = true;
+    } else {
+      // Queue it for after current blocking anim
+      if (BLOCKING_ONCE.has(animKey)) {
+        animQueue.current = { key: animKey, fade: FADE_ATK_CHAIN };
+      }
+    }
+
+    // ── Schedule damage tick(s) ──────────────────────────────────────────
+    const hitCount = Math.max(1, skill.hitCount);
+    const interval = hitCount > 1 ? Math.max(80, Math.floor(skill.dmgDelayMs / hitCount)) : 0;
+
+    for (let h = 0; h < hitCount; h++) {
+      const delay = skill.dmgDelayMs + h * interval;
+      setTimeout(() => {
+        const ppos = playerPosRef.current;
+        const fwd  = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+
+        if (skill.hitShape === "ray") {
+          // Ranged — pass origin+dir to Game for ray geometry check
+          const origin = ppos.clone().add(new THREE.Vector3(0, 1.1, 0));
+          onSkillHit({ origin, dir: fwd, damage: skill.damage, range: skill.range, arcDeg: skill.arcDeg });
+
+        } else {
+          // Shape-based — use Rapier intersectionsWithShape
+          const ids: string[] = [];
+          const rotId = { x: 0, y: 0, z: 0, w: 1 };
+          let shapePos: { x: number; y: number; z: number } = { x: ppos.x, y: ppos.y + 1.0, z: ppos.z };
+
+          try {
+            let shape: any;
+            if (skill.hitShape === "capsule") {
+              const halfH = Math.max(0.4, skill.range * 0.45);
+              shape    = new rapier.Capsule(halfH, 0.9);
+              shapePos = { x: ppos.x + fwd.x * skill.range * 0.5, y: ppos.y + 1.0, z: ppos.z + fwd.z * skill.range * 0.5 };
+            } else {
+              // sphere
+              shape    = new rapier.Ball(skill.range);
+              shapePos = { x: ppos.x, y: ppos.y + 1.0, z: ppos.z };
+            }
+
+            // intersectionsWithShape — callback returns true to continue search
+            (world as any).intersectionsWithShape(
+              shapePos, rotId, shape,
+              (collider: any) => {
+                const rb = collider.parent?.();
+                const ud = rb?.userData as { zombieId?: string } | undefined;
+                if (ud?.zombieId) {
+                  // Arc filter for non-360° skills
+                  if (skill.arcDeg < 360) {
+                    const rbT = rb.translation?.();
+                    if (rbT) {
+                      const toZ = new THREE.Vector3(rbT.x - ppos.x, 0, rbT.z - ppos.z);
+                      if (toZ.lengthSq() > 0.001) {
+                        const dot = fwd.dot(toZ.normalize());
+                        if (dot < Math.cos((skill.arcDeg / 2) * (Math.PI / 180))) return true;
+                      }
+                    }
+                  }
+                  ids.push(ud.zombieId);
+                }
+                return true; // keep searching
+              }
+            );
+          } catch (err) {
+            // Rapier API mismatch — fall back to radius-only geometry check
+            // (Game.tsx will re-check via the zombieIds path, which is empty, so no dmg)
+            console.warn("[skill] Rapier shape cast failed, falling back:", err);
+          }
+
+          if (ids.length > 0) {
+            onSkillHit({ zombieIds: ids, damage: skill.damage, range: skill.range, arcDeg: skill.arcDeg });
+          }
+
+          // Spawn ground-plane effect
+          const ep = shapePos ?? { x: ppos.x, y: 0, z: ppos.z };
+          if (skill.hitShape === "sphere" || skill.arcDeg >= 180) {
+            effectsRef.current?.spawnBurst(
+              new THREE.Vector3(ep.x, 0.08, ep.z),
+              skill.effectColor, skill.effectRadius,
+            );
+            effectsRef.current?.spawnSpark(
+              new THREE.Vector3(ep.x, 0.1, ep.z),
+              skill.effectColor, skill.effectRadius * 0.6, 6,
+            );
+          } else {
+            effectsRef.current?.spawnRing(
+              new THREE.Vector3(ep.x, 0.08, ep.z),
+              skill.effectColor, skill.effectRadius,
+            );
+          }
+        }
+
+        // Ray-skill ground flash (always)
+        if (skill.hitShape === "ray") {
+          effectsRef.current?.spawnBurst(
+            new THREE.Vector3(ppos.x, 0.08, ppos.z),
+            skill.effectColor, 1.2 + skill.effectRadius * 0.2, 0.3,
+          );
+        }
+      }, delay);
+    }
+  };
 
   // ── Always-fresh dodge trigger ─────────────────────────────────────────────
   // Updated every render so the closure always sees the current refs/_rawPlay.
@@ -1217,6 +1373,12 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       crouching.current ? endCrouch() : startCrouch();
     }
 
+    // ── Skill hotkeys 1-4 ─────────────────────────────────────────────────
+    if (e.code === "Digit1") { e.preventDefault(); executeSkillRef.current?.(0); }
+    if (e.code === "Digit2") { e.preventDefault(); executeSkillRef.current?.(1); }
+    if (e.code === "Digit3") { e.preventDefault(); executeSkillRef.current?.(2); }
+    if (e.code === "Digit4") { e.preventDefault(); executeSkillRef.current?.(3); }
+
     // ── Double-tap W/A/S/D → directional dodge ────────────────────────────
     // If the same direction key is pressed twice within DOUBLE_TAP_MS, fire a
     // quick dodge in that direction.  The roll-cooldown prevents spam.
@@ -1314,6 +1476,12 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     if (rollCooldown.current  > 0) rollCooldown.current  -= delta;
     if (comboWindow.current   > 0) comboWindow.current   -= delta;
     tickSpellCooldown(delta);
+
+    // ── Skill cooldown tick (local ref + store for HUD) ──────────────────
+    tickSkillCooldowns(delta);
+    for (const id of Object.keys(skillCooldownsRef.current)) {
+      skillCooldownsRef.current[id] = Math.max(0, skillCooldownsRef.current[id] - delta);
+    }
 
     // Staff mana regen
     if (useGameStore.getState().weaponMode === "staff") {
@@ -1504,6 +1672,9 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
 
   return (
     <>
+      {/* ── Skill visual effects (3-D rings, bursts, sparks) ─────────── */}
+      <SkillEffects ref={effectsRef} />
+
       <RigidBody
         ref={playerRBRef}
         type="kinematicPosition"

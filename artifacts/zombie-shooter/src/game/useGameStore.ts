@@ -165,6 +165,11 @@ interface GameStore {
   // Character panel
   setShowCharacterPanel:(v: boolean) => void;
   toggleCharacterPanel: () => void;
+
+  // Skill cooldowns (keyed by skill id)
+  skillCooldowns:     Record<string, number>;
+  setSkillCooldown:   (id: string, cd: number) => void;
+  tickSkillCooldowns: (dt: number) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -184,6 +189,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   showCameraSettings:  false,
   showCharacterPanel:  false,
   weaponMode:    "pistol",
+
+  // Skill cooldowns
+  skillCooldowns: {},
 
   // Spell defaults
   selectedSpell:    "orb",
@@ -281,4 +289,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setShowCharacterPanel:(v) => set({ showCharacterPanel: v }),
   toggleCharacterPanel: ()  => set((s) => ({ showCharacterPanel: !s.showCharacterPanel })),
+
+  setSkillCooldown: (id, cd) => set((s) => ({
+    skillCooldowns: { ...s.skillCooldowns, [id]: cd },
+  })),
+  tickSkillCooldowns: (dt) => set((s) => {
+    const next: Record<string, number> = {};
+    let changed = false;
+    for (const [id, cd] of Object.entries(s.skillCooldowns)) {
+      const v = Math.max(0, cd - dt);
+      next[id] = v;
+      if (v !== cd) changed = true;
+    }
+    return changed ? { skillCooldowns: next } : s;
+  }),
 }));

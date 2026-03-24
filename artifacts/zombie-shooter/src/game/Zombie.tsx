@@ -2,6 +2,7 @@ import { useRef, useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations, useTexture } from "@react-three/drei";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { RigidBody, BallCollider } from "@react-three/rapier";
 import * as THREE from "three";
 
 useGLTF.preload("/models/mutant.gltf");
@@ -39,6 +40,8 @@ const ONCE_ANIMS = new Set([
 
 export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieProps) {
   const groupRef = useRef<THREE.Group>(null!);
+  // Rapier kinematic sensor body — used for weapon shape-cast hit detection
+  const rbRef    = useRef<any>(null);
 
   const { scene, animations } = useGLTF("/models/mutant.gltf");
   const texture = useTexture("/models/mutant.jpg");
@@ -71,6 +74,13 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
   const deadTimerRef    = useRef(0);
   const prevHealthRef   = useRef(data.health);
   const tmpDir          = useRef(new THREE.Vector3());
+
+  // ── Sync Rapier sensor userData after mount ──────────────────────────────
+  useEffect(() => {
+    if (rbRef.current) {
+      rbRef.current.userData = { zombieId: data.id };
+    }
+  }, [data.id]);
 
   function fadeToAction(name: string, fadeIn = 0.18) {
     const action = actions[name];
@@ -151,6 +161,8 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
 
     if (dist > DETECTOR_RADIUS) {
       if (st !== "idle") transitionTo("idle");
+      // Still sync sensor to current position
+      rbRef.current?.setNextKinematicTranslation({ x: pos.x, y: pos.y + 1.0, z: pos.z });
       return;
     }
 
@@ -177,30 +189,50 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
         data.position.copy(pos);
       }
     }
+
+    // ── Sync Rapier kinematic sensor to zombie world position ──────────────
+    // The sensor sits at chest height (y+1) so weapon sweeps at that level hit it.
+    rbRef.current?.setNextKinematicTranslation({ x: pos.x, y: pos.y + 1.0, z: pos.z });
   });
 
   const healthPct = Math.max(0, data.health / data.maxHealth);
 
   return (
-    <group ref={groupRef}>
-      <primitive object={clone} />
-
+    <>
+      {/* ── Rapier kinematic sensor — used only for skill hit detection ── */}
       {!data.isDead && (
-        <group position={[0, 2.6, 0]}>
-          <mesh>
-            <planeGeometry args={[0.9, 0.08]} />
-            <meshBasicMaterial color="#222" side={THREE.DoubleSide} depthTest={false} />
-          </mesh>
-          <mesh position={[-(0.45 - healthPct * 0.45), 0, 0.01]}>
-            <planeGeometry args={[0.9 * healthPct, 0.08]} />
-            <meshBasicMaterial
-              color={healthPct > 0.5 ? "#4caf50" : healthPct > 0.25 ? "#ff9800" : "#f44336"}
-              side={THREE.DoubleSide}
-              depthTest={false}
-            />
-          </mesh>
-        </group>
+        <RigidBody
+          ref={rbRef}
+          type="kinematicPosition"
+          colliders={false}
+          position={[data.position.x, data.position.y + 1.0, data.position.z]}
+          userData={{ zombieId: data.id }}
+        >
+          <BallCollider args={[1.2]} sensor />
+        </RigidBody>
       )}
-    </group>
+
+      {/* ── Animated zombie mesh ─────────────────────────────────────────── */}
+      <group ref={groupRef}>
+        <primitive object={clone} />
+
+        {!data.isDead && (
+          <group position={[0, 2.6, 0]}>
+            <mesh>
+              <planeGeometry args={[0.9, 0.08]} />
+              <meshBasicMaterial color="#222" side={THREE.DoubleSide} depthTest={false} />
+            </mesh>
+            <mesh position={[-(0.45 - healthPct * 0.45), 0, 0.01]}>
+              <planeGeometry args={[0.9 * healthPct, 0.08]} />
+              <meshBasicMaterial
+                color={healthPct > 0.5 ? "#4caf50" : healthPct > 0.25 ? "#ff9800" : "#f44336"}
+                side={THREE.DoubleSide}
+                depthTest={false}
+              />
+            </mesh>
+          </group>
+        )}
+      </group>
+    </>
   );
 }
