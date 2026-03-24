@@ -331,12 +331,14 @@ export function HUD() {
     { id: "axe",    label: "AXE",     color: "#ff7777", border: "rgba(255,80,80,0.9)",   bg: "rgba(180,20,20,0.55)"  },
     { id: "staff",  label: "STAFF",   color: "#cc88ff", border: "rgba(180,100,255,0.9)", bg: "rgba(100,20,200,0.55)" },
     { id: "bow",    label: "BOW",     color: "#aed67a", border: "rgba(140,210,80,0.9)",  bg: "rgba(60,130,20,0.55)"  },
+    { id: "shield", label: "SHIELD",  color: "#c0c8d8", border: "rgba(180,200,230,0.9)", bg: "rgba(60,80,120,0.55)"  },
   ] as const;
 
-  const isMeleeMode = weaponMode === "sword" || weaponMode === "axe";
-  const isRifleMode = weaponMode === "rifle";
-  const isStaffMode = weaponMode === "staff";
-  const isBowMode   = weaponMode === "bow";
+  const isMeleeMode  = weaponMode === "sword" || weaponMode === "axe";
+  const isRifleMode  = weaponMode === "rifle";
+  const isStaffMode  = weaponMode === "staff";
+  const isBowMode    = weaponMode === "bow";
+  const isShieldMode = weaponMode === "shield";
 
   const healthPct   = (health / maxHealth) * 100;
   const healthColor = healthPct > 60 ? "#4caf50" : healthPct > 30 ? "#ff9800" : "#f44336";
@@ -474,7 +476,20 @@ export function HUD() {
           </div>
 
           {/* Per-weapon info panel */}
-          {isBowMode ? (
+          {isShieldMode ? (
+            <>
+              <div className="text-xs font-bold uppercase tracking-widest mb-1"
+                style={{ color: "#c0c8d8" }}>
+                Sword &amp; Shield
+              </div>
+              <div style={{ color: "#c0c8d8", fontSize: 13, fontFamily: "monospace", letterSpacing: 1 }}>
+                LMB Attack &nbsp;·&nbsp; RMB Block
+              </div>
+              <div style={{ color: "rgba(192,200,216,0.45)", fontSize: 10, marginTop: 4, letterSpacing: 1 }}>
+                4-hit combo · Hold RMB to raise shield
+              </div>
+            </>
+          ) : isBowMode ? (
             <>
               <div className="text-xs font-bold uppercase tracking-widest mb-1"
                 style={{ color: "#aed67a" }}>

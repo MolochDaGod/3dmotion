@@ -35,6 +35,11 @@ const WEAPON_INFO: Record<string, {
     lmbLabel: "LMB — Draw & Fire", lmbDesc: "Nock and loose an arrow (~900ms cycle)",
     rmbLabel: "RMB — Aim",        rmbDesc: "Hold to enter aim-walk stance",
   },
+  shield: {
+    icon: "🛡️", name: "Sword & Shield", color: "#c0c8d8",
+    lmbLabel: "LMB — Attack",      lmbDesc: "4-hit rotating combo (ssAttack1–4)",
+    rmbLabel: "RMB — Block",       rmbDesc: "Hold to raise shield (ssBlockIdle stance)",
+  },
 };
 
 export function CharacterPanel() {

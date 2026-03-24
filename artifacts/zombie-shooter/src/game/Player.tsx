@@ -34,6 +34,7 @@ const SHOOT_CD: Record<WeaponMode, number> = {
   axe:    0,
   staff:  0,
   bow:    0,    // bow cooldown is managed directly in handleMouseDown (0.9 s per arrow)
+  shield: 0.45, // per-swing cooldown (4 attacks have their own blocking once)
 };
 
 // ─── Melee timings ────────────────────────────────────────────────────────────
@@ -60,6 +61,9 @@ const RIFLE_ROT  = new THREE.Euler(Math.PI / 2, 0, 0);
 // Bow is held in LEFT hand — left hand bone +X also points fingertip-ward but
 // inverted relative to body. π/2 on X + π on Y gives a reasonable bow pose.
 const BOW_ROT    = new THREE.Euler(Math.PI / 2, Math.PI, 0);
+// Shield also goes on the LEFT hand.  Face the shield outward from the body:
+// tilt back (-π/4 on X) so it faces forward and slightly rotate on Y.
+const SHIELD_ROT = new THREE.Euler(-Math.PI / 4, Math.PI / 2, 0);
 
 // ─── Staff mana costs ─────────────────────────────────────────────────────────
 const STAFF_CAST1_COST = 20;
@@ -117,7 +121,15 @@ type BowKey =
 type DodgeKey =
   | "dodgeFwd" | "dodgeBwd" | "dodgeL" | "dodgeR";
 
-type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey;
+// ── Sword + Shield set ────────────────────────────────────────────────────────
+type SwordShieldKey =
+  | "ssIdle" | "ssRunFwd" | "ssRunBwd"
+  | "ssStrafeL" | "ssStrafeR"
+  | "ssBlockIdle" | "ssBlock" | "ssBlockHit"
+  | "ssAttack1" | "ssAttack2" | "ssAttack3" | "ssAttack4"
+  | "ssDrawSword";
+
+type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey | SwordShieldKey;
 
 // ─── Load queues ──────────────────────────────────────────────────────────────
 
@@ -206,6 +218,27 @@ const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "bowAimStrafeR",  file: "/models/bowAimStrafeR.fbx" },
 ];
 
+// ── Sword + Shield load queue ─────────────────────────────────────────────────
+// Locomotion layer (looping):
+//   ssIdle · ssRunFwd/Bwd · ssStrafeL/R · ssBlockIdle (RMB held)
+// Action layer (ONCE / BLOCKING_ONCE):
+//   ssAttack1-4 (LMB combo) · ssBlock/BlockHit (shield impact) · ssDrawSword
+const SS_QUEUE: Array<{ key: AnimKey; file: string }> = [
+  { key: "ssIdle",       file: "/models/ssIdle.fbx" },
+  { key: "ssRunFwd",     file: "/models/ssRunFwd.fbx" },
+  { key: "ssRunBwd",     file: "/models/ssRunBwd.fbx" },
+  { key: "ssStrafeL",    file: "/models/ssStrafeL.fbx" },
+  { key: "ssStrafeR",    file: "/models/ssStrafeR.fbx" },
+  { key: "ssBlockIdle",  file: "/models/ssBlockIdle.fbx" },
+  { key: "ssBlock",      file: "/models/ssBlock.fbx" },
+  { key: "ssBlockHit",   file: "/models/ssBlockHit.fbx" },
+  { key: "ssAttack1",    file: "/models/ssAttack1.fbx" },
+  { key: "ssAttack2",    file: "/models/ssAttack2.fbx" },
+  { key: "ssAttack3",    file: "/models/ssAttack3.fbx" },
+  { key: "ssAttack4",    file: "/models/ssAttack4.fbx" },
+  { key: "ssDrawSword",  file: "/models/ssDrawSword.fbx" },
+];
+
 // ─── LoopOnce animations (non-looping) ────────────────────────────────────────
 // These clamp at last frame. Attacks are a subset: BLOCKING_ONCE.
 // ── LAYER 1: "base layer" — locomotion animations (idle/walk/run/crouch/jump).
@@ -223,6 +256,9 @@ const ONCE_ANIMS = new Set<AnimKey>([
   "rifleFire",
   "staffCast1","staffCast2",
   "bowDraw","bowFire",
+  // sword + shield actions
+  "ssAttack1","ssAttack2","ssAttack3","ssAttack4",
+  "ssBlock","ssBlockHit","ssDrawSword",
   // directional dodges (play once, then snap back to locomotion)
   "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
 ]);
@@ -234,15 +270,18 @@ const BLOCKING_ONCE = new Set<AnimKey>([
   "staffCast1","staffCast2",
   "rifleFire",
   "bowDraw","bowFire",
+  "ssAttack1","ssAttack2","ssAttack3","ssAttack4",
+  "ssBlock","ssBlockHit",
   "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
 ]);
 
 // ─── Idle for each weapon mode ────────────────────────────────────────────────
 function idleForMode(wm: WeaponMode): AnimKey {
   if (wm === "sword" || wm === "axe") return "meleeIdle";
-  if (wm === "rifle") return "rifleIdle";
-  if (wm === "staff") return "staffIdle";
-  if (wm === "bow")   return "bowIdle";
+  if (wm === "rifle")  return "rifleIdle";
+  if (wm === "staff")  return "staffIdle";
+  if (wm === "bow")    return "bowIdle";
+  if (wm === "shield") return "ssIdle";
   return "pistolIdle";
 }
 
@@ -251,14 +290,16 @@ function resolveAnim(
   wm: WeaponMode,
   fwd: boolean, bwd: boolean, left: boolean, right: boolean,
   sprint: boolean, grounded: boolean, crouching: boolean,
-  aiming: boolean,
+  aiming: boolean,   // bow RMB aim
+  blocking: boolean, // shield RMB block
 ): AnimKey {
 
-  const isMelee = wm === "sword" || wm === "axe";
-  const isRifle = wm === "rifle";
-  const isStaff = wm === "staff";
-  const isBow   = wm === "bow";
-  const moving  = fwd || bwd || left || right;
+  const isMelee  = wm === "sword" || wm === "axe";
+  const isRifle  = wm === "rifle";
+  const isStaff  = wm === "staff";
+  const isBow    = wm === "bow";
+  const isShield = wm === "shield";
+  const moving   = fwd || bwd || left || right;
 
   if (!grounded) {
     if (isStaff)  return "staffJump";
@@ -348,6 +389,19 @@ function resolveAnim(
     return "rifleIdle";
   }
 
+  // ── Sword + Shield ──────────────────────────────────────────────────────────
+  // RMB held → raise shield (ssBlockIdle); movement keeps the raised-shield pose
+  // while physics still moves the character.
+  if (isShield) {
+    if (!moving) return blocking ? "ssBlockIdle" : "ssIdle";
+    if (blocking) return "ssBlockIdle";   // block-walk: hold the shield up while moving
+    if (fwd && !bwd) return sprint ? "ssRunFwd" : "ssRunFwd";  // no walk anim — run at 0.6× for walk
+    if (bwd && !fwd) return "ssRunBwd";
+    if (left)  return "ssStrafeL";
+    if (right) return "ssStrafeR";
+    return "ssIdle";
+  }
+
   // Pistol
   if (!moving) return "pistolIdle";
   if (fwd && !bwd) {
@@ -390,6 +444,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const pistolPropGroupRef  = useRef<THREE.Group>(null!);
   const riflePropGroupRef   = useRef<THREE.Group>(null!);
   const bowPropGroupRef     = useRef<THREE.Group>(null!);
+  const shieldPropGroupRef  = useRef<THREE.Group>(null!);
   const playerRBRef   = useRef<any>(null);
 
   // ── Movement refs ─────────────────────────────────────────────────────────
@@ -447,6 +502,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const pistolPropQAdj   = useRef(new THREE.Quaternion().setFromEuler(PISTOL_ROT));
   const riflePropQAdj    = useRef(new THREE.Quaternion().setFromEuler(RIFLE_ROT));
   const bowQAdj          = useRef(new THREE.Quaternion().setFromEuler(BOW_ROT));
+  const shieldQAdj       = useRef(new THREE.Quaternion().setFromEuler(SHIELD_ROT));
 
   // ── Model state ───────────────────────────────────────────────────────────
   const [modelObj,      setModelObj]      = useState<THREE.Group | null>(null);
@@ -456,9 +512,12 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const [pistolPropObj, setPistolPropObj] = useState<THREE.Group | null>(null);
   const [riflePropObj,  setRiflePropObj]  = useState<THREE.Group | null>(null);
   const [bowPropObj,    setBowPropObj]    = useState<THREE.Group | null>(null);
+  const [shieldPropObj, setShieldPropObj] = useState<THREE.Group | null>(null);
 
-  // ── Bow aiming state ─────────────────────────────────────────────────────
-  const bowAiming = useRef(false);   // RMB held while in bow mode
+  // ── Bow aiming / Shield blocking state ───────────────────────────────────
+  const bowAiming    = useRef(false);   // RMB held while in bow mode
+  const ssBlocking   = useRef(false);   // RMB held while in shield mode
+  const ssAttackPhase = useRef(0);      // cycles ssAttack1-4
 
   const { camera, scene } = useThree();
   const { world }         = useRapier();
@@ -666,6 +725,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       loadSeq(MELEE_QUEUE  as typeof PISTOL_QUEUE, 0);
       loadSeq(STAFF_QUEUE  as typeof PISTOL_QUEUE, 0);
       loadSeq(BOW_QUEUE    as typeof PISTOL_QUEUE, 0);
+      loadSeq(SS_QUEUE     as typeof PISTOL_QUEUE, 0);
     });
 
     return () => {
@@ -794,6 +854,26 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       fbx.visible = false;
       setBowPropObj(fbx);
     });
+
+    // Shield prop — left hand, metallic face
+    new FBXLoader().load("/models/shield_prop.fbx", (fbx) => {
+      if (cancelled) return;
+      fbx.scale.setScalar(0.012);
+      fbx.traverse((c) => {
+        if ((c as THREE.Mesh).isMesh) {
+          c.castShadow    = true;
+          c.receiveShadow = true;
+          (c as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+            color:     0x8a7b5c,
+            metalness: 0.6,
+            roughness: 0.4,
+          });
+        }
+      });
+      fbx.visible = false;
+      setShieldPropObj(fbx);
+    });
+
     return () => { cancelled = true; };
   }, []);
 
@@ -880,6 +960,18 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     });
   }, [requestBlockingAnim]);
 
+  // Sword-and-Shield LMB attack — cycles through ssAttack1..ssAttack4.
+  const doSSAttack = useCallback(() => {
+    const phase = ssAttackPhase.current % 4;
+    const anim  = (["ssAttack1","ssAttack2","ssAttack3","ssAttack4"] as const)[phase];
+    ssAttackPhase.current++;
+    requestBlockingAnim({
+      key:   anim,
+      fade:  blockingOnce.current ? FADE_ATK_CHAIN : FADE_ATK_START,
+      dmgMs: MELEE_DMG_DELAY,
+    });
+  }, [requestBlockingAnim]);
+
   // ── Fire selected magic spell (F key) ────────────────────────────────────
   // Works regardless of weapon mode — a separate ability system.
   const doFireSpell = useCallback(() => {
@@ -930,10 +1022,10 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     crouchPending.current = "kneel";
     crouching.current     = true;
     const wm = useGameStore.getState().weaponMode;
-    const isMelee = wm === "sword" || wm === "axe";
-    transitionTo(isMelee ? "meleeCrouch" : "pistolCrouchDown", 0.1);
+    const isMeleeOrShield = wm === "sword" || wm === "axe" || wm === "shield";
+    transitionTo(isMeleeOrShield ? "meleeCrouch" : "pistolCrouchDown", 0.1);
     setTimeout(() => {
-      if (crouching.current) transitionTo(isMelee ? "meleeCrouch" : "pistolCrouchIdle", 0.15);
+      if (crouching.current) transitionTo(isMeleeOrShield ? "meleeCrouch" : "pistolCrouchIdle", 0.15);
       crouchPending.current = null;
     }, 650);
   }, [transitionTo]);
@@ -943,10 +1035,10 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     crouchPending.current = "stand";
     crouching.current     = false;
     const wm = useGameStore.getState().weaponMode;
-    const isMelee = wm === "sword" || wm === "axe";
-    transitionTo(isMelee ? "meleeIdle" : "pistolCrouchUp", 0.1);
+    const isMeleeOrShield = wm === "sword" || wm === "axe" || wm === "shield";
+    transitionTo(isMeleeOrShield ? "meleeIdle" : "pistolCrouchUp", 0.1);
     setTimeout(() => {
-      transitionTo(isMelee ? "meleeIdle" : "pistolIdle", 0.15);
+      transitionTo(isMeleeOrShield ? "meleeIdle" : "pistolIdle", 0.15);
       crouchPending.current = null;
     }, 650);
   }, [transitionTo]);
@@ -967,13 +1059,16 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const handleMouseDown = useCallback((e: MouseEvent) => {
     if (e.button === 0) {
       if (!locked.current) { document.body.requestPointerLock(); return; }
-      const wm      = useGameStore.getState().weaponMode;
-      const isMelee = wm === "sword" || wm === "axe";
-      const isStaff = wm === "staff";
-      const isBow   = wm === "bow";
+      const wm       = useGameStore.getState().weaponMode;
+      const isMelee  = wm === "sword" || wm === "axe";
+      const isStaff  = wm === "staff";
+      const isBow    = wm === "bow";
+      const isShield = wm === "shield";
 
       if (isStaff) {
         doStaffCast("staffCast1", STAFF_CAST1_COST, STAFF_CAST1_DMS);
+      } else if (isShield) {
+        doSSAttack();
       } else if (isMelee) {
         doMeleeAttack();
       } else if (isBow) {
@@ -1006,13 +1101,18 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
 
     if (e.button === 2) {
       if (!locked.current) return;
-      const wm      = useGameStore.getState().weaponMode;
-      const isMelee = wm === "sword" || wm === "axe";
-      const isStaff = wm === "staff";
-      const isBow   = wm === "bow";
+      const wm       = useGameStore.getState().weaponMode;
+      const isMelee  = wm === "sword" || wm === "axe";
+      const isStaff  = wm === "staff";
+      const isBow    = wm === "bow";
+      const isShield = wm === "shield";
 
       if (isStaff) {
         doStaffCast("staffCast2", STAFF_CAST2_COST, STAFF_CAST2_DMS);
+      } else if (isShield) {
+        // RMB shield = hold to raise shield (blocking locomotion state)
+        ssBlocking.current = true;
+        transitionTo("ssBlockIdle", 0.12);
       } else if (isMelee) {
         transitionTo("meleeBlock", 0.1);
       } else if (isBow) {
@@ -1030,12 +1130,13 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }
   }, [
     shoot, reload, ammo, isReloading, onShoot, onMelee, camera,
-    doMeleeAttack, doStaffCast, requestBlockingAnim, transitionTo,
+    doMeleeAttack, doSSAttack, doStaffCast, requestBlockingAnim, transitionTo,
   ]);
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (e.button === 2) {
-      bowAiming.current = false;
+      bowAiming.current  = false;
+      ssBlocking.current = false;
     }
   }, []);
 
@@ -1063,10 +1164,13 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       cycleWeapon();
       const newWm = useGameStore.getState().weaponMode;
       // Clear queue and blocking state on weapon switch
-      blockingOnce.current  = false;
-      animQueue.current     = null;
-      attackPhase.current   = 0;
-      comboWindow.current   = 0;
+      blockingOnce.current   = false;
+      animQueue.current      = null;
+      attackPhase.current    = 0;
+      comboWindow.current    = 0;
+      bowAiming.current      = false;
+      ssBlocking.current     = false;
+      ssAttackPhase.current  = 0;
       transitionTo(idleForMode(newWm), 0.25);
     }
 
@@ -1240,6 +1344,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     const isMelee   = wm === "sword" || wm === "axe";
     const isStaffWm = wm === "staff";
     const isBowWm   = wm === "bow";
+    const isSSWm    = wm === "shield";
     const hand      = handBoneRef.current;
     const leftHand  = leftHandBoneRef.current;
 
@@ -1272,6 +1377,8 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       trackWeapon(riflePropGroupRef.current, riflePropObj, wm === "rifle" && mode !== "fps", riflePropQAdj.current);
     if (bowPropGroupRef.current && bowPropObj)
       trackWeapon(bowPropGroupRef.current, bowPropObj, isBowWm && mode !== "fps", bowQAdj.current, leftHand);
+    if (shieldPropGroupRef.current && shieldPropObj)
+      trackWeapon(shieldPropGroupRef.current, shieldPropObj, isSSWm && mode !== "fps", shieldQAdj.current, leftHand);
 
     // ── Movement input ──────────────────────────────────────────────────────
     const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
@@ -1360,6 +1467,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
         wm, fwd, bwd, left, right, sprint,
         grounded.current, crouching.current,
         bowAiming.current,
+        ssBlocking.current,
       );
       if (next !== curAnim.current) transitionTo(next);
 
@@ -1424,6 +1532,9 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       </group>
       <group ref={bowPropGroupRef}>
         {bowPropObj && <primitive object={bowPropObj} />}
+      </group>
+      <group ref={shieldPropGroupRef}>
+        {shieldPropObj && <primitive object={shieldPropObj} />}
       </group>
     </>
   );
