@@ -30,6 +30,11 @@ const WEAPON_INFO: Record<string, {
     lmbLabel: "LMB — Cast Bolt",   lmbDesc: "Single magic projectile (20 MP)",
     rmbLabel: "RMB — Area Blast",  rmbDesc: "AoE arcane burst (40 MP)",
   },
+  bow: {
+    icon: "🏹", name: "Longbow", color: "#aed67a",
+    lmbLabel: "LMB — Draw & Fire", lmbDesc: "Nock and loose an arrow (~900ms cycle)",
+    rmbLabel: "RMB — Aim",        rmbDesc: "Hold to enter aim-walk stance",
+  },
 };
 
 export function CharacterPanel() {

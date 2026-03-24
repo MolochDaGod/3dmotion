@@ -29,6 +29,7 @@ const SHOOT_CD: Record<WeaponMode, number> = {
   sword:  0,
   axe:    0,
   staff:  0,
+  bow:    0,    // bow cooldown is managed directly in handleMouseDown (0.9 s per arrow)
 };
 
 // ─── Melee timings ────────────────────────────────────────────────────────────
@@ -43,9 +44,18 @@ const MELEE_COMBO_WIN  = 0.70;  // s — window after anim ends to chain combo
 //   Euler(0, 0, -π/2)  rotates the weapon's +Y blade → bone +X (correct grip)
 //   Euler(0, π, -π/2)  additionally flips blade end vs handle if needed
 // The staff (cane) is held vertically — π/2 on X tilts it to stand upright.
-const SWORD_ROT = new THREE.Euler(0, 0, -Math.PI / 2);
-const AXE_ROT   = new THREE.Euler(0, 0, -Math.PI / 2);
-const STAFF_ROT = new THREE.Euler(Math.PI / 2, 0, 0);
+// Gun props (Pixel Guns 3D): barrel along +Z, grip along -Y.
+//   Pistol: Euler(π/2, 0, 0) tilts barrel to face +X (bone forward dir)
+//   Rifle:  same default; scale up since rifle is 2-handed
+// Bow prop (craftpix): stave along +Y → left-hand bone, tilt to match draw pose
+const SWORD_ROT  = new THREE.Euler(0, 0, -Math.PI / 2);
+const AXE_ROT    = new THREE.Euler(0, 0, -Math.PI / 2);
+const STAFF_ROT  = new THREE.Euler(Math.PI / 2, 0, 0);
+const PISTOL_ROT = new THREE.Euler(Math.PI / 2, 0, 0);
+const RIFLE_ROT  = new THREE.Euler(Math.PI / 2, 0, 0);
+// Bow is held in LEFT hand — left hand bone +X also points fingertip-ward but
+// inverted relative to body. π/2 on X + π on Y gives a reasonable bow pose.
+const BOW_ROT    = new THREE.Euler(Math.PI / 2, Math.PI, 0);
 
 // ─── Staff mana costs ─────────────────────────────────────────────────────────
 const STAFF_CAST1_COST = 20;
@@ -91,7 +101,16 @@ type StaffKey =
   | "staffCast1" | "staffCast2"
   | "staffJump";
 
-type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey;
+type BowKey =
+  | "bowIdle" | "bowWalkFwd" | "bowWalkBwd"
+  | "bowStrafeL" | "bowStrafeR"
+  | "bowRunFwd" | "bowRunBwd"
+  | "bowJump"
+  | "bowDraw" | "bowAim" | "bowFire" | "bowBlock"
+  | "bowAimWalkFwd" | "bowAimWalkBwd"
+  | "bowAimStrafeL" | "bowAimStrafeR";
+
+type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey;
 
 // ─── Load queues ──────────────────────────────────────────────────────────────
 
@@ -155,6 +174,25 @@ const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "staffJump",    file: "/models/staffJump.fbx" },
 ];
 
+const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
+  { key: "bowIdle",        file: "/models/bowIdle.fbx" },
+  { key: "bowWalkFwd",     file: "/models/bowWalkFwd.fbx" },
+  { key: "bowWalkBwd",     file: "/models/bowWalkBwd.fbx" },
+  { key: "bowStrafeL",     file: "/models/bowStrafeL.fbx" },
+  { key: "bowStrafeR",     file: "/models/bowStrafeR.fbx" },
+  { key: "bowRunFwd",      file: "/models/bowRunFwd.fbx" },
+  { key: "bowRunBwd",      file: "/models/bowRunBwd.fbx" },
+  { key: "bowJump",        file: "/models/bowJump.fbx" },
+  { key: "bowDraw",        file: "/models/bowDraw.fbx" },
+  { key: "bowAim",         file: "/models/bowAim.fbx" },
+  { key: "bowFire",        file: "/models/bowFire.fbx" },
+  { key: "bowBlock",       file: "/models/bowBlock.fbx" },
+  { key: "bowAimWalkFwd",  file: "/models/bowAimWalkFwd.fbx" },
+  { key: "bowAimWalkBwd",  file: "/models/bowAimWalkBwd.fbx" },
+  { key: "bowAimStrafeL",  file: "/models/bowAimStrafeL.fbx" },
+  { key: "bowAimStrafeR",  file: "/models/bowAimStrafeR.fbx" },
+];
+
 // ─── LoopOnce animations (non-looping) ────────────────────────────────────────
 // These clamp at last frame. Attacks are a subset: BLOCKING_ONCE.
 const ONCE_ANIMS = new Set<AnimKey>([
@@ -163,6 +201,7 @@ const ONCE_ANIMS = new Set<AnimKey>([
   "pistolCrouchDown","pistolCrouchUp",
   "rifleFire",
   "staffCast1","staffCast2",
+  "bowDraw","bowFire",
 ]);
 
 // ─── Blocking animations — must play fully before queue can run ───────────────
@@ -172,6 +211,7 @@ const BLOCKING_ONCE = new Set<AnimKey>([
   "meleeCombo1","meleeCombo2","meleeCombo3",
   "staffCast1","staffCast2",
   "rifleFire",
+  "bowDraw","bowFire",
 ]);
 
 // ─── Idle for each weapon mode ────────────────────────────────────────────────
@@ -179,6 +219,7 @@ function idleForMode(wm: WeaponMode): AnimKey {
   if (wm === "sword" || wm === "axe") return "meleeIdle";
   if (wm === "rifle") return "rifleIdle";
   if (wm === "staff") return "staffIdle";
+  if (wm === "bow")   return "bowIdle";
   return "pistolIdle";
 }
 
@@ -187,17 +228,20 @@ function resolveAnim(
   wm: WeaponMode,
   fwd: boolean, bwd: boolean, left: boolean, right: boolean,
   sprint: boolean, grounded: boolean, crouching: boolean,
+  aiming: boolean,
 ): AnimKey {
 
   const isMelee = wm === "sword" || wm === "axe";
   const isRifle = wm === "rifle";
   const isStaff = wm === "staff";
+  const isBow   = wm === "bow";
   const moving  = fwd || bwd || left || right;
 
   if (!grounded) {
     if (isStaff)  return "staffJump";
     if (isMelee)  return "meleeJump";
     if (isRifle)  return "rifleJump";
+    if (isBow)    return "bowJump";
     return "pistolJump";
   }
 
@@ -208,6 +252,22 @@ function resolveAnim(
     if (fwd && !bwd) return sprint ? "staffRunFwd" : "staffWalkFwd";
     if (bwd && !fwd) return sprint ? "staffRunBwd" : "staffWalkBwd";
     return "staffIdle";
+  }
+
+  if (isBow) {
+    if (!moving) return aiming ? "bowAim" : "bowIdle";
+    if (aiming) {
+      if (fwd && !bwd) return "bowAimWalkFwd";
+      if (bwd && !fwd) return "bowAimWalkBwd";
+      if (left)  return "bowAimStrafeL";
+      if (right) return "bowAimStrafeR";
+      return "bowAim";
+    }
+    if (fwd && !bwd) return sprint ? "bowRunFwd" : "bowWalkFwd";
+    if (bwd && !fwd) return sprint ? "bowRunBwd" : "bowWalkBwd";
+    if (left)  return "bowStrafeL";
+    if (right) return "bowStrafeR";
+    return "bowIdle";
   }
 
   if (isMelee) {
@@ -263,10 +323,13 @@ export interface PlayerProps {
 export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) {
   // ── Scene refs ────────────────────────────────────────────────────────────
   const rootRef       = useRef<THREE.Group>(null!);
-  const modelGroupRef = useRef<THREE.Group>(null!);
-  const swordGroupRef = useRef<THREE.Group>(null!);
-  const axeGroupRef   = useRef<THREE.Group>(null!);
-  const caneGroupRef  = useRef<THREE.Group>(null!);
+  const modelGroupRef       = useRef<THREE.Group>(null!);
+  const swordGroupRef       = useRef<THREE.Group>(null!);
+  const axeGroupRef         = useRef<THREE.Group>(null!);
+  const caneGroupRef        = useRef<THREE.Group>(null!);
+  const pistolPropGroupRef  = useRef<THREE.Group>(null!);
+  const riflePropGroupRef   = useRef<THREE.Group>(null!);
+  const bowPropGroupRef     = useRef<THREE.Group>(null!);
   const playerRBRef   = useRef<any>(null);
 
   // ── Movement refs ─────────────────────────────────────────────────────────
@@ -309,16 +372,26 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const curAnim    = useRef<AnimKey>("pistolIdle");
 
   // ── Hand-bone tracking ────────────────────────────────────────────────────
-  const handBoneRef = useRef<THREE.Bone | null>(null);
-  const swordQAdj   = useRef(new THREE.Quaternion().setFromEuler(SWORD_ROT));
-  const axeQAdj     = useRef(new THREE.Quaternion().setFromEuler(AXE_ROT));
-  const caneQAdj    = useRef(new THREE.Quaternion().setFromEuler(STAFF_ROT));
+  const handBoneRef      = useRef<THREE.Bone | null>(null);    // right hand
+  const leftHandBoneRef  = useRef<THREE.Bone | null>(null);    // left hand (bow)
+  const swordQAdj        = useRef(new THREE.Quaternion().setFromEuler(SWORD_ROT));
+  const axeQAdj          = useRef(new THREE.Quaternion().setFromEuler(AXE_ROT));
+  const caneQAdj         = useRef(new THREE.Quaternion().setFromEuler(STAFF_ROT));
+  const pistolPropQAdj   = useRef(new THREE.Quaternion().setFromEuler(PISTOL_ROT));
+  const riflePropQAdj    = useRef(new THREE.Quaternion().setFromEuler(RIFLE_ROT));
+  const bowQAdj          = useRef(new THREE.Quaternion().setFromEuler(BOW_ROT));
 
   // ── Model state ───────────────────────────────────────────────────────────
-  const [modelObj, setModelObj] = useState<THREE.Group | null>(null);
-  const [swordObj, setSwordObj] = useState<THREE.Group | null>(null);
-  const [axeObj,   setAxeObj]   = useState<THREE.Group | null>(null);
-  const [caneObj,  setCaneObj]  = useState<THREE.Group | null>(null);
+  const [modelObj,      setModelObj]      = useState<THREE.Group | null>(null);
+  const [swordObj,      setSwordObj]      = useState<THREE.Group | null>(null);
+  const [axeObj,        setAxeObj]        = useState<THREE.Group | null>(null);
+  const [caneObj,       setCaneObj]       = useState<THREE.Group | null>(null);
+  const [pistolPropObj, setPistolPropObj] = useState<THREE.Group | null>(null);
+  const [riflePropObj,  setRiflePropObj]  = useState<THREE.Group | null>(null);
+  const [bowPropObj,    setBowPropObj]    = useState<THREE.Group | null>(null);
+
+  // ── Bow aiming state ─────────────────────────────────────────────────────
+  const bowAiming = useRef(false);   // RMB held while in bow mode
 
   const { camera, scene } = useThree();
   const { world }         = useRapier();
@@ -495,6 +568,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       loadSeq(RIFLE_QUEUE  as typeof PISTOL_QUEUE, 0);
       loadSeq(MELEE_QUEUE  as typeof PISTOL_QUEUE, 0);
       loadSeq(STAFF_QUEUE  as typeof PISTOL_QUEUE, 0);
+      loadSeq(BOW_QUEUE    as typeof PISTOL_QUEUE, 0);
     });
 
     return () => {
@@ -503,14 +577,17 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     };
   }, []);
 
-  // ── Find right-hand bone ──────────────────────────────────────────────────
+  // ── Find right-hand and left-hand bones ───────────────────────────────────
   useEffect(() => {
     if (!modelObj) return;
     modelObj.traverse((o) => {
       if (!(o instanceof THREE.Bone)) return;
       const n = o.name.toLowerCase();
-      if (n.includes("righthand") || n.includes("hand_r") || n.includes("right hand")) {
+      if (n.includes("righthand") || n.includes("hand_r") || n === "right hand") {
         handBoneRef.current = o as THREE.Bone;
+      }
+      if (n.includes("lefthand") || n.includes("hand_l") || n === "left hand") {
+        leftHandBoneRef.current = o as THREE.Bone;
       }
     });
   }, [modelObj]);
@@ -558,6 +635,67 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       });
       fbx.visible = false;
       setCaneObj(fbx);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Load gun prop models (Pixel Guns 3D) ─────────────────────────────────
+  // These are static FBX meshes; apply a MeshStandardMaterial since Unity
+  // .mat files are not importable in Three.js.
+  useEffect(() => {
+    let cancelled = false;
+    new FBXLoader().load("/models/pistol_prop.fbx", (fbx) => {
+      if (cancelled) return;
+      fbx.scale.setScalar(0.012);
+      fbx.traverse((c) => {
+        if ((c as THREE.Mesh).isMesh) {
+          c.castShadow = true;
+          (c as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+            color: 0x303030, metalness: 0.85, roughness: 0.25,
+          });
+        }
+      });
+      fbx.visible = false;
+      setPistolPropObj(fbx);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    new FBXLoader().load("/models/rifle_prop.fbx", (fbx) => {
+      if (cancelled) return;
+      fbx.scale.setScalar(0.013);
+      fbx.traverse((c) => {
+        if ((c as THREE.Mesh).isMesh) {
+          c.castShadow = true;
+          (c as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+            color: 0x222222, metalness: 0.9, roughness: 0.2,
+          });
+        }
+      });
+      fbx.visible = false;
+      setRiflePropObj(fbx);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Load bow prop model (craftpix) ────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    new FBXLoader().load("/models/bow_prop.fbx", (fbx) => {
+      if (cancelled) return;
+      fbx.scale.setScalar(0.015);
+      fbx.traverse((c) => {
+        if ((c as THREE.Mesh).isMesh) {
+          c.castShadow = true;
+          (c as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+            color: 0x7a4a1a, metalness: 0.1, roughness: 0.8,
+          });
+        }
+      });
+      fbx.visible = false;
+      setBowPropObj(fbx);
     });
     return () => { cancelled = true; };
   }, []);
@@ -735,17 +873,25 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       const wm      = useGameStore.getState().weaponMode;
       const isMelee = wm === "sword" || wm === "axe";
       const isStaff = wm === "staff";
+      const isBow   = wm === "bow";
 
       if (isStaff) {
         doStaffCast("staffCast1", STAFF_CAST1_COST, STAFF_CAST1_DMS);
       } else if (isMelee) {
         doMeleeAttack();
+      } else if (isBow) {
+        // Bow LMB — draw and release arrow
+        if (shootCooldown.current > 0) return;
+        shootCooldown.current = 0.9;   // ~900 ms between arrows
+        requestBlockingAnim({ key: "bowDraw", fade: FADE_ATK_START, dmgMs: 450 });
+        // Queue the fire/recoil to play right after draw
+        animQueue.current = { key: "bowFire", fade: FADE_ATK_CHAIN };
       } else {
-        // Ranged
+        // Ranged (pistol / rifle)
         if (shootCooldown.current > 0 || isReloading) return;
         const fired = shoot();
         if (fired) {
-          shootCooldown.current = SHOOT_CD[wm];
+          shootCooldown.current = SHOOT_CD[wm as "pistol" | "rifle"] ?? 0.15;
           const dir    = new THREE.Vector3();
           const origin = new THREE.Vector3();
           camera.getWorldDirection(dir);
@@ -766,11 +912,15 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       const wm      = useGameStore.getState().weaponMode;
       const isMelee = wm === "sword" || wm === "axe";
       const isStaff = wm === "staff";
+      const isBow   = wm === "bow";
 
       if (isStaff) {
         doStaffCast("staffCast2", STAFF_CAST2_COST, STAFF_CAST2_DMS);
       } else if (isMelee) {
         transitionTo("meleeBlock", 0.1);
+      } else if (isBow) {
+        // RMB bow = hold to aim (toggle aim state)
+        bowAiming.current = true;
       } else {
         // RMB ranged = quick melee butt
         if (blockingOnce.current) return;
@@ -785,6 +935,12 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     shoot, reload, ammo, isReloading, onShoot, onMelee, camera,
     doMeleeAttack, doStaffCast, requestBlockingAnim, transitionTo,
   ]);
+
+  const handleMouseUp = useCallback((e: MouseEvent) => {
+    if (e.button === 2) {
+      bowAiming.current = false;
+    }
+  }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (["AltLeft","AltRight","F2","F3","ControlLeft","ControlRight"].includes(e.code)) {
@@ -882,6 +1038,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   useEffect(() => {
     document.addEventListener("mousemove",         handleMouseMove);
     document.addEventListener("mousedown",         handleMouseDown);
+    document.addEventListener("mouseup",           handleMouseUp);
     document.addEventListener("keydown",           handleKeyDown);
     document.addEventListener("keyup",             handleKeyUp);
     document.addEventListener("pointerlockchange", handlePLC);
@@ -889,12 +1046,13 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     return () => {
       document.removeEventListener("mousemove",         handleMouseMove);
       document.removeEventListener("mousedown",         handleMouseDown);
+      document.removeEventListener("mouseup",           handleMouseUp);
       document.removeEventListener("keydown",           handleKeyDown);
       document.removeEventListener("keyup",             handleKeyUp);
       document.removeEventListener("pointerlockchange", handlePLC);
       document.removeEventListener("contextmenu",       handleCtxMenu);
     };
-  }, [handleMouseMove, handleMouseDown, handleKeyDown, handleKeyUp, handlePLC, handleCtxMenu]);
+  }, [handleMouseMove, handleMouseDown, handleMouseUp, handleKeyDown, handleKeyUp, handlePLC, handleCtxMenu]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // ── GAME LOOP ─────────────────────────────────────────────────────────────
@@ -945,19 +1103,23 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     const wm        = useGameStore.getState().weaponMode;
     const isMelee   = wm === "sword" || wm === "axe";
     const isStaffWm = wm === "staff";
+    const isBowWm   = wm === "bow";
     const hand      = handBoneRef.current;
+    const leftHand  = leftHandBoneRef.current;
 
     function trackWeapon(
       grp: THREE.Group,
       obj: THREE.Group | null,
       show: boolean,
       qAdj: THREE.Quaternion,
+      boneOverride?: THREE.Bone | null,
     ) {
       if (!obj) return;
       obj.visible = show;
-      if (show && hand && mode !== "fps") {
-        hand.getWorldPosition(grp.position);
-        hand.getWorldQuaternion(grp.quaternion);
+      const bone = boneOverride !== undefined ? boneOverride : hand;
+      if (show && bone && mode !== "fps") {
+        bone.getWorldPosition(grp.position);
+        bone.getWorldQuaternion(grp.quaternion);
         grp.quaternion.multiply(qAdj);
       }
     }
@@ -968,6 +1130,12 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       trackWeapon(axeGroupRef.current, axeObj, isMelee && wm === "axe" && mode !== "fps", axeQAdj.current);
     if (caneGroupRef.current && caneObj)
       trackWeapon(caneGroupRef.current, caneObj, isStaffWm && mode !== "fps", caneQAdj.current);
+    if (pistolPropGroupRef.current && pistolPropObj)
+      trackWeapon(pistolPropGroupRef.current, pistolPropObj, wm === "pistol" && mode !== "fps", pistolPropQAdj.current);
+    if (riflePropGroupRef.current && riflePropObj)
+      trackWeapon(riflePropGroupRef.current, riflePropObj, wm === "rifle" && mode !== "fps", riflePropQAdj.current);
+    if (bowPropGroupRef.current && bowPropObj)
+      trackWeapon(bowPropGroupRef.current, bowPropObj, isBowWm && mode !== "fps", bowQAdj.current, leftHand);
 
     // ── Movement input ──────────────────────────────────────────────────────
     const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
@@ -1056,6 +1224,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       const next = resolveAnim(
         wm, fwd, bwd, left, right, sprint,
         grounded.current, crouching.current,
+        bowAiming.current,
       );
       if (next !== curAnim.current) transitionTo(next);
     }
@@ -1104,6 +1273,15 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       </group>
       <group ref={caneGroupRef}>
         {caneObj && <primitive object={caneObj} />}
+      </group>
+      <group ref={pistolPropGroupRef}>
+        {pistolPropObj && <primitive object={pistolPropObj} />}
+      </group>
+      <group ref={riflePropGroupRef}>
+        {riflePropObj && <primitive object={riflePropObj} />}
+      </group>
+      <group ref={bowPropGroupRef}>
+        {bowPropObj && <primitive object={bowPropObj} />}
       </group>
     </>
   );

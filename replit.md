@@ -98,7 +98,7 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 **Stack:** React 19, R3F + Drei + Rapier, Three.js, Zustand, TypeScript, Vite
 
 **Architecture:**
-- `src/game/Player.tsx` — Rapier kinematic capsule controller, FBX Corsair King character, 5-weapon cycle (pistol/rifle/sword/axe/staff), TPS/FPS camera with yaw/pitch, roll, melee combo, magic staff casting with mana, cane model tracked to right-hand bone
+- `src/game/Player.tsx` — Rapier kinematic capsule controller, FBX Corsair King character, 6-weapon cycle (pistol/rifle/sword/axe/staff/bow), TPS/FPS camera with yaw/pitch, roll, melee combo, magic staff casting with mana, cane model tracked to right-hand bone; gun props (Pixel Guns 3D PISTOL.fbx/AR.fbx) tracked to right-hand bone; bow prop (craftpix) tracked to left-hand bone
 - `src/game/Zombie.tsx` — Mixamo Mutant GLTF model with FSM animation AI (idle→run→attack→hit→dead), SkeletonUtils.clone for per-instance skeletons, texture applied manually, detection radius + chase AI
 - `src/game/Game.tsx` — Wave spawning, bullet/melee hit detection, player death, score/wave tracking
 - `src/game/Map.tsx` — Rapier trimesh terrain collider
@@ -107,18 +107,19 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 - `src/game/useGameStore.ts` — Zustand store (health, mana, score, wave, kills, weaponMode, showCharacterPanel)
 
 **Weapon Modes (Q to cycle):**
-- `pistol` — single-hand sidearm, pistol animations
-- `rifle` — two-hand ranged, rifle animations
-- `sword` — melee, sword model on right hand, combo system
-- `axe` — melee, axe model on right hand, combo system
-- `staff` — magic, cane1.fbx on right hand, staffCast1 (LMB, 20 mana) / staffCast2 (RMB, 40 mana), 5 mana/s regen
+- `pistol` — PISTOL.fbx prop tracked to right hand; pistol animations (idle/walk/run/jump/crouch/strafe)
+- `rifle` — AR.fbx prop tracked to right hand; rifle animations (idle/walk/run/jump/strafe/fire/reload)
+- `sword` — sword.fbx model on right hand, melee combo system
+- `axe` — axe.fbx model on right hand, melee combo system
+- `staff` — cane1.fbx on right hand, staffCast1 (LMB, 20 mana) / staffCast2 (RMB, 40 mana), 5 mana/s regen
+- `bow` — bow_prop.fbx tracked to LEFT-hand bone; Pro Longbow Pack animations (idle/walk/run 4-dir, aim-walk 4-dir, draw+fire sequence); LMB = draw→fire (900 ms cycle), RMB held = aim stance
 
 **Models:**
-- `public/models/` — Corsair King FBX + animations (pistol/rifle/melee/staff packs), mutant.{gltf,bin,jpg} (zombie), cane1/5/10.fbx + cane_texture.png (magic staff models), staffIdle/Walk/Run/Cast/Jump FBX animations
-- Mutant animations: idle, running, punch, punchStart, punchEnd, fist, jumpAttack, jumpAttackStart, jumpAttackEnd, dash, hit, knockDown, jump
-- Weapon model tracking: sword/axe/cane all tracked to right-hand bone in useFrame each frame
+- `public/models/` — Corsair King FBX + animations (pistol/rifle/melee/staff/bow packs); mutant.{gltf,bin,jpg} (zombie); cane1/5/10.fbx + cane_texture.png; pistol_prop.fbx + rifle_prop.fbx (Pixel Guns 3D); bow_prop.fbx (craftpix); bow*.fbx animations (Pro Longbow Pack)
+- Bow animation set: bowIdle/WalkFwd/WalkBwd/StrafeL/StrafeR/RunFwd/RunBwd/Jump/Draw/Aim/Fire/Block/AimWalk×4
+- Weapon model tracking: sword/axe/cane/pistolProp/rifleProp → right-hand bone; bowProp → left-hand bone
 
-**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload · C character panel · F2 camera mode · F3 camera settings
+**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload/spell-select · F cast spell · C character panel · F2 camera mode · F3 camera settings
 
 **Key files:** ANNIHILATE_LEARNINGS.md — architecture reference from studied game repo
 

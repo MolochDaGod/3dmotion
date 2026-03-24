@@ -22,8 +22,8 @@ export const DEFAULT_CAMERA: CameraSettings = {
 
 // ─── Weapon modes ─────────────────────────────────────────────────────────────
 
-export type WeaponMode = "pistol" | "rifle" | "sword" | "axe" | "staff";
-export const WEAPON_CYCLE: WeaponMode[] = ["pistol", "rifle", "sword", "axe", "staff"];
+export type WeaponMode = "pistol" | "rifle" | "sword" | "axe" | "staff" | "bow";
+export const WEAPON_CYCLE: WeaponMode[] = ["pistol", "rifle", "sword", "axe", "staff", "bow"];
 
 // ─── Spell system (colors sourced from BinbunVFX MagicProjectiles pack) ──────
 

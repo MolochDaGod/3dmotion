@@ -329,11 +329,13 @@ export function HUD() {
     { id: "sword",  label: "SWORD",   color: "#ffaa55", border: "rgba(255,150,60,0.9)",  bg: "rgba(200,80,20,0.55)"  },
     { id: "axe",    label: "AXE",     color: "#ff7777", border: "rgba(255,80,80,0.9)",   bg: "rgba(180,20,20,0.55)"  },
     { id: "staff",  label: "STAFF",   color: "#cc88ff", border: "rgba(180,100,255,0.9)", bg: "rgba(100,20,200,0.55)" },
+    { id: "bow",    label: "BOW",     color: "#aed67a", border: "rgba(140,210,80,0.9)",  bg: "rgba(60,130,20,0.55)"  },
   ] as const;
 
   const isMeleeMode = weaponMode === "sword" || weaponMode === "axe";
   const isRifleMode = weaponMode === "rifle";
   const isStaffMode = weaponMode === "staff";
+  const isBowMode   = weaponMode === "bow";
 
   const healthPct   = (health / maxHealth) * 100;
   const healthColor = healthPct > 60 ? "#4caf50" : healthPct > 30 ? "#ff9800" : "#f44336";
@@ -431,7 +433,20 @@ export function HUD() {
           </div>
 
           {/* Per-weapon info panel */}
-          {isStaffMode ? (
+          {isBowMode ? (
+            <>
+              <div className="text-xs font-bold uppercase tracking-widest mb-1"
+                style={{ color: "#aed67a" }}>
+                Longbow
+              </div>
+              <div style={{ color: "#aed67a", fontSize: 13, fontFamily: "monospace", letterSpacing: 1 }}>
+                LMB Draw &amp; Fire &nbsp;·&nbsp; RMB Aim
+              </div>
+              <div style={{ color: "rgba(174,214,122,0.45)", fontSize: 10, marginTop: 4, letterSpacing: 1 }}>
+                Hold RMB to aim · arrows stagger zombies
+              </div>
+            </>
+          ) : isStaffMode ? (
             <>
               <div className="text-xs font-bold uppercase tracking-widest mb-1"
                 style={{ color: "#cc88ff" }}>
@@ -562,7 +577,7 @@ export function HUD() {
         </div>
 
         {/* Warnings */}
-        {ammo === 0 && !isReloading && !isMeleeMode && !isStaffMode && (
+        {ammo === 0 && !isReloading && !isMeleeMode && !isStaffMode && !isBowMode && (
           <div className="absolute bottom-28 left-1/2 -translate-x-1/2 text-red-400 font-bold text-base animate-bounce">
             EMPTY — R to reload
           </div>
