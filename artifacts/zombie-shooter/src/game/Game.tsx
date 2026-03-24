@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Stars } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
 import { Player } from "./Player";
@@ -137,6 +138,16 @@ function SceneContent({
 
       {/* Magic projectile VFX — lives outside Physics since projectiles fly freely */}
       <MagicSystem onProjectileHit={onMagicHit} />
+
+      {/* ── Post-processing — Bloom for torches / spell glow ── */}
+      <EffectComposer>
+        <Bloom
+          luminanceThreshold={0.35}
+          luminanceSmoothing={0.4}
+          intensity={1.6}
+          mipmapBlur
+        />
+      </EffectComposer>
     </>
   );
 }

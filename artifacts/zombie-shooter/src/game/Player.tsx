@@ -7,6 +7,11 @@ import { useGameStore, WeaponMode, WEAPON_CYCLE, SPELLS } from "./useGameStore";
 import { WEAPON_SKILLS, type SkillDef } from "./SkillSystem";
 import { SkillEffects, type SkillEffectsHandle } from "./SkillEffects";
 import type { SkillHitPayload } from "./Game";
+import {
+  CHARACTER, ANIM_PISTOL, ANIM_RIFLE, ANIM_MELEE,
+  ANIM_STAFF, ANIM_BOW, ANIM_SHIELD_SWORD,
+  WEAPON_PROPS, WEAPON_TEXTURES, COLLIDE_PLAYER,
+} from "./assets/manifest";
 
 // ─── Capsule ──────────────────────────────────────────────────────────────────
 const CAPSULE_HH = 0.5;
@@ -140,91 +145,90 @@ type SwordShieldKey =
 
 type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey | SwordShieldKey;
 
-// ─── Load queues ──────────────────────────────────────────────────────────────
+// ─── Load queues (paths sourced from assets/manifest.ts) ──────────────────────
 
 const PISTOL_QUEUE: Array<{ key: AnimKey | "__model__"; file: string }> = [
-  { key: "__model__",      file: "/models/Meshy_AI_Corsair_King_0323082850_texture_fbx.fbx" },
-  { key: "pistolIdle",     file: "/models/pistol idle.fbx" },
-  { key: "pistolWalkFwd",  file: "/models/pistol walk.fbx" },
-  { key: "pistolWalkBwd",  file: "/models/pistol walk backward.fbx" },
-  { key: "pistolStrafeL",  file: "/models/pistol strafe.fbx" },
-  { key: "pistolStrafeR",  file: "/models/pistol strafe (2).fbx" },
-  { key: "pistolWalkArcL", file: "/models/pistol walk arc.fbx" },
-  { key: "pistolWalkArcR", file: "/models/pistol walk arc (2).fbx" },
-  { key: "pistolRun",      file: "/models/pistol run.fbx" },
-  { key: "pistolJump",     file: "/models/pistol jump.fbx" },
-  { key: "pistolLand",     file: "/models/pistol jump (2).fbx" },
-  { key: "pistolCrouchDown", file: "/models/pistol stand to kneel.fbx" },
-  { key: "pistolCrouchIdle", file: "/models/pistol kneeling idle.fbx" },
-  { key: "pistolCrouchUp",   file: "/models/pistol kneel to stand.fbx" },
+  { key: "__model__",        file: CHARACTER.mesh },
+  { key: "pistolIdle",       file: ANIM_PISTOL.idle },
+  { key: "pistolWalkFwd",    file: ANIM_PISTOL.walkFwd },
+  { key: "pistolWalkBwd",    file: ANIM_PISTOL.walkBwd },
+  { key: "pistolStrafeL",    file: ANIM_PISTOL.strafeL },
+  { key: "pistolStrafeR",    file: ANIM_PISTOL.strafeR },
+  { key: "pistolWalkArcL",   file: ANIM_PISTOL.walkArcL },
+  { key: "pistolWalkArcR",   file: ANIM_PISTOL.walkArcR },
+  { key: "pistolRun",        file: ANIM_PISTOL.run },
+  { key: "pistolJump",       file: ANIM_PISTOL.jump },
+  { key: "pistolLand",       file: ANIM_PISTOL.land },
+  { key: "pistolCrouchDown", file: ANIM_PISTOL.crouchDown },
+  { key: "pistolCrouchIdle", file: ANIM_PISTOL.crouchIdle },
+  { key: "pistolCrouchUp",   file: ANIM_PISTOL.crouchUp },
 ];
 
 const RIFLE_QUEUE: Array<{ key: AnimKey; file: string }> = [
-  { key: "rifleIdle",     file: "/models/rifle idle.fbx" },
-  { key: "rifleWalkFwd",  file: "/models/rifle walk forward.fbx" },
-  { key: "rifleWalkBwd",  file: "/models/rifle walk backward.fbx" },
-  { key: "rifleStrafeL",  file: "/models/rifle strafe left.fbx" },
-  { key: "rifleStrafeR",  file: "/models/rifle strafe right.fbx" },
-  { key: "rifleRun",      file: "/models/rifle run.fbx" },
-  { key: "rifleRunBwd",   file: "/models/rifle run backward.fbx" },
-  { key: "rifleJump",     file: "/models/rifle jump.fbx" },
-  { key: "rifleFire",     file: "/models/rifle fire.fbx" },
-  { key: "rifleReload",   file: "/models/rifle reload.fbx" },
+  { key: "rifleIdle",    file: ANIM_RIFLE.idle },
+  { key: "rifleWalkFwd", file: ANIM_RIFLE.walkFwd },
+  { key: "rifleWalkBwd", file: ANIM_RIFLE.walkBwd },
+  { key: "rifleStrafeL", file: ANIM_RIFLE.strafeL },
+  { key: "rifleStrafeR", file: ANIM_RIFLE.strafeR },
+  { key: "rifleRun",     file: ANIM_RIFLE.run },
+  { key: "rifleRunBwd",  file: ANIM_RIFLE.runBwd },
+  { key: "rifleJump",    file: ANIM_RIFLE.jump },
+  { key: "rifleFire",    file: ANIM_RIFLE.fire },
+  { key: "rifleReload",  file: ANIM_RIFLE.reload },
 ];
 
 const MELEE_QUEUE: Array<{ key: AnimKey; file: string }> = [
-  { key: "meleeIdle",     file: "/models/melee idle.fbx" },
-  { key: "meleeWalkFwd",  file: "/models/melee walk forward.fbx" },
-  { key: "meleeWalkBwd",  file: "/models/melee walk backward.fbx" },
-  { key: "meleeStrafeL",  file: "/models/melee strafe left.fbx" },
-  { key: "meleeStrafeR",  file: "/models/melee strafe right.fbx" },
-  { key: "meleeRunFwd",   file: "/models/melee run.fbx" },
-  { key: "meleeRunBwd",   file: "/models/melee run backward.fbx" },
-  { key: "meleeAttack1",  file: "/models/melee attack 1.fbx" },
-  { key: "meleeAttack2",  file: "/models/melee attack 2.fbx" },
-  { key: "meleeAttack3",  file: "/models/melee attack 3.fbx" },
-  { key: "meleeCombo1",   file: "/models/melee combo 1.fbx" },
-  { key: "meleeCombo2",   file: "/models/melee combo 2.fbx" },
-  { key: "meleeCombo3",   file: "/models/melee combo 3.fbx" },
-  { key: "meleeJump",     file: "/models/melee jump.fbx" },
-  { key: "meleeCrouch",   file: "/models/melee crouch idle.fbx" },
-  { key: "meleeBlock",    file: "/models/melee block.fbx" },
-  // Dodge animations — same FBX source as run/strafe but loaded as separate
-  // clips so they can be registered as LoopOnce / blocking-once
-  { key: "dodgeFwd",      file: "/models/melee run.fbx" },
-  { key: "dodgeBwd",      file: "/models/melee run backward.fbx" },
-  { key: "dodgeL",        file: "/models/melee strafe left.fbx" },
-  { key: "dodgeR",        file: "/models/melee strafe right.fbx" },
+  { key: "meleeIdle",    file: ANIM_MELEE.idle },
+  { key: "meleeWalkFwd", file: ANIM_MELEE.walkFwd },
+  { key: "meleeWalkBwd", file: ANIM_MELEE.walkBwd },
+  { key: "meleeStrafeL", file: ANIM_MELEE.strafeL },
+  { key: "meleeStrafeR", file: ANIM_MELEE.strafeR },
+  { key: "meleeRunFwd",  file: ANIM_MELEE.runFwd },
+  { key: "meleeRunBwd",  file: ANIM_MELEE.runBwd },
+  { key: "meleeAttack1", file: ANIM_MELEE.attack1 },
+  { key: "meleeAttack2", file: ANIM_MELEE.attack2 },
+  { key: "meleeAttack3", file: ANIM_MELEE.attack3 },
+  { key: "meleeCombo1",  file: ANIM_MELEE.combo1 },
+  { key: "meleeCombo2",  file: ANIM_MELEE.combo2 },
+  { key: "meleeCombo3",  file: ANIM_MELEE.combo3 },
+  { key: "meleeJump",    file: ANIM_MELEE.jump },
+  { key: "meleeCrouch",  file: ANIM_MELEE.crouch },
+  { key: "meleeBlock",   file: ANIM_MELEE.block },
+  // Dodge — same source FBX re-registered as blocking-once clips
+  { key: "dodgeFwd", file: ANIM_MELEE.runFwd },
+  { key: "dodgeBwd", file: ANIM_MELEE.runBwd },
+  { key: "dodgeL",   file: ANIM_MELEE.strafeL },
+  { key: "dodgeR",   file: ANIM_MELEE.strafeR },
 ];
 
 const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
-  { key: "staffIdle",    file: "/models/staffIdle.fbx" },
-  { key: "staffWalkFwd", file: "/models/staffWalkFwd.fbx" },
-  { key: "staffWalkBwd", file: "/models/staffWalkBwd.fbx" },
-  { key: "staffRunFwd",  file: "/models/staffRunFwd.fbx" },
-  { key: "staffRunBwd",  file: "/models/staffRunBwd.fbx" },
-  { key: "staffCast1",   file: "/models/staffCast1.fbx" },
-  { key: "staffCast2",   file: "/models/staffCast2.fbx" },
-  { key: "staffJump",    file: "/models/staffJump.fbx" },
+  { key: "staffIdle",    file: ANIM_STAFF.idle },
+  { key: "staffWalkFwd", file: ANIM_STAFF.walkFwd },
+  { key: "staffWalkBwd", file: ANIM_STAFF.walkBwd },
+  { key: "staffRunFwd",  file: ANIM_STAFF.runFwd },
+  { key: "staffRunBwd",  file: ANIM_STAFF.runBwd },
+  { key: "staffCast1",   file: ANIM_STAFF.cast1 },
+  { key: "staffCast2",   file: ANIM_STAFF.cast2 },
+  { key: "staffJump",    file: ANIM_STAFF.jump },
 ];
 
 const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
-  { key: "bowIdle",        file: "/models/bowIdle.fbx" },
-  { key: "bowWalkFwd",     file: "/models/bowWalkFwd.fbx" },
-  { key: "bowWalkBwd",     file: "/models/bowWalkBwd.fbx" },
-  { key: "bowStrafeL",     file: "/models/bowStrafeL.fbx" },
-  { key: "bowStrafeR",     file: "/models/bowStrafeR.fbx" },
-  { key: "bowRunFwd",      file: "/models/bowRunFwd.fbx" },
-  { key: "bowRunBwd",      file: "/models/bowRunBwd.fbx" },
-  { key: "bowJump",        file: "/models/bowJump.fbx" },
-  { key: "bowDraw",        file: "/models/bowDraw.fbx" },
-  { key: "bowAim",         file: "/models/bowAim.fbx" },
-  { key: "bowFire",        file: "/models/bowFire.fbx" },
-  { key: "bowBlock",       file: "/models/bowBlock.fbx" },
-  { key: "bowAimWalkFwd",  file: "/models/bowAimWalkFwd.fbx" },
-  { key: "bowAimWalkBwd",  file: "/models/bowAimWalkBwd.fbx" },
-  { key: "bowAimStrafeL",  file: "/models/bowAimStrafeL.fbx" },
-  { key: "bowAimStrafeR",  file: "/models/bowAimStrafeR.fbx" },
+  { key: "bowIdle",       file: ANIM_BOW.idle },
+  { key: "bowWalkFwd",    file: ANIM_BOW.walkFwd },
+  { key: "bowWalkBwd",    file: ANIM_BOW.walkBwd },
+  { key: "bowStrafeL",    file: ANIM_BOW.strafeL },
+  { key: "bowStrafeR",    file: ANIM_BOW.strafeR },
+  { key: "bowRunFwd",     file: ANIM_BOW.runFwd },
+  { key: "bowRunBwd",     file: ANIM_BOW.runBwd },
+  { key: "bowJump",       file: ANIM_BOW.jump },
+  { key: "bowDraw",       file: ANIM_BOW.draw },
+  { key: "bowAim",        file: ANIM_BOW.aim },
+  { key: "bowFire",       file: ANIM_BOW.fire },
+  { key: "bowBlock",      file: ANIM_BOW.block },
+  { key: "bowAimWalkFwd", file: ANIM_BOW.aimWalkFwd },
+  { key: "bowAimWalkBwd", file: ANIM_BOW.aimWalkBwd },
+  { key: "bowAimStrafeL", file: ANIM_BOW.aimStrafeL },
+  { key: "bowAimStrafeR", file: ANIM_BOW.aimStrafeR },
 ];
 
 // ── Sword + Shield load queue ─────────────────────────────────────────────────
@@ -233,19 +237,19 @@ const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
 // Action layer (ONCE / BLOCKING_ONCE):
 //   ssAttack1-4 (LMB combo) · ssBlock/BlockHit (shield impact) · ssDrawSword
 const SS_QUEUE: Array<{ key: AnimKey; file: string }> = [
-  { key: "ssIdle",       file: "/models/ssIdle.fbx" },
-  { key: "ssRunFwd",     file: "/models/ssRunFwd.fbx" },
-  { key: "ssRunBwd",     file: "/models/ssRunBwd.fbx" },
-  { key: "ssStrafeL",    file: "/models/ssStrafeL.fbx" },
-  { key: "ssStrafeR",    file: "/models/ssStrafeR.fbx" },
-  { key: "ssBlockIdle",  file: "/models/ssBlockIdle.fbx" },
-  { key: "ssBlock",      file: "/models/ssBlock.fbx" },
-  { key: "ssBlockHit",   file: "/models/ssBlockHit.fbx" },
-  { key: "ssAttack1",    file: "/models/ssAttack1.fbx" },
-  { key: "ssAttack2",    file: "/models/ssAttack2.fbx" },
-  { key: "ssAttack3",    file: "/models/ssAttack3.fbx" },
-  { key: "ssAttack4",    file: "/models/ssAttack4.fbx" },
-  { key: "ssDrawSword",  file: "/models/ssDrawSword.fbx" },
+  { key: "ssIdle",      file: ANIM_SHIELD_SWORD.idle },
+  { key: "ssRunFwd",    file: ANIM_SHIELD_SWORD.runFwd },
+  { key: "ssRunBwd",    file: ANIM_SHIELD_SWORD.runBwd },
+  { key: "ssStrafeL",   file: ANIM_SHIELD_SWORD.strafeL },
+  { key: "ssStrafeR",   file: ANIM_SHIELD_SWORD.strafeR },
+  { key: "ssBlockIdle", file: ANIM_SHIELD_SWORD.blockIdle },
+  { key: "ssBlock",     file: ANIM_SHIELD_SWORD.block },
+  { key: "ssBlockHit",  file: ANIM_SHIELD_SWORD.blockHit },
+  { key: "ssAttack1",   file: ANIM_SHIELD_SWORD.attack1 },
+  { key: "ssAttack2",   file: ANIM_SHIELD_SWORD.attack2 },
+  { key: "ssAttack3",   file: ANIM_SHIELD_SWORD.attack3 },
+  { key: "ssAttack4",   file: ANIM_SHIELD_SWORD.attack4 },
+  { key: "ssDrawSword", file: ANIM_SHIELD_SWORD.drawSword },
 ];
 
 // ─── LoopOnce animations (non-looping) ────────────────────────────────────────
@@ -914,7 +918,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   // ── Load weapon models ────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    new FBXLoader().load("/models/sword.fbx", (fbx) => {
+    new FBXLoader().load(WEAPON_PROPS.sword, (fbx) => {
       if (cancelled) return;
       fbx.scale.setScalar(0.01);
       fbx.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
@@ -926,7 +930,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
   useEffect(() => {
     let cancelled = false;
-    new FBXLoader().load("/models/axe.fbx", (fbx) => {
+    new FBXLoader().load(WEAPON_PROPS.axe, (fbx) => {
       if (cancelled) return;
       fbx.scale.setScalar(0.01);
       fbx.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
@@ -938,14 +942,14 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
   useEffect(() => {
     let cancelled = false;
-    new FBXLoader().load("/models/cane1.fbx", (fbx) => {
+    new FBXLoader().load(WEAPON_PROPS.staff1, (fbx) => {
       if (cancelled) return;
       fbx.scale.setScalar(0.012);
       // Shift mesh so the grip (≈1/3 up the shaft) sits at the bone origin.
       // At scale 0.012 a ~120cm staff ≈ 1.44 world units; offset ≈ -0.48.
       fbx.position.set(0, -0.5, 0);
       const texLoader = new THREE.TextureLoader();
-      texLoader.load("/models/cane_texture.png", (tex) => {
+      texLoader.load(WEAPON_TEXTURES.staff, (tex) => {
         tex.flipY = false;
         tex.colorSpace = THREE.SRGBColorSpace;
         fbx.traverse((c) => {
@@ -966,7 +970,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   // .mat files are not importable in Three.js.
   useEffect(() => {
     let cancelled = false;
-    new FBXLoader().load("/models/pistol_prop.fbx", (fbx) => {
+    new FBXLoader().load(WEAPON_PROPS.pistol, (fbx) => {
       if (cancelled) return;
       fbx.scale.setScalar(0.012);
       fbx.traverse((c) => {
@@ -985,7 +989,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
   useEffect(() => {
     let cancelled = false;
-    new FBXLoader().load("/models/rifle_prop.fbx", (fbx) => {
+    new FBXLoader().load(WEAPON_PROPS.rifle, (fbx) => {
       if (cancelled) return;
       fbx.scale.setScalar(0.013);
       fbx.traverse((c) => {
@@ -1005,7 +1009,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   // ── Load bow prop model (craftpix) ────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    new FBXLoader().load("/models/bow_prop.fbx", (fbx) => {
+    new FBXLoader().load(WEAPON_PROPS.bow, (fbx) => {
       if (cancelled) return;
       fbx.scale.setScalar(0.015);
       fbx.traverse((c) => {
@@ -1021,7 +1025,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     });
 
     // Shield prop — left hand, metallic face
-    new FBXLoader().load("/models/shield_prop.fbx", (fbx) => {
+    new FBXLoader().load(WEAPON_PROPS.shield, (fbx) => {
       if (cancelled) return;
       fbx.scale.setScalar(0.012);
       fbx.traverse((c) => {
@@ -1682,7 +1686,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         colliders={false}
         enabledRotations={[false, false, false]}
       >
-        <CapsuleCollider args={[CAPSULE_HH, CAPSULE_R]} />
+        <CapsuleCollider args={[CAPSULE_HH, CAPSULE_R]} collisionGroups={COLLIDE_PLAYER} />
       </RigidBody>
 
       <group ref={rootRef}>

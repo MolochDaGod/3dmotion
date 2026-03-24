@@ -4,10 +4,7 @@ import { useTexture } from "@react-three/drei";
 import { RigidBody, CuboidCollider } from "@react-three/rapier";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import * as THREE from "three";
-
-// ─── Asset paths ───────────────────────────────────────────────────────────────
-const FBX_BASE    = "/models/graveyard/fbx";
-const TEXTURE_URL = "/models/graveyard/texture/Texture_MAp_ruins.png";
+import { GRAVEYARD, COLLIDE_TERRAIN } from "./assets/manifest";
 
 // ─── Ruin layout ───────────────────────────────────────────────────────────────
 // [modelNum(1-21), x, z, rotY, scale]
@@ -51,9 +48,9 @@ function RuinProp({ modelNum, position, rotY, scale }: {
   rotY:     number;
   scale:    number;
 }) {
-  const url     = `${FBX_BASE}/_ruin_${modelNum}.fbx`;
+  const url     = GRAVEYARD.ruinFbx(modelNum);
   const fbx     = useLoader(FBXLoader, url);
-  const texture = useTexture(TEXTURE_URL);
+  const texture = useTexture(GRAVEYARD.texture);
 
   const obj = useMemo(() => {
     // Mutate in-place (each FBX url is cached once, loaded once per component).
@@ -101,7 +98,11 @@ function Ground() {
       {/* ── Main ground body ── */}
       <RigidBody type="fixed" colliders={false} friction={0.9} restitution={0}>
         {/* Thick slab: half-extents 60 × 0.5 × 60, top surface at y=0 */}
-        <CuboidCollider args={[60, 0.5, 60]} position={[0, -0.5, 0]} />
+        <CuboidCollider
+          args={[60, 0.5, 60]}
+          position={[0, -0.5, 0]}
+          collisionGroups={COLLIDE_TERRAIN}
+        />
 
         {/* Visible ground mesh */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -127,10 +128,10 @@ function Ground() {
 
       {/* ── Boundary walls (invisible colliders) ── */}
       <RigidBody type="fixed" colliders={false} friction={0.2}>
-        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8, -60]} />
-        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8,  60]} />
-        <CuboidCollider args={[0.5, 8, 60]} position={[-60, 8,   0]} />
-        <CuboidCollider args={[0.5, 8, 60]} position={[ 60, 8,   0]} />
+        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8, -60]} collisionGroups={COLLIDE_TERRAIN} />
+        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8,  60]} collisionGroups={COLLIDE_TERRAIN} />
+        <CuboidCollider args={[0.5, 8, 60]} position={[-60, 8,   0]} collisionGroups={COLLIDE_TERRAIN} />
+        <CuboidCollider args={[0.5, 8, 60]} position={[ 60, 8,   0]} collisionGroups={COLLIDE_TERRAIN} />
       </RigidBody>
     </>
   );
