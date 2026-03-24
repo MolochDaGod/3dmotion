@@ -1,12 +1,15 @@
 import { useEffect } from "react";
 import { useGameStore } from "./useGameStore";
+import { CharacterPanel } from "./CharacterPanel";
 
 // ─── CSS Crosshair ────────────────────────────────────────────────────────────
 
-function Crosshair({ fps }: { fps: boolean }) {
+function Crosshair({ fps, staff }: { fps: boolean; staff: boolean }) {
   const GAP  = fps ? 4  : 7;
   const LEN  = fps ? 9  : 12;
   const TICK = fps ? 1.5 : 2;
+  const DOT_COLOR = staff ? "rgba(180,120,255,0.95)" : "rgba(255,60,60,0.95)";
+  const DOT_GLOW  = staff ? "rgba(160,80,255,0.7)"   : "rgba(255,80,80,0.7)";
 
   const base: React.CSSProperties = {
     position: "absolute",
@@ -24,20 +27,41 @@ function Crosshair({ fps }: { fps: boolean }) {
     }}>
       <div style={{
         ...base,
-        width: 4, height: 4, borderRadius: "50%",
-        background: "rgba(255,60,60,0.95)",
+        width: staff ? 6 : 4, height: staff ? 6 : 4,
+        borderRadius: "50%",
+        background: DOT_COLOR,
         transform: "translate(-50%, -50%)",
-        boxShadow: "0 0 4px rgba(255,80,80,0.7)",
+        boxShadow: `0 0 ${staff ? 8 : 4}px ${DOT_GLOW}`,
       }} />
-      <div style={{ ...base, width: TICK, height: LEN,
-        transform: `translate(-50%, calc(-100% - ${GAP}px))` }} />
-      <div style={{ ...base, width: TICK, height: LEN,
-        transform: `translate(-50%, ${GAP}px)` }} />
-      <div style={{ ...base, width: LEN, height: TICK,
-        transform: `translate(calc(-100% - ${GAP}px), -50%)` }} />
-      <div style={{ ...base, width: LEN, height: TICK,
-        transform: `translate(${GAP}px, -50%)` }} />
-      {!fps && (
+      {!staff && <>
+        <div style={{ ...base, width: TICK, height: LEN,
+          transform: `translate(-50%, calc(-100% - ${GAP}px))` }} />
+        <div style={{ ...base, width: TICK, height: LEN,
+          transform: `translate(-50%, ${GAP}px)` }} />
+        <div style={{ ...base, width: LEN, height: TICK,
+          transform: `translate(calc(-100% - ${GAP}px), -50%)` }} />
+        <div style={{ ...base, width: LEN, height: TICK,
+          transform: `translate(${GAP}px, -50%)` }} />
+      </>}
+      {staff && <>
+        {/* Magic reticle — diamond shape */}
+        {[-45, 45, 135, 225].map((deg) => (
+          <div key={deg} style={{
+            ...base,
+            width: 2, height: 14,
+            background: "rgba(180,120,255,0.7)",
+            transformOrigin: "center center",
+            transform: `translate(-50%, calc(-50% - 12px)) rotate(${deg}deg) translateY(-6px)`,
+          }} />
+        ))}
+        <div style={{
+          position: "absolute",
+          width: 32, height: 32, borderRadius: "50%",
+          border: "1px solid rgba(180,120,255,0.3)",
+          transform: "translate(-50%, -50%)",
+        }} />
+      </>}
+      {!fps && !staff && (
         <div style={{
           position: "absolute",
           width: 44, height: 44, borderRadius: "50%",
@@ -99,7 +123,6 @@ function CameraSettingsPanel() {
     setShowCameraSettings,
   } = useGameStore();
 
-  // ESC closes the panel and re-acquires pointer lock
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Escape" || e.code === "F3") {
@@ -115,7 +138,6 @@ function CameraSettingsPanel() {
   const isTPS = camera.mode === "tps";
 
   return (
-    // Outer backdrop — click outside to close
     <div
       style={{
         position: "fixed", inset: 0,
@@ -144,7 +166,6 @@ function CameraSettingsPanel() {
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
           marginBottom: 22,
@@ -173,7 +194,6 @@ function CameraSettingsPanel() {
           </button>
         </div>
 
-        {/* Mode toggle */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: "#aaa", textTransform: "uppercase",
             letterSpacing: 1, marginBottom: 8 }}>
@@ -216,7 +236,6 @@ function CameraSettingsPanel() {
           margin: "16px 0",
         }} />
 
-        {/* FOV */}
         <Slider
           label="Field of View"
           value={camera.fov}
@@ -225,7 +244,6 @@ function CameraSettingsPanel() {
           onChange={setCameraFOV}
         />
 
-        {/* Sensitivity */}
         <Slider
           label="Mouse Sensitivity"
           value={camera.sensitivity}
@@ -234,7 +252,6 @@ function CameraSettingsPanel() {
           onChange={setCameraSensitivity}
         />
 
-        {/* TPS-only shoulder offset */}
         {isTPS && (
           <>
             <div style={{
@@ -266,7 +283,6 @@ function CameraSettingsPanel() {
           </>
         )}
 
-        {/* Reset */}
         <div style={{
           height: 1, background: "rgba(255,255,255,0.07)",
           margin: "16px 0 14px",
@@ -298,9 +314,11 @@ function CameraSettingsPanel() {
 
 export function HUD() {
   const {
-    health, maxHealth, ammo, maxAmmo, score, kills,
+    health, maxHealth, mana, maxMana,
+    ammo, maxAmmo, score, kills,
     isReloading, wave, isInvincible,
-    camera, showCameraSettings, weaponMode,
+    camera, showCameraSettings, showCharacterPanel,
+    weaponMode,
   } = useGameStore();
 
   const WEAPONS = [
@@ -308,25 +326,27 @@ export function HUD() {
     { id: "rifle",  label: "RIFLE",   color: "#aaffaa", border: "rgba(100,220,100,0.9)", bg: "rgba(20,130,20,0.55)"  },
     { id: "sword",  label: "SWORD",   color: "#ffaa55", border: "rgba(255,150,60,0.9)",  bg: "rgba(200,80,20,0.55)"  },
     { id: "axe",    label: "AXE",     color: "#ff7777", border: "rgba(255,80,80,0.9)",   bg: "rgba(180,20,20,0.55)"  },
+    { id: "staff",  label: "STAFF",   color: "#cc88ff", border: "rgba(180,100,255,0.9)", bg: "rgba(100,20,200,0.55)" },
   ] as const;
 
   const isMeleeMode = weaponMode === "sword" || weaponMode === "axe";
   const isRifleMode = weaponMode === "rifle";
+  const isStaffMode = weaponMode === "staff";
 
   const healthPct   = (health / maxHealth) * 100;
   const healthColor = healthPct > 60 ? "#4caf50" : healthPct > 30 ? "#ff9800" : "#f44336";
+  const manaPct     = (mana / maxMana) * 100;
   const isFPS       = camera.mode === "fps";
 
   return (
     <>
-      {/* ── Settings panel (outside pointer-events:none wrapper) ── */}
-      {showCameraSettings && <CameraSettingsPanel />}
+      {showCharacterPanel && <CharacterPanel />}
+      {showCameraSettings && !showCharacterPanel && <CameraSettingsPanel />}
 
-      {/* ── All other HUD elements — pointer-events: none ── */}
       <div className="fixed inset-0 pointer-events-none select-none">
 
         {/* Crosshair */}
-        <Crosshair fps={isFPS} />
+        <Crosshair fps={isFPS} staff={isStaffMode} />
 
         {/* Camera mode badge */}
         <div style={{
@@ -339,8 +359,9 @@ export function HUD() {
           {isFPS ? "FPS" : "TPS"} · F2 to switch · F3 settings
         </div>
 
-        {/* Health — bottom left */}
+        {/* Health + Mana — bottom left */}
         <div className="absolute bottom-8 left-8 text-white">
+          {/* Health */}
           <div className="mb-1 text-xs text-gray-400 font-bold uppercase tracking-widest">
             Health {isInvincible && (
               <span className="text-blue-400 ml-2 animate-pulse">ROLLING</span>
@@ -352,15 +373,39 @@ export function HUD() {
               style={{ width: `${healthPct}%`, backgroundColor: healthColor }}
             />
           </div>
-          <div className="text-xs mt-1" style={{ color: healthColor }}>
+          <div className="text-xs mt-1 mb-3" style={{ color: healthColor }}>
             {Math.ceil(health)} / {maxHealth}
+          </div>
+
+          {/* Mana bar — always visible, pulses when staff is active */}
+          <div className="mb-1 text-xs font-bold uppercase tracking-widest"
+            style={{ color: isStaffMode ? "#cc88ff" : "rgba(170,100,255,0.45)" }}>
+            Mana
+          </div>
+          <div className="w-48 h-2 rounded-full border overflow-hidden"
+            style={{
+              background: "rgba(60,20,100,0.55)",
+              borderColor: isStaffMode ? "rgba(170,100,255,0.4)" : "rgba(100,50,150,0.25)",
+            }}>
+            <div
+              className="h-full rounded-full transition-all duration-150"
+              style={{
+                width: `${manaPct}%`,
+                background: "linear-gradient(90deg, #7733cc, #aa77ff)",
+                boxShadow: isStaffMode ? "0 0 6px rgba(160,100,255,0.7)" : "none",
+                opacity: isStaffMode ? 1 : 0.55,
+              }}
+            />
+          </div>
+          <div className="text-xs mt-1" style={{ color: isStaffMode ? "#aa77ff" : "rgba(150,80,220,0.45)" }}>
+            {Math.ceil(mana)} / {maxMana}
           </div>
         </div>
 
         {/* Weapon mode + Ammo — bottom right */}
         <div className="absolute bottom-8 right-8 text-white text-right">
 
-          {/* 4-weapon cycle bar */}
+          {/* 5-weapon cycle bar */}
           <div className="flex justify-end gap-1 mb-3 items-center">
             <span style={{
               fontSize: 9, letterSpacing: 2, marginRight: 4,
@@ -384,7 +429,23 @@ export function HUD() {
           </div>
 
           {/* Per-weapon info panel */}
-          {isMeleeMode ? (
+          {isStaffMode ? (
+            <>
+              <div className="text-xs font-bold uppercase tracking-widest mb-1"
+                style={{ color: "#cc88ff" }}>
+                Magic Staff
+              </div>
+              <div style={{ color: "#cc88ff", fontSize: 13, fontFamily: "monospace", letterSpacing: 1 }}>
+                LMB Cast &nbsp;·&nbsp; RMB Area Blast
+              </div>
+              <div style={{ color: "rgba(200,160,255,0.45)", fontSize: 10, marginTop: 4, letterSpacing: 1 }}>
+                {manaPct < 20
+                  ? <span style={{ color: "#f44336" }}>LOW MANA — regen passively</span>
+                  : `Mana: ${Math.ceil(mana)}/100 · Regen: 5/s`
+                }
+              </div>
+            </>
+          ) : isMeleeMode ? (
             <>
               <div className="text-xs font-bold uppercase tracking-widest mb-1"
                 style={{ color: weaponMode === "axe" ? "#ff7777" : "#ffaa55" }}>
@@ -442,14 +503,22 @@ export function HUD() {
           WASD move &nbsp;·&nbsp; Shift sprint &nbsp;·&nbsp; Space jump
           &nbsp;·&nbsp; <span className="text-white/40">Alt</span> crouch
           &nbsp;·&nbsp; <span className="text-white/40">Ctrl</span> roll
-          &nbsp;·&nbsp; <span className="text-white/40">Q</span> ranged↔melee
+          &nbsp;·&nbsp; <span className="text-white/40">Q</span> cycle weapon
           &nbsp;·&nbsp; <span className="text-white/40">R</span> reload
+          &nbsp;·&nbsp; <span className="text-white/40">C</span> character
         </div>
 
         {/* Warnings */}
-        {ammo === 0 && !isReloading && (
+        {ammo === 0 && !isReloading && !isMeleeMode && !isStaffMode && (
           <div className="absolute bottom-28 left-1/2 -translate-x-1/2 text-red-400 font-bold text-base animate-bounce">
             EMPTY — R to reload
+          </div>
+        )}
+
+        {isStaffMode && mana < 20 && (
+          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 font-bold text-base animate-pulse"
+            style={{ color: "#aa77ff" }}>
+            LOW MANA
           </div>
         )}
 

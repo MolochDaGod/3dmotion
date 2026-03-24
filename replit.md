@@ -98,17 +98,27 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 **Stack:** React 19, R3F + Drei + Rapier, Three.js, Zustand, TypeScript, Vite
 
 **Architecture:**
-- `src/game/Player.tsx` — Rapier kinematic capsule controller, FBX Corsair King character, 4-weapon cycle (pistol/rifle/sword/axe), TPS/FPS camera with yaw/pitch, roll, melee combo
+- `src/game/Player.tsx` — Rapier kinematic capsule controller, FBX Corsair King character, 5-weapon cycle (pistol/rifle/sword/axe/staff), TPS/FPS camera with yaw/pitch, roll, melee combo, magic staff casting with mana, cane model tracked to right-hand bone
 - `src/game/Zombie.tsx` — Mixamo Mutant GLTF model with FSM animation AI (idle→run→attack→hit→dead), SkeletonUtils.clone for per-instance skeletons, texture applied manually, detection radius + chase AI
 - `src/game/Game.tsx` — Wave spawning, bullet/melee hit detection, player death, score/wave tracking
 - `src/game/Map.tsx` — Rapier trimesh terrain collider
-- `src/game/HUD.tsx` — Health/ammo/weapon pills overlay
-- `src/game/useGameStore.ts` — Zustand store (health, score, wave, kills, weaponMode)
+- `src/game/HUD.tsx` — Health/mana/ammo/weapon pills overlay with magic reticle for staff mode
+- `src/game/CharacterPanel.tsx` — RPG character panel (C key), shows health+mana bars, wave/score/kills, equipped weapon info
+- `src/game/useGameStore.ts` — Zustand store (health, mana, score, wave, kills, weaponMode, showCharacterPanel)
+
+**Weapon Modes (Q to cycle):**
+- `pistol` — single-hand sidearm, pistol animations
+- `rifle` — two-hand ranged, rifle animations
+- `sword` — melee, sword model on right hand, combo system
+- `axe` — melee, axe model on right hand, combo system
+- `staff` — magic, cane1.fbx on right hand, staffCast1 (LMB, 20 mana) / staffCast2 (RMB, 40 mana), 5 mana/s regen
 
 **Models:**
-- `public/models/` — Corsair King FBX + animations (pistol/rifle/melee packs), mutant.{gltf,bin,jpg} (zombie), boss.glb (future boss)
+- `public/models/` — Corsair King FBX + animations (pistol/rifle/melee/staff packs), mutant.{gltf,bin,jpg} (zombie), cane1/5/10.fbx + cane_texture.png (magic staff models), staffIdle/Walk/Run/Cast/Jump FBX animations
 - Mutant animations: idle, running, punch, punchStart, punchEnd, fist, jumpAttack, jumpAttackStart, jumpAttackEnd, dash, hit, knockDown, jump
-- Weapon mode: Q cycles pistol→rifle→sword→axe; sword/axe tracked to right-hand bone each frame
+- Weapon model tracking: sword/axe/cane all tracked to right-hand bone in useFrame each frame
+
+**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload · C character panel · F2 camera mode · F3 camera settings
 
 **Key files:** ANNIHILATE_LEARNINGS.md — architecture reference from studied game repo
 

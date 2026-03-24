@@ -21,20 +21,23 @@ export const DEFAULT_CAMERA: CameraSettings = {
 };
 
 // ─── Weapon modes ─────────────────────────────────────────────────────────────
-//  "pistol" → one-hand sidearm (pistol animations)
-//  "rifle"  → two-hand ranged (rifle/crossbow/sniper animations)
+//  "pistol" → one-hand sidearm
+//  "rifle"  → two-hand ranged
 //  "sword"  → two-hand melee, sword model
 //  "axe"    → two-hand melee, axe model
+//  "staff"  → magic staff, casting animations
 
-export type WeaponMode = "pistol" | "rifle" | "sword" | "axe";
+export type WeaponMode = "pistol" | "rifle" | "sword" | "axe" | "staff";
 
-export const WEAPON_CYCLE: WeaponMode[] = ["pistol", "rifle", "sword", "axe"];
+export const WEAPON_CYCLE: WeaponMode[] = ["pistol", "rifle", "sword", "axe", "staff"];
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 interface GameStore {
   health:     number;
   maxHealth:  number;
+  mana:       number;
+  maxMana:    number;
   ammo:       number;
   maxAmmo:    number;
   score:      number;
@@ -48,18 +51,23 @@ interface GameStore {
   camera:             CameraSettings;
   showCameraSettings: boolean;
 
+  // Character Panel
+  showCharacterPanel: boolean;
+
   // Weapon
   weaponMode: WeaponMode;
   setWeaponMode: (m: WeaponMode) => void;
   cycleWeapon:   () => void;
 
   // Actions
-  takeDamage: (amount: number) => void;
-  heal:       (amount: number) => void;
-  shoot:      () => boolean;
-  reload:     () => void;
-  addScore:   (points: number) => void;
-  addKill:    () => void;
+  takeDamage:  (amount: number) => void;
+  heal:        (amount: number) => void;
+  shoot:       () => boolean;
+  reload:      () => void;
+  useMana:     (amount: number) => boolean;
+  regenMana:   (amount: number) => void;
+  addScore:    (points: number) => void;
+  addKill:     () => void;
   setReloading:    (val: boolean) => void;
   setPaused:       (val: boolean) => void;
   setInvincible:   (val: boolean) => void;
@@ -74,11 +82,17 @@ interface GameStore {
   setCameraShoulderY:   (v: number) => void;
   setCameraShoulderZ:   (v: number) => void;
   setShowCameraSettings:(v: boolean) => void;
+
+  // Character panel
+  setShowCharacterPanel:(v: boolean) => void;
+  toggleCharacterPanel: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
   health:        100,
   maxHealth:     100,
+  mana:          100,
+  maxMana:       100,
   ammo:          15,
   maxAmmo:       15,
   score:         0,
@@ -88,7 +102,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   isInvincible:  false,
   wave:          1,
   camera:        { ...DEFAULT_CAMERA },
-  showCameraSettings: false,
+  showCameraSettings:  false,
+  showCharacterPanel:  false,
   weaponMode:    "pistol",
 
   takeDamage: (amount) => {
@@ -116,6 +131,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }, 2000);
   },
 
+  useMana: (amount) => {
+    const { mana } = get();
+    if (mana < amount) return false;
+    set((s) => ({ mana: Math.max(0, s.mana - amount) }));
+    return true;
+  },
+
+  regenMana: (amount) => {
+    set((s) => ({ mana: Math.min(s.maxMana, s.mana + amount) }));
+  },
+
   addScore: (points) => set((s) => ({ score: s.score + points })),
   addKill:  ()       => set((s) => ({ kills: s.kills + 1 })),
 
@@ -126,10 +152,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   reset: () =>
     set({
-      health: 100, ammo: 15, score: 0, kills: 0,
+      health: 100, mana: 100, ammo: 15, score: 0, kills: 0,
       isReloading: false, isPaused: false, isInvincible: false, wave: 1,
       camera: { ...DEFAULT_CAMERA }, showCameraSettings: false,
-      weaponMode: "pistol",
+      showCharacterPanel: false, weaponMode: "pistol",
     }),
 
   setWeaponMode: (m) => set({ weaponMode: m }),
@@ -148,4 +174,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setCameraShoulderY:   (v) => set((s) => ({ camera: { ...s.camera, shoulderY:   v } })),
   setCameraShoulderZ:   (v) => set((s) => ({ camera: { ...s.camera, shoulderZ:   v } })),
   setShowCameraSettings:(v) => set({ showCameraSettings: v }),
+
+  setShowCharacterPanel:(v) => set({ showCharacterPanel: v }),
+  toggleCharacterPanel: ()  => set((s) => ({ showCharacterPanel: !s.showCharacterPanel })),
 }));
