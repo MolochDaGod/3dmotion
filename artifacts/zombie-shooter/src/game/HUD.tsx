@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useGameStore, SPELLS } from "./useGameStore";
+import { useGameStore, SPELLS, CAMERA_CYCLE, type CameraViewMode } from "./useGameStore";
 import { CharacterPanel } from "./CharacterPanel";
 
 // ─── CSS Crosshair ────────────────────────────────────────────────────────────
@@ -200,34 +200,33 @@ function CameraSettingsPanel() {
             View Mode
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {(["tps", "fps"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setCameraMode(m)}
-                style={{
-                  flex: 1,
-                  padding: "8px 0",
-                  borderRadius: 7,
-                  border: camera.mode === m
-                    ? "1px solid #e53935"
-                    : "1px solid #333",
-                  background: camera.mode === m
-                    ? "rgba(229,57,53,0.15)"
-                    : "rgba(255,255,255,0.04)",
-                  color: camera.mode === m ? "#e53935" : "#666",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  letterSpacing: 1,
-                  cursor: "pointer",
-                  textTransform: "uppercase",
-                }}
-              >
-                {m === "tps" ? "Third Person" : "First Person"}
-              </button>
-            ))}
+            {CAMERA_CYCLE.map((m: CameraViewMode) => {
+              const label = m === "tps" ? "Third Person" : m === "action" ? "Action Cam" : "First Person";
+              return (
+                <button
+                  key={m}
+                  onClick={() => setCameraMode(m)}
+                  style={{
+                    flex: 1,
+                    padding: "8px 0",
+                    borderRadius: 7,
+                    border: camera.mode === m ? "1px solid #e53935" : "1px solid #333",
+                    background: camera.mode === m ? "rgba(229,57,53,0.15)" : "rgba(255,255,255,0.04)",
+                    color: camera.mode === m ? "#e53935" : "#666",
+                    fontWeight: 700,
+                    fontSize: 11,
+                    letterSpacing: 1,
+                    cursor: "pointer",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
           <div style={{ fontSize: 10, color: "#444", marginTop: 6, textAlign: "center" }}>
-            F2 also toggles view mode in-game
+            P cycles views in-game · F2 jumps TPS ↔ FPS
           </div>
         </div>
 
@@ -403,7 +402,7 @@ export function HUD() {
           textTransform: "uppercase",
           fontFamily: "monospace",
         }}>
-          {isFPS ? "FPS" : "TPS"} · F2 to switch · F3 settings
+          {camera.mode === "fps" ? "FPS" : camera.mode === "action" ? "ACTION CAM" : "TPS"} · P to cycle · F3 settings
         </div>
 
         {/* Health + Mana — bottom left */}

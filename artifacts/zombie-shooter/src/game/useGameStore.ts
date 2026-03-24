@@ -2,8 +2,14 @@ import { create } from "zustand";
 
 // ─── Camera settings ──────────────────────────────────────────────────────────
 
+// "tps"    = third-person over-shoulder (default / "front" view — character visible)
+// "action" = tight cinematic combat cam (closer, lower, more dramatic)
+// "fps"    = first-person
+export type CameraViewMode = "tps" | "action" | "fps";
+export const CAMERA_CYCLE: CameraViewMode[] = ["tps", "action", "fps"];
+
 export interface CameraSettings {
-  mode:        "tps" | "fps";
+  mode:        CameraViewMode;
   fov:         number;
   sensitivity: number;
   shoulderX:   number;
@@ -147,7 +153,8 @@ interface GameStore {
   reset:           () => void;
 
   // Camera
-  setCameraMode:        (m: "tps" | "fps") => void;
+  setCameraMode:        (m: CameraViewMode) => void;
+  cycleCameraMode:      () => void;
   setCameraFOV:         (v: number) => void;
   setCameraSensitivity: (v: number) => void;
   setCameraShoulderX:   (v: number) => void;
@@ -258,7 +265,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ weaponMode: next });
   },
 
-  setCameraMode:        (m) => set((s) => ({ camera: { ...s.camera, mode:        m } })),
+  setCameraMode:        (m) => set((s) => ({ camera: { ...s.camera, mode: m } })),
+  cycleCameraMode: () => {
+    const cur = get().camera.mode;
+    const idx  = CAMERA_CYCLE.indexOf(cur);
+    const next = CAMERA_CYCLE[(idx + 1) % CAMERA_CYCLE.length];
+    set((s) => ({ camera: { ...s.camera, mode: next } }));
+  },
   setCameraFOV:         (v) => set((s) => ({ camera: { ...s.camera, fov:         v } })),
   setCameraSensitivity: (v) => set((s) => ({ camera: { ...s.camera, sensitivity: v } })),
   setCameraShoulderX:   (v) => set((s) => ({ camera: { ...s.camera, shoulderX:   v } })),

@@ -14,9 +14,10 @@ const CAPSULE_CY = CAPSULE_HH + CAPSULE_R;
 const WALK_SPEED    = 4.5;
 const RUN_SPEED     = 9.0;
 const JUMP_FORCE    = 9;
-const PITCH_MIN     = -Math.PI / 2.5;
-const PITCH_MAX_TPS =  Math.PI / 8;
-const PITCH_MAX_FPS =  Math.PI / 2 - 0.05;
+const PITCH_MIN        = -Math.PI / 2.5;
+const PITCH_MAX_TPS    =  Math.PI / 8;
+const PITCH_MAX_ACTION =  Math.PI / 5;   // action cam — slight downward look freedom
+const PITCH_MAX_FPS    =  Math.PI / 2 - 0.05;
 const EYE_HEIGHT    = 1.70;
 const ROLL_SPEED     = 14;
 const ROLL_DURATION  = 0.45;
@@ -48,14 +49,19 @@ const MELEE_COMBO_WIN  = 0.70;  // s — window after anim ends to chain combo
 // handle toward -Y. To align handle with grip (bone +X) and blade forward:
 //   Euler(0, 0, -π/2)  rotates the weapon's +Y blade → bone +X (correct grip)
 //   Euler(0, π, -π/2)  additionally flips blade end vs handle if needed
-// The staff (cane) is held vertically — π/2 on X tilts it to stand upright.
+// Staff (cane): shaft along model +Y, pivot at base.  We want the shaft to angle
+// diagonally upward-forward in the grip (like a mage combat stance).
+//   Euler(-π*0.35, 0, π/2):  Z rotation brings +Y shaft → +X bone dir (forward),
+//   then negative X tilt angles the tip upward-back for a natural staff carry.
+// A position offset of (0, -0.5, 0) applied to the mesh shifts the grip point
+// from the model base to approx 1/3 up the shaft so it sits in the palm.
 // Gun props (Pixel Guns 3D): barrel along +Z, grip along -Y.
 //   Pistol: Euler(π/2, 0, 0) tilts barrel to face +X (bone forward dir)
 //   Rifle:  same default; scale up since rifle is 2-handed
 // Bow prop (craftpix): stave along +Y → left-hand bone, tilt to match draw pose
 const SWORD_ROT  = new THREE.Euler(0, 0, -Math.PI / 2);
 const AXE_ROT    = new THREE.Euler(0, 0, -Math.PI / 2);
-const STAFF_ROT  = new THREE.Euler(Math.PI / 2, 0, 0);
+const STAFF_ROT  = new THREE.Euler(-Math.PI * 0.35, 0, Math.PI / 2);
 const PISTOL_ROT = new THREE.Euler(Math.PI / 2, 0, 0);
 const RIFLE_ROT  = new THREE.Euler(Math.PI / 2, 0, 0);
 // Bow is held in LEFT hand — left hand bone +X also points fingertip-ward but
@@ -526,7 +532,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
   const {
     health, shoot, reload, ammo, isReloading,
     setInvincible, camera: camSettings,
-    setCameraMode, setShowCameraSettings,
+    setCameraMode, cycleCameraMode, setShowCameraSettings,
     cycleWeapon,
     useMana, regenMana, toggleCharacterPanel,
     selectedSpell, setShowSpellRadial,
@@ -779,6 +785,9 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     new FBXLoader().load("/models/cane1.fbx", (fbx) => {
       if (cancelled) return;
       fbx.scale.setScalar(0.012);
+      // Shift mesh so the grip (≈1/3 up the shaft) sits at the bone origin.
+      // At scale 0.012 a ~120cm staff ≈ 1.44 world units; offset ≈ -0.48.
+      fbx.position.set(0, -0.5, 0);
       const texLoader = new THREE.TextureLoader();
       texLoader.load("/models/cane_texture.png", (tex) => {
         tex.flipY = false;
@@ -1052,7 +1061,9 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     const { sensitivity, mode } = useGameStore.getState().camera;
     yaw.current   -= e.movementX * sensitivity;
     pitch.current -= e.movementY * sensitivity;
-    const pMax = mode === "fps" ? PITCH_MAX_FPS : PITCH_MAX_TPS;
+    const pMax = mode === "fps" ? PITCH_MAX_FPS
+               : mode === "action" ? PITCH_MAX_ACTION
+               : PITCH_MAX_TPS;
     pitch.current = Math.max(PITCH_MIN, Math.min(pMax, pitch.current));
   }, []);
 
@@ -1182,19 +1193,15 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       else document.body.requestPointerLock();
     }
 
-    // P — toggle pointer lock (game ↔ free cursor / menu)
+    // P — cycle camera views: tps (front) → action → fps → tps
     if (e.code === "KeyP") {
-      if (locked.current) {
-        document.exitPointerLock();
-      } else {
-        document.body.requestPointerLock();
-      }
+      cycleCameraMode();
     }
 
-    // F2 — camera mode toggle
+    // F2 — kept for compat: direct tps ↔ fps jump
     if (e.code === "F2") {
       const store = useGameStore.getState();
-      setCameraMode(store.camera.mode === "tps" ? "fps" : "tps");
+      setCameraMode(store.camera.mode === "fps" ? "tps" : "fps");
     }
 
     // F3 — settings panel
@@ -1262,7 +1269,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }
   }, [
     reload, cycleWeapon, transitionTo,
-    setCameraMode, setShowCameraSettings,
+    setCameraMode, cycleCameraMode, setShowCameraSettings,
     startCrouch, endCrouch, setInvincible,
     toggleCharacterPanel,
     setShowSpellRadial, doFireSpell,
@@ -1326,12 +1333,20 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     rollCamZ.current *= Math.max(0, 1 - 14 * delta);
 
     // ── Camera ─────────────────────────────────────────────────────────────
+    // tps    = user-configured over-shoulder (shoulderX/Y/Z)
+    // action = tight cinematic combat cam: closer, lower, tighter FOV feel
+    // fps    = first-person at eye level
     const { mode, shoulderX, shoulderY, shoulderZ } = useGameStore.getState().camera;
-    camera.position.set(
-      mode === "fps" ? 0         : shoulderX,
-      mode === "fps" ? EYE_HEIGHT : shoulderY,
-      mode === "fps" ? 0.1       : shoulderZ,
-    );
+    const camX = mode === "fps"    ? 0
+               : mode === "action" ? 0.28
+               : shoulderX;
+    const camY = mode === "fps"    ? EYE_HEIGHT
+               : mode === "action" ? 0.9
+               : shoulderY;
+    const camZ = mode === "fps"    ? 0.1
+               : mode === "action" ? 1.55
+               : shoulderZ;
+    camera.position.set(camX, camY, camZ);
     camera.rotation.x = pitch.current;
     camera.rotation.y = 0;
     camera.rotation.z = rollCamZ.current;
@@ -1348,6 +1363,9 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     const hand      = handBoneRef.current;
     const leftHand  = leftHandBoneRef.current;
 
+    // trackWeapon: show=false → hide; show=true → follow bone (all camera modes).
+    // In FPS mode the character mesh is invisible but bones still animate, so
+    // weapon props naturally appear at hand-level in the lower screen area.
     function trackWeapon(
       grp: THREE.Group,
       obj: THREE.Group | null,
@@ -1358,7 +1376,7 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
       if (!obj) return;
       obj.visible = show;
       const bone = boneOverride !== undefined ? boneOverride : hand;
-      if (show && bone && mode !== "fps") {
+      if (show && bone) {
         bone.getWorldPosition(grp.position);
         bone.getWorldQuaternion(grp.quaternion);
         grp.quaternion.multiply(qAdj);
@@ -1366,19 +1384,19 @@ export function Player({ onShoot, onMelee, onDead, playerPosRef }: PlayerProps) 
     }
 
     if (swordGroupRef.current && swordObj)
-      trackWeapon(swordGroupRef.current, swordObj, isMelee && wm === "sword" && mode !== "fps", swordQAdj.current);
+      trackWeapon(swordGroupRef.current, swordObj, isMelee && wm === "sword", swordQAdj.current);
     if (axeGroupRef.current && axeObj)
-      trackWeapon(axeGroupRef.current, axeObj, isMelee && wm === "axe" && mode !== "fps", axeQAdj.current);
+      trackWeapon(axeGroupRef.current, axeObj, isMelee && wm === "axe", axeQAdj.current);
     if (caneGroupRef.current && caneObj)
-      trackWeapon(caneGroupRef.current, caneObj, isStaffWm && mode !== "fps", caneQAdj.current);
+      trackWeapon(caneGroupRef.current, caneObj, isStaffWm, caneQAdj.current);
     if (pistolPropGroupRef.current && pistolPropObj)
-      trackWeapon(pistolPropGroupRef.current, pistolPropObj, wm === "pistol" && mode !== "fps", pistolPropQAdj.current);
+      trackWeapon(pistolPropGroupRef.current, pistolPropObj, wm === "pistol", pistolPropQAdj.current);
     if (riflePropGroupRef.current && riflePropObj)
-      trackWeapon(riflePropGroupRef.current, riflePropObj, wm === "rifle" && mode !== "fps", riflePropQAdj.current);
+      trackWeapon(riflePropGroupRef.current, riflePropObj, wm === "rifle", riflePropQAdj.current);
     if (bowPropGroupRef.current && bowPropObj)
-      trackWeapon(bowPropGroupRef.current, bowPropObj, isBowWm && mode !== "fps", bowQAdj.current, leftHand);
+      trackWeapon(bowPropGroupRef.current, bowPropObj, isBowWm, bowQAdj.current, leftHand);
     if (shieldPropGroupRef.current && shieldPropObj)
-      trackWeapon(shieldPropGroupRef.current, shieldPropObj, isSSWm && mode !== "fps", shieldQAdj.current, leftHand);
+      trackWeapon(shieldPropGroupRef.current, shieldPropObj, isSSWm, shieldQAdj.current, leftHand);
 
     // ── Movement input ──────────────────────────────────────────────────────
     const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
