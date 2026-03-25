@@ -322,8 +322,9 @@ function resolveAnim(
   wm: WeaponMode,
   fwd: boolean, bwd: boolean, left: boolean, right: boolean,
   sprint: boolean, grounded: boolean, crouching: boolean,
-  aiming: boolean,   // bow RMB aim
-  blocking: boolean, // shield RMB block
+  aiming: boolean,        // bow RMB aim
+  blocking: boolean,      // shield RMB block
+  meleeBlocking: boolean, // sword/axe RMB block
 ): AnimKey {
 
   const isMelee  = wm === "sword" || wm === "axe";
@@ -404,6 +405,8 @@ function resolveAnim(
   }
 
   if (isMelee) {
+    // RMB held → stay in block pose (loops) regardless of movement direction
+    if (meleeBlocking) return "meleeBlock";
     if (!moving) return "meleeIdle";
     if (fwd && !bwd) return sprint ? "meleeRunFwd" : "meleeWalkFwd";
     if (bwd && !fwd) return sprint ? "meleeRunBwd" : "meleeWalkBwd";
@@ -574,8 +577,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const [shieldPropObj, setShieldPropObj] = useState<THREE.Group | null>(null);
 
   // ── Bow aiming / Shield blocking state ───────────────────────────────────
-  const bowAiming    = useRef(false);   // RMB held while in bow mode
-  const ssBlocking   = useRef(false);   // RMB held while in shield mode
+  const bowAiming      = useRef(false);   // RMB held while in bow mode
+  const ssBlocking     = useRef(false);   // RMB held while in shield mode
+  const meleeBlocking  = useRef(false);   // RMB held while in sword/axe mode
   const ssAttackPhase = useRef(0);      // cycles ssAttack1-4
 
   // ── Skill system refs ─────────────────────────────────────────────────────
@@ -601,6 +605,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     addMagicProjectile,
     setPaused,
     setSkillCooldown, tickSkillCooldowns,
+    setMeleeBlocking,
   } = useGameStore();
 
   // ── Always-fresh damage / queue-done callbacks (updated every render) ─────
@@ -1353,7 +1358,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         ssBlocking.current = true;
         transitionTo("ssBlockIdle", 0.12);
       } else if (isMelee) {
-        transitionTo("meleeBlock", 0.1);
+        // RMB held = hold block pose + zoom in
+        meleeBlocking.current = true;
+        setMeleeBlocking(true);
       } else if (isBow) {
         // RMB bow = hold to aim (toggle aim state)
         bowAiming.current = true;
@@ -1374,10 +1381,14 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (e.button === 2) {
-      bowAiming.current  = false;
-      ssBlocking.current = false;
+      bowAiming.current     = false;
+      ssBlocking.current    = false;
+      if (meleeBlocking.current) {
+        meleeBlocking.current = false;
+        setMeleeBlocking(false);
+      }
     }
-  }, []);
+  }, [setMeleeBlocking]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (["AltLeft","AltRight","F2","F3","ControlLeft","ControlRight"].includes(e.code)) {
@@ -1411,6 +1422,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       comboWindow.current     = 0;
       bowAiming.current       = false;
       ssBlocking.current      = false;
+      if (meleeBlocking.current) { meleeBlocking.current = false; setMeleeBlocking(false); }
       ssAttackPhase.current   = 0;
       transitionTo(idleForMode(newWm), 0.25);
     }
@@ -1612,6 +1624,16 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       camera.position.x += Math.sin(bobTimerRef.current * 0.5) * bobAmp * 0.35;
     }
 
+    // ── FOV zoom — smooth lerp for melee block (1.5×) and bow aim ────────────
+    {
+      const baseFov  = useGameStore.getState().camera.fov;
+      const isZoomed = meleeBlocking.current || ssBlocking.current;
+      const targetFov = isZoomed ? baseFov / 1.5 : baseFov;
+      const cam = camera as THREE.PerspectiveCamera;
+      cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov, Math.min(1, delta * 10));
+      cam.updateProjectionMatrix();
+    }
+
     // ── Body lean (strafe) + yaw — applied together as a quaternion so the
     //    lean is always around the character's own forward axis, not world Z. ──
     const strafe = !sprint && grounded.current && !rolling.current;
@@ -1751,6 +1773,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         grounded.current, crouching.current,
         bowAiming.current,
         ssBlocking.current,
+        meleeBlocking.current,
       );
       // Don't override a cosmetic non-blocking ONCE anim with the idle it
       // originated from — let it finish naturally.  Movement always breaks out.

@@ -166,6 +166,10 @@ interface GameStore {
   setShowCharacterPanel:(v: boolean) => void;
   toggleCharacterPanel: () => void;
 
+  // Melee block (RMB held while sword/axe) — read by HUD for crosshair
+  meleeBlocking:    boolean;
+  setMeleeBlocking: (v: boolean) => void;
+
   // Skill cooldowns (keyed by skill id)
   skillCooldowns:     Record<string, number>;
   setSkillCooldown:   (id: string, cd: number) => void;
@@ -289,6 +293,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setShowCharacterPanel:(v) => set({ showCharacterPanel: v }),
   toggleCharacterPanel: ()  => set((s) => ({ showCharacterPanel: !s.showCharacterPanel })),
+
+  meleeBlocking:    false,
+  setMeleeBlocking: (v) => set({ meleeBlocking: v }),
 
   setSkillCooldown: (id, cd) => set((s) => ({
     skillCooldowns: { ...s.skillCooldowns, [id]: cd },

@@ -5,9 +5,9 @@ import { CharacterPanel } from "./CharacterPanel";
 
 // ─── CSS Crosshair ────────────────────────────────────────────────────────────
 
-function Crosshair({ fps, staff }: { fps: boolean; staff: boolean }) {
-  const GAP  = fps ? 4  : 7;
-  const LEN  = fps ? 9  : 12;
+function Crosshair({ fps, staff, blocking }: { fps: boolean; staff: boolean; blocking: boolean }) {
+  const GAP  = blocking ? 2 : fps ? 4  : 7;
+  const LEN  = blocking ? 6 : fps ? 9  : 12;
   const TICK = fps ? 1.5 : 2;
   const DOT_COLOR = staff ? "rgba(180,120,255,0.95)" : "rgba(255,60,60,0.95)";
   const DOT_GLOW  = staff ? "rgba(160,80,255,0.7)"   : "rgba(255,80,80,0.7)";
@@ -345,6 +345,7 @@ export function HUD() {
     weaponMode, selectedSpell, spellCooldown,
     skillCooldowns,
     isPaused,
+    meleeBlocking,
   } = useGameStore();
 
   const selectedSpellDef = SPELLS.find((s) => s.id === selectedSpell);
@@ -418,7 +419,7 @@ export function HUD() {
       <div className="fixed inset-0 pointer-events-none select-none">
 
         {/* Crosshair — hidden when paused */}
-        {!isPaused && <Crosshair fps={isFPS} staff={isStaffMode} />}
+        {!isPaused && <Crosshair fps={isFPS} staff={isStaffMode} blocking={meleeBlocking} />}
 
         {/* Camera mode badge */}
         <div style={{
