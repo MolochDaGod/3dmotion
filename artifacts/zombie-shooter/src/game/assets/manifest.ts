@@ -186,14 +186,6 @@ export const GRAVEYARD = {
 } as const;
 
 // ── WebP texture helper ────────────────────────────────────────────────────────
-/**
- * Synchronously detects WebP browser support (result cached after first call).
- * All callers of texture paths should use texPath() so browsers without WebP
- * support automatically fall back to the original PNG.
- *
- * ~95% of browsers support WebP (Chrome 32+, Firefox 65+, Safari 14+, Edge 18+).
- * The PNG originals remain alongside the converted WebP files as the fallback.
- */
 let _webpSupported: boolean | null = null;
 
 function webpSupported(): boolean {
@@ -208,13 +200,7 @@ function webpSupported(): boolean {
   return _webpSupported;
 }
 
-/**
- * Returns the WebP variant of a PNG texture path if the browser supports it,
- * otherwise returns the original PNG path unchanged.
- *
- * Both .png and .webp versions must exist in the public folder.
- * Use the convert-textures script to generate the .webp files.
- */
+/** Prefer .webp when the browser supports it; fall back to the original .png. */
 export function texPath(pngUrl: string): string {
   return webpSupported() ? pngUrl.replace(/\.png$/i, ".webp") : pngUrl;
 }

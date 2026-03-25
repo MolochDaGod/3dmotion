@@ -31,17 +31,9 @@
     <!-- DNS prefetch for Meshy CDN (AI-generated model URLs) -->
     <link rel="dns-prefetch" href="https://cdn.meshy.ai" />
 
-    <!--
-      Critical-asset preloads:
-      1. Player character FBX — heaviest startup fetch (~4 MB); preloading it here
-         lets the browser pipeline start the download before Three.js requests it.
-         Vite prepends the configured base path to this relative URL at build time.
-      2. Rapier physics WASM — its filename includes a content hash generated at
-         build time, so it cannot be statically preloaded here.  Instead it is
-         handled by the Workbox CacheFirst runtime rule (30-day TTL) so that
-         subsequent page loads serve it from the service-worker cache.
-    -->
+    <!-- Player FBX preload — kicks off the heaviest startup fetch early -->
     <link rel="preload" href="models/character/corsair-king.fbx" as="fetch" crossorigin="anonymous" />
+    <!-- Rapier WASM preload is injected by the injectWasmPreload Vite plugin at build time -->
   </head>
   <body>
     <div id="root"></div>

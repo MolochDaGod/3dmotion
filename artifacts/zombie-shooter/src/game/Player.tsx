@@ -176,8 +176,7 @@ const PISTOL_QUEUE: Array<{ key: AnimKey | "__model__"; file: string }> = [
   { key: "pistolCrouchDown",    file: ANIM_PISTOL.crouchDown },
   { key: "pistolCrouchIdle",    file: ANIM_PISTOL.crouchIdle },
   { key: "pistolCrouchUp",      file: ANIM_PISTOL.crouchUp },
-  // Directional dodge animations — shared with melee FBX clips but loaded at startup
-  // so dodge works immediately with any equipped weapon (no melee equip required).
+  // Dodge — reuse melee FBX clips; loaded at startup so dodge works without melee equip.
   { key: "dodgeFwd", file: ANIM_MELEE.runFwd },
   { key: "dodgeBwd", file: ANIM_MELEE.runBwd },
   { key: "dodgeL",   file: ANIM_MELEE.strafeL },
@@ -216,8 +215,6 @@ const MELEE_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "meleeJump",    file: ANIM_MELEE.jump },
   { key: "meleeCrouch",  file: ANIM_MELEE.crouch },
   { key: "meleeBlock",   file: ANIM_MELEE.block },
-  // Note: dodge entries (dodgeFwd/Bwd/L/R) live in PISTOL_QUEUE, not here,
-  // so the full melee pack lazy-loads only when the player first equips sword/axe.
 ];
 
 const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -567,10 +564,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const curAnim    = useRef<AnimKey>("pistolIdle");
 
   // ── Lazy weapon-pack loading ───────────────────────────────────────────────
-  // Only the pistol pack (+ model) and melee pack load at startup.
-  // All other packs load on first equip; cached so they never load twice.
   const loadPackRef       = useRef<((mode: WeaponMode) => void) | null>(null);
-  const packLoadedRef     = useRef(new Set<string>(["pistol", "melee"]));
+  const packLoadedRef     = useRef(new Set<string>(["pistol"]));
   const prevWeaponModeRef = useRef<WeaponMode>("pistol");
 
   // ── Hand-bone tracking ────────────────────────────────────────────────────
@@ -999,9 +994,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       loadSeq(packQueues[key], 0);
     };
 
-    // Phase 1 — model + pistol pack (serial).
-    // Dodge animations are included in PISTOL_QUEUE so they're available immediately.
-    // Melee, rifle, staff, bow, and shield packs lazy-load on first equip (see useFrame).
     loadSeq(PISTOL_QUEUE, 0);
 
     return () => {
