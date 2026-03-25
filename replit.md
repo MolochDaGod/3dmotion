@@ -119,7 +119,20 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 - Bow animation set: bowIdle/WalkFwd/WalkBwd/StrafeL/StrafeR/RunFwd/RunBwd/Jump/Draw/Aim/Fire/Block/AimWalk×4
 - Weapon model tracking: sword/axe/cane/pistolProp/rifleProp → right-hand bone; bowProp → left-hand bone
 
-**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload/spell-select · F cast spell · C character panel · F2 camera mode · F3 camera settings
+**Animation systems:**
+- **8-directional pistol locomotion** — W+A/D = walkArcL/R or runArcL/R; S+A/D = walkBwdArc/runBwdArc variants; full diagonal coverage
+- **Speed-matched timeScale** — walk anims scale by `horizSpeed / 1.5`, run by `horizSpeed / 4.0`, clamped 0.4–3.0; prevents foot sliding
+- **Body lean** — strafe lean ±0.07 rad applied via quaternion (yawQ × leanQ) on leanGroupRef, smoothed with 10× lerp
+- **Head bob** — camera oscillates Y+X during movement; sprint = 13 Hz / 0.025 amp, walk = 9 Hz / 0.014 amp; fades out when stopping
+- **Staff idle variety** — after 7 s of staffIdle, plays staffIdle2 once then returns (nonBlockingOnce pattern)
+- **Rifle turn anims** — yaw delta > 1.4°/frame triggers rifleTurnL/R while standing idle; plays once then restores rifleIdle
+- **nonBlockingOnce system** — cosmetic ONCE anims (staffIdle2, rifleTurnL/R) play without blocking locomotion; mixer `finished` event auto-restores idle; movement always interrupts
+
+**Physics collision groups:** COLLIDE_TERRAIN on Graveyard ground+walls; COLLIDE_PLAYER on capsule; COLLIDE_ZOMBIE/PROJECTILE defined for future use
+
+**Post-processing:** Bloom via EffectComposer (threshold 0.35, intensity 1.6, mipmapBlur) in Game.tsx SceneContent
+
+**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload/spell-select · F cast spell · C character panel · P camera mode
 
 **Key files:** ANNIHILATE_LEARNINGS.md — architecture reference from studied game repo
 

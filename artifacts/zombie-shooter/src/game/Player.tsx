@@ -98,7 +98,9 @@ type PistolKey =
   | "pistolIdle" | "pistolWalkFwd" | "pistolWalkBwd"
   | "pistolStrafeL" | "pistolStrafeR"
   | "pistolWalkArcL" | "pistolWalkArcR"
-  | "pistolRun"
+  | "pistolWalkBwdArcL" | "pistolWalkBwdArcR"
+  | "pistolRun" | "pistolRunArcL" | "pistolRunArcR"
+  | "pistolRunBwd" | "pistolRunBwdArcL" | "pistolRunBwdArcR"
   | "pistolJump" | "pistolLand"
   | "pistolCrouchDown" | "pistolCrouchIdle" | "pistolCrouchUp";
 
@@ -107,7 +109,8 @@ type RifleKey =
   | "rifleStrafeL" | "rifleStrafeR"
   | "rifleRun" | "rifleRunBwd"
   | "rifleJump"
-  | "rifleFire" | "rifleReload";
+  | "rifleFire" | "rifleReload"
+  | "rifleTurnL" | "rifleTurnR";
 
 type MeleeKey =
   | "meleeIdle" | "meleeWalkFwd" | "meleeWalkBwd"
@@ -118,10 +121,11 @@ type MeleeKey =
   | "meleeJump" | "meleeCrouch" | "meleeBlock";
 
 type StaffKey =
-  | "staffIdle" | "staffWalkFwd" | "staffWalkBwd"
+  | "staffIdle" | "staffIdle2"
+  | "staffWalkFwd" | "staffWalkBwd"
   | "staffRunFwd" | "staffRunBwd"
   | "staffCast1" | "staffCast2"
-  | "staffJump";
+  | "staffJump" | "staffHitLarge" | "staffHitSmall";
 
 type BowKey =
   | "bowIdle" | "bowWalkFwd" | "bowWalkBwd"
@@ -148,20 +152,27 @@ type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey | 
 // ─── Load queues (paths sourced from assets/manifest.ts) ──────────────────────
 
 const PISTOL_QUEUE: Array<{ key: AnimKey | "__model__"; file: string }> = [
-  { key: "__model__",        file: CHARACTER.mesh },
-  { key: "pistolIdle",       file: ANIM_PISTOL.idle },
-  { key: "pistolWalkFwd",    file: ANIM_PISTOL.walkFwd },
-  { key: "pistolWalkBwd",    file: ANIM_PISTOL.walkBwd },
-  { key: "pistolStrafeL",    file: ANIM_PISTOL.strafeL },
-  { key: "pistolStrafeR",    file: ANIM_PISTOL.strafeR },
-  { key: "pistolWalkArcL",   file: ANIM_PISTOL.walkArcL },
-  { key: "pistolWalkArcR",   file: ANIM_PISTOL.walkArcR },
-  { key: "pistolRun",        file: ANIM_PISTOL.run },
-  { key: "pistolJump",       file: ANIM_PISTOL.jump },
-  { key: "pistolLand",       file: ANIM_PISTOL.land },
-  { key: "pistolCrouchDown", file: ANIM_PISTOL.crouchDown },
-  { key: "pistolCrouchIdle", file: ANIM_PISTOL.crouchIdle },
-  { key: "pistolCrouchUp",   file: ANIM_PISTOL.crouchUp },
+  { key: "__model__",           file: CHARACTER.mesh },
+  { key: "pistolIdle",          file: ANIM_PISTOL.idle },
+  { key: "pistolWalkFwd",       file: ANIM_PISTOL.walkFwd },
+  { key: "pistolWalkBwd",       file: ANIM_PISTOL.walkBwd },
+  { key: "pistolStrafeL",       file: ANIM_PISTOL.strafeL },
+  { key: "pistolStrafeR",       file: ANIM_PISTOL.strafeR },
+  { key: "pistolWalkArcL",      file: ANIM_PISTOL.walkArcL },
+  { key: "pistolWalkArcR",      file: ANIM_PISTOL.walkArcR },
+  { key: "pistolWalkBwdArcL",   file: ANIM_PISTOL.walkBwdArcL },
+  { key: "pistolWalkBwdArcR",   file: ANIM_PISTOL.walkBwdArcR },
+  { key: "pistolRun",           file: ANIM_PISTOL.run },
+  { key: "pistolRunArcL",       file: ANIM_PISTOL.runArcL },
+  { key: "pistolRunArcR",       file: ANIM_PISTOL.runArcR },
+  { key: "pistolRunBwd",        file: ANIM_PISTOL.runBwd },
+  { key: "pistolRunBwdArcL",    file: ANIM_PISTOL.runBwdArcL },
+  { key: "pistolRunBwdArcR",    file: ANIM_PISTOL.runBwdArcR },
+  { key: "pistolJump",          file: ANIM_PISTOL.jump },
+  { key: "pistolLand",          file: ANIM_PISTOL.land },
+  { key: "pistolCrouchDown",    file: ANIM_PISTOL.crouchDown },
+  { key: "pistolCrouchIdle",    file: ANIM_PISTOL.crouchIdle },
+  { key: "pistolCrouchUp",      file: ANIM_PISTOL.crouchUp },
 ];
 
 const RIFLE_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -175,6 +186,8 @@ const RIFLE_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "rifleJump",    file: ANIM_RIFLE.jump },
   { key: "rifleFire",    file: ANIM_RIFLE.fire },
   { key: "rifleReload",  file: ANIM_RIFLE.reload },
+  { key: "rifleTurnL",   file: ANIM_RIFLE.turnL },
+  { key: "rifleTurnR",   file: ANIM_RIFLE.turnR },
 ];
 
 const MELEE_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -202,14 +215,17 @@ const MELEE_QUEUE: Array<{ key: AnimKey; file: string }> = [
 ];
 
 const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
-  { key: "staffIdle",    file: ANIM_STAFF.idle },
-  { key: "staffWalkFwd", file: ANIM_STAFF.walkFwd },
-  { key: "staffWalkBwd", file: ANIM_STAFF.walkBwd },
-  { key: "staffRunFwd",  file: ANIM_STAFF.runFwd },
-  { key: "staffRunBwd",  file: ANIM_STAFF.runBwd },
-  { key: "staffCast1",   file: ANIM_STAFF.cast1 },
-  { key: "staffCast2",   file: ANIM_STAFF.cast2 },
-  { key: "staffJump",    file: ANIM_STAFF.jump },
+  { key: "staffIdle",     file: ANIM_STAFF.idle },
+  { key: "staffIdle2",    file: ANIM_STAFF.idle2 },
+  { key: "staffWalkFwd",  file: ANIM_STAFF.walkFwd },
+  { key: "staffWalkBwd",  file: ANIM_STAFF.walkBwd },
+  { key: "staffRunFwd",   file: ANIM_STAFF.runFwd },
+  { key: "staffRunBwd",   file: ANIM_STAFF.runBwd },
+  { key: "staffCast1",    file: ANIM_STAFF.cast1 },
+  { key: "staffCast2",    file: ANIM_STAFF.cast2 },
+  { key: "staffJump",     file: ANIM_STAFF.jump },
+  { key: "staffHitLarge", file: ANIM_STAFF.hitLarge },
+  { key: "staffHitSmall", file: ANIM_STAFF.hitSmall },
 ];
 
 const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -268,6 +284,9 @@ const ONCE_ANIMS = new Set<AnimKey>([
   "pistolCrouchDown","pistolCrouchUp",
   "rifleFire",
   "staffCast1","staffCast2",
+  "staffHitLarge","staffHitSmall",
+  "staffIdle2",        // idle variety — plays once then returns to staffIdle
+  "rifleTurnL","rifleTurnR", // non-blocking in-place turn animations
   "bowDraw","bowFire",
   // sword + shield actions
   "ssAttack1","ssAttack2","ssAttack3","ssAttack4",
@@ -415,18 +434,35 @@ function resolveAnim(
     return "ssIdle";
   }
 
-  // Pistol
+  // Pistol — full 8-directional animation set
   if (!moving) return "pistolIdle";
   if (fwd && !bwd) {
-    if (!left && !right) return sprint ? "pistolRun" : "pistolWalkFwd";
-    if (left)  return "pistolWalkArcL";
-    if (right) return "pistolWalkArcR";
+    if (!left && !right) return sprint ? "pistolRun"      : "pistolWalkFwd";
+    if (left)            return sprint ? "pistolRunArcL"  : "pistolWalkArcL";
+    if (right)           return sprint ? "pistolRunArcR"  : "pistolWalkArcR";
   }
-  if (bwd && !fwd) return "pistolWalkBwd";
+  if (bwd && !fwd) {
+    if (!left && !right) return sprint ? "pistolRunBwd"      : "pistolWalkBwd";
+    if (left)            return sprint ? "pistolRunBwdArcL"  : "pistolWalkBwdArcL";
+    if (right)           return sprint ? "pistolRunBwdArcR"  : "pistolWalkBwdArcR";
+  }
   if (left)  return "pistolStrafeL";
   if (right) return "pistolStrafeR";
   return "pistolIdle";
 }
+
+// ─── Animation speed references ───────────────────────────────────────────────
+// These are the speeds (m/s) that the FBX locomotion clips "look right" at —
+// i.e. timeScale=1 produces no foot-slide at exactly these speeds.
+// Computed once so we can scale timeScale proportionally to actual move speed.
+const ANIM_WALK_REF = 1.5;    // Mixamo/similar walk clips authored at ~1.5 m/s
+const ANIM_RUN_REF  = 4.0;    // run clips authored at ~4.0 m/s
+
+// ─── Module-level math helpers (avoids per-frame allocation) ─────────────────
+const _UP_AXIS      = new THREE.Vector3(0, 1, 0);
+const _FWD_BODY     = new THREE.Vector3(0, 0, -1);  // body-frame forward (rootRef local -Z)
+const _yawQ         = new THREE.Quaternion();
+const _leanQ        = new THREE.Quaternion();
 
 // ─── Queue slot type ──────────────────────────────────────────────────────────
 type QueueSlot = {
@@ -450,7 +486,8 @@ export interface PlayerProps {
 
 export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: PlayerProps) {
   // ── Scene refs ────────────────────────────────────────────────────────────
-  const rootRef       = useRef<THREE.Group>(null!);
+  const rootRef             = useRef<THREE.Group>(null!);
+  const leanGroupRef        = useRef<THREE.Group>(null!);  // procedural body lean
   const modelGroupRef       = useRef<THREE.Group>(null!);
   const swordGroupRef       = useRef<THREE.Group>(null!);
   const axeGroupRef         = useRef<THREE.Group>(null!);
@@ -459,7 +496,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const riflePropGroupRef   = useRef<THREE.Group>(null!);
   const bowPropGroupRef     = useRef<THREE.Group>(null!);
   const shieldPropGroupRef  = useRef<THREE.Group>(null!);
-  const playerRBRef   = useRef<any>(null);
+  const playerRBRef         = useRef<any>(null);
 
   // ── Movement refs ─────────────────────────────────────────────────────────
   const velY     = useRef(0);
@@ -482,6 +519,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const rollDir      = useRef(new THREE.Vector3(0, 0, -1));
   const rollCooldown = useRef(0);
 
+  // ── Procedural animation refs ─────────────────────────────────────────────
+  const leanRef          = useRef(0);    // current body lean angle (radians)
+  const bobTimerRef      = useRef(0);    // head-bob phase accumulator
+  const staffIdleTimer   = useRef(0);    // seconds spent in staffIdle → triggers staffIdle2
+  const prevYaw          = useRef(0);    // yaw from previous frame (rifle turn detection)
+
   // ── Double-tap dodge detection ────────────────────────────────────────────
   // Stores the timestamp of the last keydown for W / A / S / D.
   const doubleTapTimers  = useRef<Partial<Record<string, number>>>({});
@@ -499,7 +542,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const blockingOnce     = useRef(false);
   const animQueue        = useRef<QueueSlot>(null);
   // These refs are updated every render so mixer callbacks always call the latest version
-  const onBlockingDoneRef = useRef<((key: AnimKey) => void) | null>(null);
+  const onBlockingDoneRef    = useRef<((key: AnimKey) => void) | null>(null);
+  const onNonBlockingDoneRef = useRef<((key: AnimKey) => void) | null>(null);
+  const nonBlockingOnce      = useRef(false);   // true while staffIdle2/rifleTurnL/R plays
   const fireDamageRef     = useRef<(() => void) | null>(null);
 
   // ── THREE animation state ─────────────────────────────────────────────────
@@ -601,6 +646,13 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         comboWindow.current = MELEE_COMBO_WIN;
       }
     }
+  };
+
+  // Restore locomotion idle after a non-blocking ONCE anim (staffIdle2, rifleTurnL/R)
+  onNonBlockingDoneRef.current = (_finishedKey: AnimKey) => {
+    nonBlockingOnce.current = false;
+    const wm = useGameStore.getState().weaponMode;
+    _rawPlay(idleForMode(wm), FADE_LOCO);
   };
 
   // ── Raw play helper (direct, no skip-if-same) ─────────────────────────────
@@ -872,6 +924,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
               const name = e.action.getClip().name as AnimKey;
               if (BLOCKING_ONCE.has(name)) {
                 onBlockingDoneRef.current?.(name);
+              } else if (ONCE_ANIMS.has(name)) {
+                // Non-blocking ONCE anim (staffIdle2, rifleTurnL/R) — restore idle
+                onNonBlockingDoneRef.current?.(name);
               }
             });
 
@@ -1335,13 +1390,15 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       cycleWeapon();
       const newWm = useGameStore.getState().weaponMode;
       // Clear queue and blocking state on weapon switch
-      blockingOnce.current   = false;
-      animQueue.current      = null;
-      attackPhase.current    = 0;
-      comboWindow.current    = 0;
-      bowAiming.current      = false;
-      ssBlocking.current     = false;
-      ssAttackPhase.current  = 0;
+      blockingOnce.current    = false;
+      nonBlockingOnce.current = false;
+      staffIdleTimer.current  = 0;
+      animQueue.current       = null;
+      attackPhase.current     = 0;
+      comboWindow.current     = 0;
+      bowAiming.current       = false;
+      ssBlocking.current      = false;
+      ssAttackPhase.current   = 0;
       transitionTo(idleForMode(newWm), 0.25);
     }
 
@@ -1504,6 +1561,13 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     mixerRef.current?.update(delta);
     rollCamZ.current *= Math.max(0, 1 - 14 * delta);
 
+    // ── Input state (hoisted — used by bob, lean, camera, and locomotion) ──
+    const fwd    = !!(keys.current["KeyW"] || keys.current["ArrowUp"]);
+    const bwd    = !!(keys.current["KeyS"] || keys.current["ArrowDown"]);
+    const left   = !!(keys.current["KeyA"] || keys.current["ArrowLeft"]);
+    const right  = !!(keys.current["KeyD"] || keys.current["ArrowRight"]);
+    const sprint = !!(keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !crouching.current;
+
     // ── Camera ─────────────────────────────────────────────────────────────
     // tps    = user-configured over-shoulder (shoulderX/Y/Z)
     // action = tight cinematic combat cam: closer, lower, tighter FOV feel
@@ -1523,7 +1587,28 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     camera.rotation.y = 0;
     camera.rotation.z = rollCamZ.current;
 
-    rootRef.current.rotation.y = yaw.current;
+    // ── Head bob — procedural vertical/lateral camera oscillation ────────────
+    // Only while grounded and moving; fades to zero when stationary.
+    const isMovingNow = (fwd || bwd || left || right) && grounded.current;
+    const bobFreq = sprint ? 13 : 9;
+    bobTimerRef.current += delta * bobFreq * (isMovingNow ? 1 : -Math.min(1, bobTimerRef.current));
+    bobTimerRef.current  = Math.max(0, bobTimerRef.current);
+    const bobAmp  = sprint ? 0.025 : 0.014;
+    if (isMovingNow || bobTimerRef.current > 0.01) {
+      camera.position.y += Math.sin(bobTimerRef.current) * bobAmp;
+      camera.position.x += Math.sin(bobTimerRef.current * 0.5) * bobAmp * 0.35;
+    }
+
+    // ── Body lean (strafe) + yaw — applied together as a quaternion so the
+    //    lean is always around the character's own forward axis, not world Z. ──
+    const strafe = !sprint && grounded.current && !rolling.current;
+    const targetLean = (left && !right && strafe) ?  0.07
+                     : (right && !left && strafe) ? -0.07 : 0;
+    leanRef.current += (targetLean - leanRef.current) * Math.min(1, 10 * delta);
+    _yawQ.setFromAxisAngle(_UP_AXIS, yaw.current);
+    _leanQ.setFromAxisAngle(_FWD_BODY, leanRef.current);
+    rootRef.current.quaternion.copy(_yawQ).multiply(_leanQ);
+
     if (modelGroupRef.current) modelGroupRef.current.visible = (mode !== "fps");
 
     // ── Weapon model + hand-bone tracking ──────────────────────────────────
@@ -1573,12 +1658,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     // ── Movement input ──────────────────────────────────────────────────────
     const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
     const rgtVec = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
-
-    const fwd    = !!(keys.current["KeyW"] || keys.current["ArrowUp"]);
-    const bwd    = !!(keys.current["KeyS"] || keys.current["ArrowDown"]);
-    const left   = !!(keys.current["KeyA"] || keys.current["ArrowLeft"]);
-    const right  = !!(keys.current["KeyD"] || keys.current["ArrowRight"]);
-    const sprint = !!(keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !crouching.current;
 
     const move = new THREE.Vector3();
     if (rolling.current && rollTimer.current > 0) {
@@ -1659,14 +1738,68 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         bowAiming.current,
         ssBlocking.current,
       );
-      if (next !== curAnim.current) transitionTo(next);
+      // Don't override a cosmetic non-blocking ONCE anim with the idle it
+      // originated from — let it finish naturally.  Movement always breaks out.
+      const isIdleVariantActive = nonBlockingOnce.current && next === idleForMode(wm);
+      if (next !== curAnim.current && !isIdleVariantActive) {
+        transitionTo(next);
+        nonBlockingOnce.current = false; // movement/state change cancels any idle variant
+      }
 
-      // Apply timeScale: crouch-walking uses 55% speed so the character
-      // shuffles rather than full-stride walks.
-      const isCrouchMoving =
-        crouching.current && (fwd || bwd || left || right) && grounded.current;
+      // ── Staff idle variety ─────────────────────────────────────────────────
+      // After 7 s of continuous staffIdle, play staffIdle2 once then reset.
+      if (curAnim.current === "staffIdle" && !nonBlockingOnce.current) {
+        staffIdleTimer.current += delta;
+        if (staffIdleTimer.current >= 7) {
+          staffIdleTimer.current = 0;
+          nonBlockingOnce.current = true;
+          _rawPlay("staffIdle2", FADE_LOCO);
+        }
+      } else if (!nonBlockingOnce.current) {
+        staffIdleTimer.current = 0;
+      }
+
+      // ── Rifle in-place turn animations ────────────────────────────────────
+      // While standing idle with the rifle, detect camera yaw rotation and
+      // play a quarter-turn animation.  Only fires when no ONCE anim is live
+      // and the player is actually idle (no movement keys).
+      const yawDelta = yaw.current - prevYaw.current;
+      if (
+        wm === "rifle" &&
+        curAnim.current === "rifleIdle" &&
+        !nonBlockingOnce.current &&
+        Math.abs(yawDelta) > 0.025   // ≈ 1.4° — filters mouse micro-jitter
+      ) {
+        nonBlockingOnce.current = true;
+        _rawPlay(yawDelta > 0 ? "rifleTurnR" : "rifleTurnL", FADE_LOCO);
+      }
+      prevYaw.current = yaw.current;
+
+      // ── Speed-matched animation timeScale — prevents foot sliding ───────────
+      // Scale the playback rate so the step frequency matches actual ground
+      // speed. Reference speeds are the m/s each FBX clip was authored at.
+      const isCrouchMoving = crouching.current && (fwd || bwd || left || right) && grounded.current;
       const cur = actionsRef.current[curAnim.current];
-      if (cur) cur.timeScale = isCrouchMoving ? CROUCH_WALK_TS : 1;
+      if (cur) {
+        if (isCrouchMoving) {
+          cur.timeScale = CROUCH_WALK_TS;
+        } else {
+          const ak = curAnim.current as string;
+          const isRunAnim   = ak.includes("Run")   || ak.includes("run");
+          const isWalkAnim  = ak.includes("Walk")  || ak.includes("walk");
+          const isStrafAnim = ak.includes("Straf") || ak.includes("straf");
+          // Derive intended horizontal speed from input state (avoids physics jitter)
+          const horizSpeed = rolling.current ? ROLL_SPEED
+            : (fwd || bwd || left || right) ? (sprint ? RUN_SPEED : WALK_SPEED)
+            : 0;
+          let locoTs = 1.0;
+          if (horizSpeed > 0.1) {
+            if (isRunAnim)             locoTs = horizSpeed / ANIM_RUN_REF;
+            else if (isWalkAnim || isStrafAnim) locoTs = horizSpeed / ANIM_WALK_REF;
+          }
+          cur.timeScale = Math.max(0.4, Math.min(3.0, locoTs));
+        }
+      }
     }
   });
 
@@ -1690,21 +1823,25 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       </RigidBody>
 
       <group ref={rootRef}>
-        <group ref={modelGroupRef} rotation-y={Math.PI}>
-          {modelObj ? (
-            <primitive object={modelObj} />
-          ) : (
-            <group>
-              <mesh position={[0, 0.9, 0]} castShadow>
-                <capsuleGeometry args={[0.35, 1.0, 4, 8]} />
-                <meshStandardMaterial color="#4a90d9" />
-              </mesh>
-              <mesh position={[0, 1.75, 0]} castShadow>
-                <sphereGeometry args={[0.28, 8, 8]} />
-                <meshStandardMaterial color="#f4c896" />
-              </mesh>
-            </group>
-          )}
+        {/* leanGroupRef — intermediate group for procedural body lean.
+            Rotation applied every frame in useFrame (quaternion around body-forward). */}
+        <group ref={leanGroupRef}>
+          <group ref={modelGroupRef} rotation-y={Math.PI}>
+            {modelObj ? (
+              <primitive object={modelObj} />
+            ) : (
+              <group>
+                <mesh position={[0, 0.9, 0]} castShadow>
+                  <capsuleGeometry args={[0.35, 1.0, 4, 8]} />
+                  <meshStandardMaterial color="#4a90d9" />
+                </mesh>
+                <mesh position={[0, 1.75, 0]} castShadow>
+                  <sphereGeometry args={[0.28, 8, 8]} />
+                  <meshStandardMaterial color="#f4c896" />
+                </mesh>
+              </group>
+            )}
+          </group>
         </group>
       </group>
 

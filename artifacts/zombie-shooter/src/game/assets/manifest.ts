@@ -49,7 +49,14 @@ export const ANIM_PISTOL = {
   strafeR:     `${AP}/pistol strafe (2).fbx`,
   walkArcL:    `${AP}/pistol walk arc.fbx`,
   walkArcR:    `${AP}/pistol walk arc (2).fbx`,
+  walkBwdArcL: `${AP}/pistol walk backward arc.fbx`,
+  walkBwdArcR: `${AP}/pistol walk backward arc (2).fbx`,
   run:         `${AP}/pistol run.fbx`,
+  runArcL:     `${AP}/pistol run arc.fbx`,
+  runArcR:     `${AP}/pistol run arc (2).fbx`,
+  runBwd:      `${AP}/pistol run backward.fbx`,
+  runBwdArcL:  `${AP}/pistol run backward arc.fbx`,
+  runBwdArcR:  `${AP}/pistol run backward arc (2).fbx`,
   jump:        `${AP}/pistol jump.fbx`,
   land:        `${AP}/pistol jump (2).fbx`,
   crouchDown:  `${AP}/pistol stand to kneel.fbx`,
@@ -68,6 +75,8 @@ export const ANIM_RIFLE = {
   jump:        `${AR}/rifle jump.fbx`,
   fire:        `${AR}/rifle fire.fbx`,
   reload:      `${AR}/rifle reload.fbx`,
+  turnL:       `${AR}/rifle turn left.fbx`,
+  turnR:       `${AR}/rifle turn right.fbx`,
 } as const;
 
 export const ANIM_MELEE = {
@@ -91,8 +100,10 @@ export const ANIM_MELEE = {
 } as const;
 
 export const ANIM_STAFF = {
-  idle:        `${AS}/staffIdle.fbx`,
-  idle2:       `${AS}/staffIdle2.fbx`,
+  idle:         `${AS}/staffIdle.fbx`,
+  idle2:        `${AS}/staffIdle2.fbx`,
+  hitLarge:     `${AS}/staffHitLarge.fbx`,
+  hitSmall:     `${AS}/staffHitSmall.fbx`,
   walkFwd:     `${AS}/staffWalkFwd.fbx`,
   walkBwd:     `${AS}/staffWalkBwd.fbx`,
   runFwd:      `${AS}/staffRunFwd.fbx`,
@@ -101,8 +112,6 @@ export const ANIM_STAFF = {
   cast2:       `${AS}/staffCast2.fbx`,
   jump:        `${AS}/staffJump.fbx`,
   death:       `${AS}/staffDeath.fbx`,
-  hitLarge:    `${AS}/staffHitLarge.fbx`,
-  hitSmall:    `${AS}/staffHitSmall.fbx`,
 } as const;
 
 export const ANIM_BOW = {
