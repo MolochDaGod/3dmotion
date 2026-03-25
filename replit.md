@@ -147,7 +147,22 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 - Chase speed and detection radius are live-tweakable from the editor panel
 - Attack damage driven by `ed.zombieAttackDamage` (editor slider)
 
-**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload/spell-select · F cast spell · C character panel · P camera mode · ` editor panel · F2 perf overlay
+**Character Swap System:**
+- `src/game/CharacterRegistry.ts` — `CharacterDef` interface + registry array. Each def specifies: `id`, `name`, `mesh` (FBX path), `scale`, `capsuleHH/R`, `color`. All Mixamo animation packs are shared between characters automatically.
+- `src/game/useCharacterStore.ts` — Zustand store: `activeId`, `def`, `cycleNext()`, `setActive(id)`.
+- `Player.tsx` reads `useCharacterStore.getState().def` at mount-time; uses `def.mesh` and `def.scale` so each FBX loads with correct proportions.
+- `Game.tsx` passes `key={activeId}` to `<Player>` — React cleanly remounts the entire player (skeleton, mixer, weapons) when character changes.
+- To add a new Meshy AI / Mixamo character: export as FBX with Mixamo skeleton → drop under `public/models/character/` → add one entry to `CHARACTER_REGISTRY` in CharacterRegistry.ts.
+- **N key** — cycles to next registered character.
+
+**NavGrid Web Worker (A* off main thread):**
+- `src/game/navWorker.ts` — Vite module worker that imports NavGrid.ts + terrain.ts (pure TS/math, no browser APIs). Handles `init` and `path` messages.
+- `src/game/NavWorkerContext.tsx` — React context: `NavWorkerProvider` creates one shared worker for all zombie instances; `useNavWorker()` hook exposes `asyncGetPath(fx,fz,tx,tz) → Promise<[number,number][]>` and `ready` ref.
+- `Zombie.tsx` uses `asyncGetPath` + `pathPendingRef` guard — one in-flight request per zombie at a time, result set into `waypointsRef` when resolved.
+- `Game.tsx` wraps `<Physics>` with `<NavWorkerProvider obstacles={NAV_OBSTACLES}>` so the grid is initialised once from `Graveyard.NAV_OBSTACLES`.
+- Main thread no longer calls `initNavGrid` or `getPath` — A* never blocks the render loop.
+
+**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload/spell-select · F cast spell · C character panel · P camera mode · N next character · ` editor panel · F2 perf overlay
 
 **Key files:** ANNIHILATE_LEARNINGS.md — architecture reference from studied game repo
 

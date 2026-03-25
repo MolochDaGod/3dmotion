@@ -5,7 +5,7 @@ import { getTerrainHeight } from "./terrain";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { RigidBody, BallCollider } from "@react-three/rapier";
 import * as THREE from "three";
-import { getPath, isNavReady } from "./NavGrid";
+import { useNavWorker } from "./NavWorkerContext";
 import { useEditorStore } from "./useEditorStore";
 
 useGLTF.preload("/models/mutant.gltf");
@@ -72,12 +72,16 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
 
   const { actions, mixer } = useAnimations(animations, groupRef);
 
+  const { asyncGetPath, ready: navReady } = useNavWorker();
+
   const stateRef        = useRef<ZState>("loading");
   const activeActionRef = useRef<THREE.AnimationAction | null>(null);
   const attackCdRef     = useRef(0);
   const deadTimerRef    = useRef(0);
   const prevHealthRef   = useRef(data.health);
   const tmpDir          = useRef(new THREE.Vector3());
+  // Prevents flooding the worker — only one path request in-flight at a time.
+  const pathPendingRef  = useRef(false);
 
   // ── Wander ─────────────────────────────────────────────────────────────────
   // Each zombie starts with a random direction and a staggered timer so they
@@ -233,19 +237,25 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
         transitionTo("run");
       }
       if (st === "run") {
-        // ── A* path following ──────────────────────────────────────────────
+        // ── A* path following (Web Worker — non-blocking) ─────────────────
         pathTimerRef.current -= delta;
 
-        // Request a fresh path every 1.5 s (or immediately if path is empty)
-        if (pathTimerRef.current <= 0 || waypointsRef.current.length === 0) {
+        // Request a fresh path every 1.5 s (or when path exhausted).
+        // pathPendingRef guards against flooding the worker.
+        if (
+          (pathTimerRef.current <= 0 || waypointsRef.current.length === 0) &&
+          navReady.current &&
+          !pathPendingRef.current
+        ) {
           pathTimerRef.current = 1.5;
-          if (isNavReady()) {
-            const fresh = getPath(pos.x, pos.z, pp.x, pp.z);
+          pathPendingRef.current = true;
+          const fx = pos.x, fz = pos.z, tx = pp.x, tz = pp.z;
+          asyncGetPath(fx, fz, tx, tz).then((fresh) => {
+            pathPendingRef.current = false;
             if (fresh.length > 0) {
-              // Skip the first waypoint (it's the zombie's own cell)
               waypointsRef.current = fresh.slice(1);
             }
-          }
+          });
         }
 
         // Pop waypoints the zombie has already reached (within 2 m)

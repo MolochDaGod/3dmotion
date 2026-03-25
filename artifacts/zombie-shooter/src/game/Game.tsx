@@ -13,7 +13,8 @@ import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
 import { Graveyard, NAV_OBSTACLES } from "./Graveyard";
-import { initNavGrid } from "./NavGrid";
+import { NavWorkerProvider } from "./NavWorkerContext";
+import { useCharacterStore } from "./useCharacterStore";
 import { HUD } from "./HUD";
 import { MagicSystem } from "./MagicProjectile";
 import { SpellRadial } from "./SpellRadial";
@@ -97,6 +98,7 @@ function SceneContent({
   onLoaded:       () => void;
 }) {
   const ed = useEditorStore();
+  const { activeId } = useCharacterStore();
 
   // ChromaticAberration expects a THREE.Vector2 — rebuild only when strength changes
   const caOffset = useMemo(
@@ -143,27 +145,32 @@ function SceneContent({
       <directionalLight position={[-40, 30, 50]} intensity={0.35} color="#c0d8f5" />
 
       {/* ── All physics bodies — player, graveyard, AND zombie sensors ── */}
-      <Physics gravity={[0, -22, 0]} timeStep="vary">
-        <Graveyard />
-        <Player
-          onShoot={onShoot}
-          onMelee={onMelee}
-          onSkillHit={onSkillHit}
-          onDead={onPlayerDead}
-          playerPosRef={playerPosRef}
-        />
-
-        {/* Zombies inside Physics so their Rapier sensor bodies are registered */}
-        {zombies.map((z) => (
-          <Zombie
-            key={z.id}
-            data={z}
-            playerPosition={playerPosRef}
-            onDamagePlayer={onDamagePlayer}
-            onDied={onZombieDied}
+      {/* NavWorkerProvider creates ONE shared A* Web Worker for all zombies. */}
+      <NavWorkerProvider obstacles={NAV_OBSTACLES}>
+        <Physics gravity={[0, -22, 0]} timeStep="vary">
+          <Graveyard />
+          {/* key={activeId} forces a clean remount when the character changes. */}
+          <Player
+            key={activeId}
+            onShoot={onShoot}
+            onMelee={onMelee}
+            onSkillHit={onSkillHit}
+            onDead={onPlayerDead}
+            playerPosRef={playerPosRef}
           />
-        ))}
-      </Physics>
+
+          {/* Zombies inside Physics so their Rapier sensor bodies are registered */}
+          {zombies.map((z) => (
+            <Zombie
+              key={z.id}
+              data={z}
+              playerPosition={playerPosRef}
+              onDamagePlayer={onDamagePlayer}
+              onDied={onZombieDied}
+            />
+          ))}
+        </Physics>
+      </NavWorkerProvider>
 
       {bullets.map((b) => (
         <Bullet key={b.id} data={b} onExpire={onBulletExpire} />
@@ -230,16 +237,26 @@ export default function Game({ onGameOver }: GameProps) {
     removeMagicProjectile,
   } = useGameStore();
 
+  const { cycleNext: cycleCharacter } = useCharacterStore();
+
+  // ── 'N' key — cycle through character skins ───────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (e.code === "KeyN") cycleCharacter();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cycleCharacter]);
+
   const killCountRef = useRef(kills);
   const waveRef      = useRef(wave);
 
   useEffect(() => { killCountRef.current = kills; }, [kills]);
   useEffect(() => { waveRef.current = wave; }, [wave]);
 
-  // ── Build A* navigation grid once at scene startup ──────────────────────
-  useEffect(() => {
-    initNavGrid(NAV_OBSTACLES);
-  }, []);
+  // A* grid is now initialised inside navWorker.ts (Web Worker thread).
+  // No sync initNavGrid call needed on the main thread.
 
   // ── Bullet shoot ────────────────────────────────────────────────────────────
   const handleShoot = useCallback((position: THREE.Vector3, direction: THREE.Vector3) => {

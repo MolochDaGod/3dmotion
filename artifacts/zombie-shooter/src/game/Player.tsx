@@ -6,6 +6,7 @@ import { RigidBody, CapsuleCollider, useRapier } from "@react-three/rapier";
 import { CG_PLAYER } from "./CollisionLayers";
 import { getTerrainHeight } from "./terrain";
 import { useGameStore, WeaponMode, WEAPON_CYCLE, SPELLS } from "./useGameStore";
+import { useCharacterStore } from "./useCharacterStore";
 import { WEAPON_SKILLS, type SkillDef } from "./SkillSystem";
 import { SkillEffects, type SkillEffectsHandle } from "./SkillEffects";
 import type { SkillHitPayload } from "./Game";
@@ -491,6 +492,10 @@ export interface PlayerProps {
 // ─── Player ───────────────────────────────────────────────────────────────────
 
 export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: PlayerProps) {
+  // ── Active character definition (read once on mount; Game.tsx remounts via key) ──
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const charDef = useCharacterStore.getState().def;
+
   // ── Scene refs ────────────────────────────────────────────────────────────
   const rootRef             = useRef<THREE.Group>(null!);
   const leanGroupRef        = useRef<THREE.Group>(null!);  // procedural body lean
@@ -922,12 +927,14 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     ) {
       if (cancelled || i >= queue.length) { done?.(); return; }
       const { key, file } = queue[i];
+      // For the base-mesh slot, honour the active CharacterDef.
+      const loadFile = key === "__model__" ? charDef.mesh : file;
       loader.load(
-        file,
+        loadFile,
         (fbx) => {
           if (cancelled) return;
           if (key === "__model__") {
-            fbx.scale.setScalar(0.01);
+            fbx.scale.setScalar(charDef.scale);
             fbx.traverse((c) => {
               if ((c as THREE.Mesh).isMesh) {
                 c.castShadow    = true;
