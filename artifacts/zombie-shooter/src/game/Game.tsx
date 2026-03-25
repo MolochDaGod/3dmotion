@@ -5,6 +5,7 @@ import { Physics } from "@react-three/rapier";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
+import { getTerrainHeight } from "./terrain";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
@@ -52,7 +53,7 @@ function spawnZombie(wave: number): ZombieData {
   const jitter = () => (Math.random() - 0.5) * 6;
   return {
     id: `zombie-${++zombieIdCounter}`,
-    position: new THREE.Vector3(pos[0] + jitter(), 0, pos[2] + jitter()),
+    position: new THREE.Vector3(pos[0] + jitter(), getTerrainHeight(pos[0], pos[2]), pos[2] + jitter()),
     health: 50 + wave * 10,
     maxHealth: 50 + wave * 10,
     speed: 1.5 + wave * 0.3,

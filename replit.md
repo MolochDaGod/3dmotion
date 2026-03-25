@@ -101,7 +101,8 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 - `src/game/Player.tsx` — Rapier kinematic capsule controller, FBX Corsair King character, 6-weapon cycle (pistol/rifle/sword/axe/staff/bow), TPS/FPS camera with yaw/pitch, roll, melee combo, magic staff casting with mana, cane model tracked to right-hand bone; gun props (Pixel Guns 3D PISTOL.fbx/AR.fbx) tracked to right-hand bone; bow prop (craftpix) tracked to left-hand bone
 - `src/game/Zombie.tsx` — Mixamo Mutant GLTF model with FSM animation AI (idle→run→attack→hit→dead), SkeletonUtils.clone for per-instance skeletons, texture applied manually, detection radius + chase AI
 - `src/game/Game.tsx` — Wave spawning, bullet/melee hit detection, player death, score/wave tracking
-- `src/game/Map.tsx` — Rapier trimesh terrain collider
+- `src/game/terrain.ts` — Pure-TS terrain utilities: `getTerrainHeight(x,z)`, `buildTerrainHeightArray()`, `TERRAIN_SIZE/SEGS` constants. Single source of truth for physics and visuals. Imported by Graveyard, Zombie, Game.
+- `src/game/Graveyard.tsx` — HeightfieldCollider (63×63 quads, 64×64 vertex grid) + matching PlaneGeometry visual mesh; skirt box for thick-earth look; safety-net floor at y=−25; boundary walls. All props/trees/mounds/torches placed at `getTerrainHeight(x,z)`.
 - `src/game/HUD.tsx` — Health/mana/ammo/weapon pills overlay with magic reticle for staff mode
 - `src/game/CharacterPanel.tsx` — RPG character panel (C key), shows health+mana bars, wave/score/kills, equipped weapon info
 - `src/game/useGameStore.ts` — Zustand store (health, mana, score, wave, kills, weaponMode, showCharacterPanel)

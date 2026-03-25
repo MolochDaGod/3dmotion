@@ -1,10 +1,14 @@
 import { Suspense, useMemo } from "react";
 import { useLoader } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
-import { RigidBody, CuboidCollider } from "@react-three/rapier";
+import { RigidBody, CuboidCollider, HeightfieldCollider } from "@react-three/rapier";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import * as THREE from "three";
 import { GRAVEYARD } from "./assets/manifest";
+import {
+  getTerrainHeight, buildTerrainHeightArray,
+  TERRAIN_SIZE, TERRAIN_SEGS,
+} from "./terrain";
 
 // ─── Ruin layout ───────────────────────────────────────────────────────────────
 // [modelNum(1-21), x, z, rotY, scale]
@@ -90,47 +94,83 @@ function RuinProp({ modelNum, position, rotY, scale }: {
 }
 
 // ─── Graveyard ground ─────────────────────────────────────────────────────────
-// A solid 120×120 ground plane with a thick cuboid collider so nothing falls
-// through, plus boundary walls to keep players inside.
+// Uses a Rapier HeightfieldCollider so the physics surface exactly matches
+// the visual mesh. Nothing can fall through — a safety-net floor at y=-25
+// catches any edge case. Boundary walls keep everything inside the arena.
 function Ground() {
+  // Build height data once — same function drives both physics and visuals.
+  const heights = useMemo(() => buildTerrainHeightArray(), []);
+
+  // Visual terrain: PlaneGeometry vertices displaced to match the heightfield.
+  const terrainGeo = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(
+      TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEGS, TERRAIN_SEGS,
+    );
+    geo.rotateX(-Math.PI / 2); // lie flat in XZ plane
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, getTerrainHeight(pos.getX(i), pos.getZ(i)));
+    }
+    geo.computeVertexNormals();
+    return geo;
+  }, []);
+
+  // Thick skirt geometry — a box that hangs below the lowest possible terrain
+  // point so you never see "the edge of the world" even at oblique angles.
+  const skirtGeo = useMemo(() => {
+    const geo = new THREE.BoxGeometry(TERRAIN_SIZE + 4, 10, TERRAIN_SIZE + 4);
+    return geo;
+  }, []);
+
   return (
     <>
-      {/* ── Main ground body ── */}
+      {/* ── Heightfield physics body ── */}
       <RigidBody type="fixed" colliders={false} friction={0.9} restitution={0}>
-        {/* Physics slab: top surface sits exactly at y=0 */}
-        <CuboidCollider
-          args={[60, 3, 60]}
-          position={[0, -3, 0]}
+        {/*
+          Rapier HeightfieldCollider args: [nrows, ncols, heights, scale]
+          - nrows / ncols = number of QUAD rows/cols (so TERRAIN_SEGS = 63)
+          - heights: Float32Array length (nrows+1)*(ncols+1) = 64*64
+          - scale: world size of the heightfield {x, y, z}
+        */}
+        <HeightfieldCollider
+          args={[
+            TERRAIN_SEGS,
+            TERRAIN_SEGS,
+            heights,
+            { x: TERRAIN_SIZE, y: 1, z: TERRAIN_SIZE },
+          ]}
         />
 
-        {/* ── Visible terrain slab — 6m thick so it looks like solid earth ── */}
-        {/* Top surface at y=0, bottom at y=-6 */}
-        <mesh position={[0, -3, 0]} receiveShadow castShadow={false}>
-          <boxGeometry args={[120, 6, 120]} />
-          <meshStandardMaterial
-            color="#191d11"
-            roughness={1.0}
-            metalness={0.0}
-          />
-        </mesh>
-
-        {/* Dark surface overlay — adds a second colour layer for the top face */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]} receiveShadow>
-          <planeGeometry args={[120, 120, 40, 40]} />
+        {/* Visual surface — vertices exactly match the collision shape */}
+        <mesh geometry={terrainGeo} receiveShadow castShadow={false}>
           <meshStandardMaterial
             color="#141810"
             roughness={1.0}
             metalness={0.0}
           />
         </mesh>
+
+        {/* Skirt — solid earth below the terrain so the world looks thick */}
+        <mesh geometry={skirtGeo} position={[0, -7, 0]} castShadow={false}>
+          <meshStandardMaterial
+            color="#191d11"
+            roughness={1.0}
+            metalness={0.0}
+          />
+        </mesh>
+      </RigidBody>
+
+      {/* ── Safety-net floor — catches anything that somehow gets past the heightfield ── */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[80, 0.5, 80]} position={[0, -25, 0]} />
       </RigidBody>
 
       {/* ── Boundary walls (invisible colliders) ── */}
       <RigidBody type="fixed" colliders={false} friction={0.2}>
-        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8, -60]} />
-        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8,  60]} />
-        <CuboidCollider args={[0.5, 8, 60]} position={[-60, 8,   0]} />
-        <CuboidCollider args={[0.5, 8, 60]} position={[ 60, 8,   0]} />
+        <CuboidCollider args={[62, 12, 0.5]} position={[  0, 4, -62]} />
+        <CuboidCollider args={[62, 12, 0.5]} position={[  0, 4,  62]} />
+        <CuboidCollider args={[0.5, 12, 62]} position={[-62, 4,   0]} />
+        <CuboidCollider args={[0.5, 12, 62]} position={[ 62, 4,   0]} />
       </RigidBody>
     </>
   );
@@ -148,7 +188,7 @@ function GraveMounds() {
   return (
     <>
       {GRAVE_MOUNDS.map(([x, , z], i) => (
-        <group key={i} position={[x, 0, z]}>
+        <group key={i} position={[x, getTerrainHeight(x, z), z]}>
           <mesh rotation={[-Math.PI / 2, 0, i * 0.6]} receiveShadow>
             <cylinderGeometry args={[0.55, 0.8, 0.22, 8]} />
             <meshStandardMaterial color="#14180e" roughness={1} />
@@ -200,7 +240,7 @@ function Torches() {
   return (
     <>
       {TORCH_POSITIONS.map(([x, , z], i) => (
-        <group key={i} position={[x, 0, z]}>
+        <group key={i} position={[x, getTerrainHeight(x, z), z]}>
           {/* Pole */}
           <mesh position={[0, 0.9, 0]} castShadow>
             <cylinderGeometry args={[0.04, 0.04, 1.8, 5]} />
@@ -242,17 +282,17 @@ export function Graveyard() {
       <GraveMounds />
       <Torches />
 
-      {DEAD_TREES.map(([x, y, z, ry], i) => (
-        <DeadTree key={i} position={[x, y, z]} rotY={ry} />
+      {DEAD_TREES.map(([x, , z, ry], i) => (
+        <DeadTree key={i} position={[x, getTerrainHeight(x, z), z]} rotY={ry} />
       ))}
 
       {/* ── FBX ruin props (each wrapped in Suspense) ── */}
-      {/* y=-1.0 embeds the base 1 m into the terrain so ruins emerge naturally */}
+      {/* Base embedded 1 m into the terrain surface at each prop's (x,z) */}
       {RUIN_PLACEMENTS.map(([modelNum, x, z, rotY, scale], i) => (
         <Suspense key={i} fallback={null}>
           <RuinProp
             modelNum={modelNum}
-            position={[x, -1.0, z]}
+            position={[x, getTerrainHeight(x, z) - 1.0, z]}
             rotY={rotY}
             scale={scale}
           />

@@ -1,6 +1,7 @@
 import { useRef, useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations, useTexture } from "@react-three/drei";
+import { getTerrainHeight } from "./terrain";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { RigidBody, BallCollider } from "@react-three/rapier";
 import * as THREE from "three";
@@ -189,6 +190,12 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
         data.position.copy(pos);
       }
     }
+
+    // ── Pin zombie feet to terrain surface ────────────────────────────────
+    // Zombies don't use the Rapier character controller, so we manually
+    // lock their Y to the heightfield at every frame to prevent floating / sinking.
+    pos.y = getTerrainHeight(pos.x, pos.z);
+    data.position.y = pos.y;
 
     // ── Sync Rapier kinematic sensor to zombie world position ──────────────
     // The sensor sits at chest height (y+1) so weapon sweeps at that level hit it.
