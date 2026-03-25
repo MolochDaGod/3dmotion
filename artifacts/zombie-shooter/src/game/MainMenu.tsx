@@ -225,11 +225,7 @@ function NavCard({
 
 // ─── CHARACTER SELECT screen ──────────────────────────────────────────────────
 function CharacterScreen({ onBack, onStart }: { onBack: () => void; onStart: () => void }) {
-  const { activeId, setActive, def: activeDef, allChars, fetchAiChars } = useCharacterStore();
-
-  useEffect(() => {
-    fetchAiChars();
-  }, [fetchAiChars]);
+  const { activeId, setActive, def: activeDef, allChars } = useCharacterStore();
 
   const aiCount = allChars.filter((c) => c.source === "meshy").length;
 
@@ -286,7 +282,7 @@ function CharacterScreen({ onBack, onStart }: { onBack: () => void; onStart: () 
                   ["Mesh",     meshLabel],
                 ].map(([k, v]) => (
                   <div key={k} style={{ fontSize: 9, color: "#3a3a3a" }}>
-                    <span style={{ color: isAi ? "#2a4a2a" : "#2a4a2a" }}>{k}:</span> <span style={{ color: "#5a5a5a" }}>{v}</span>
+                    <span style={{ color: "#2a4a2a" }}>{k}:</span> <span style={{ color: "#5a5a5a" }}>{v}</span>
                   </div>
                 ))}
               </div>
