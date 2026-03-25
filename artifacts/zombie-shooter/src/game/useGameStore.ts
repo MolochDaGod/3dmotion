@@ -21,9 +21,9 @@ export const DEFAULT_CAMERA: CameraSettings = {
   mode:        "tps",
   fov:         70,
   sensitivity: 0.002,
-  shoulderX:   0.55,
-  shoulderY:   1.55,
-  shoulderZ:   2.8,
+  shoulderX:   0.52,
+  shoulderY:   1.30,
+  shoulderZ:   2.55,
 };
 
 // ─── Weapon modes ─────────────────────────────────────────────────────────────

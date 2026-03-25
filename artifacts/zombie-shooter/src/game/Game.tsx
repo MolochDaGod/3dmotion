@@ -1,8 +1,8 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Stars } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import { Sky } from "@react-three/drei";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
 import { getTerrainHeight } from "./terrain";
@@ -93,27 +93,38 @@ function SceneContent({
 }) {
   return (
     <>
-      {/* ── Night sky atmosphere ── */}
-      <fog attach="fog" args={["#050a06", 55, 130]} />
-      <color attach="background" args={["#050a06"]} />
-      <Stars radius={160} depth={60} count={1800} factor={4} fade />
+      {/* ── Daytime atmosphere ── */}
+      <fog attach="fog" args={["#c9dff0", 90, 230]} />
+      <color attach="background" args={["#87ceeb"]} />
 
-      {/* ── Moonlight (cool blue-white, casting shadows) ── */}
-      <ambientLight intensity={0.08} color="#2a3560" />
+      {/* Procedural sky — sun high in south-east */}
+      <Sky
+        distance={4500}
+        sunPosition={[100, 35, -80]}
+        inclination={0.52}
+        azimuth={0.18}
+        turbidity={7}
+        rayleigh={1.2}
+        mieCoefficient={0.004}
+        mieDirectionalG={0.82}
+      />
+
+      {/* ── Sunlight (warm golden, casting hard shadows) ── */}
+      <ambientLight intensity={0.55} color="#ffe8d0" />
       <directionalLight
-        position={[-30, 60, -20]}
-        intensity={0.55}
-        color="#b8c8ff"
+        position={[60, 90, -50]}
+        intensity={2.8}
+        color="#fff5e0"
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-far={160}
-        shadow-camera-left={-70}
-        shadow-camera-right={70}
-        shadow-camera-top={70}
-        shadow-camera-bottom={-70}
+        shadow-camera-far={220}
+        shadow-camera-left={-90}
+        shadow-camera-right={90}
+        shadow-camera-top={90}
+        shadow-camera-bottom={-90}
       />
-      {/* Subtle fill from opposite side */}
-      <directionalLight position={[20, 20, 30]} intensity={0.07} color="#223322" />
+      {/* Cool sky-blue fill from the opposite (north) side */}
+      <directionalLight position={[-40, 30, 50]} intensity={0.35} color="#c0d8f5" />
 
       {/* ── All physics bodies — player, graveyard, AND zombie sensors ── */}
       <Physics gravity={[0, -22, 0]} timeStep="vary">
@@ -148,9 +159,9 @@ function SceneContent({
       {/* ── Post-processing — Bloom for torches / spell glow ── */}
       <EffectComposer>
         <Bloom
-          luminanceThreshold={0.35}
-          luminanceSmoothing={0.4}
-          intensity={1.6}
+          luminanceThreshold={0.75}
+          luminanceSmoothing={0.5}
+          intensity={0.5}
           mipmapBlur
         />
       </EffectComposer>
