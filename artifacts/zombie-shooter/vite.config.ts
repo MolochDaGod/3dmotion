@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { VitePWA } from "vite-plugin-pwa";
 
 const rawPort = process.env.PORT;
 
@@ -32,6 +33,38 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    VitePWA({
+      registerType: "autoUpdate",
+      devOptions: { enabled: false },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,svg,wasm}"],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: /\/models\//i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "game-models",
+              expiration: {
+                maxEntries: 400,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
+              },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
+      },
+      manifest: {
+        name: "Motion Training",
+        short_name: "MotionTraining",
+        description:
+          "Third-person survival wave shooter — 7 weapons, 8 magic spells, AI-generated characters",
+        theme_color: "#0a0a0a",
+        background_color: "#0a0a0a",
+        display: "fullscreen",
+        icons: [{ src: "favicon.svg", sizes: "any", type: "image/svg+xml" }],
+      },
+    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
@@ -57,6 +90,41 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 3500,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (!id.includes("node_modules")) return;
+          if (
+            id.includes("/three/") ||
+            id.includes("/@react-three/fiber") ||
+            id.includes("/@react-three/drei") ||
+            id.includes("/@react-three/postprocessing") ||
+            id.includes("/@dimforge/") ||
+            id.includes("/@react-three/rapier")
+          ) {
+            return "vendor-3d";
+          }
+          if (
+            id.includes("/@radix-ui/") ||
+            id.includes("/framer-motion/") ||
+            id.includes("/lucide-react/") ||
+            id.includes("/recharts/")
+          ) {
+            return "vendor-ui";
+          }
+          if (
+            id.includes("/zustand/") ||
+            id.includes("/wouter/") ||
+            id.includes("/zod/") ||
+            id.includes("/@tanstack/")
+          ) {
+            return "vendor-state";
+          }
+          return "vendor";
+        },
+      },
+    },
   },
   optimizeDeps: {
     include: ["leva", "r3f-perf"],

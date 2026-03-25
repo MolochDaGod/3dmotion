@@ -166,23 +166,23 @@ export const WEAPON_PROPS = {
 } as const;
 
 export const WEAPON_TEXTURES = {
-  sword:   `${WT}/Texture_MAp_sword.png`,
-  axe:     `${WT}/Texture_MAp_axe.png`,
-  staff:   `${WT}/cane_texture.png`,
-  shield:  `${WT}/shield_texture.png`,
+  sword:   `${WT}/Texture_MAp_sword.webp`,
+  axe:     `${WT}/Texture_MAp_axe.webp`,
+  staff:   `${WT}/cane_texture.webp`,
+  shield:  `${WT}/shield_texture.webp`,
 } as const;
 
 // ── Environment ───────────────────────────────────────────────────────────────
 
 export const ENVIRONMENT = {
   bossGlb:     `${ENV}/boss.glb`,
-  bossTex:     `${ENV}/boss.png`,
+  bossTex:     `${ENV}/boss.webp`,
 } as const;
 
 export const GRAVEYARD = {
   /** Returns the URL for ruin model n (1–21) */
   ruinFbx: (n: number) => `${GY}/fbx/_ruin_${n}.fbx`,
-  texture:  `${GY}/texture/Texture_MAp_ruins.png`,
+  texture:  `${GY}/texture/Texture_MAp_ruins.webp`,
 } as const;
 
 // ── Collision / interaction groups ────────────────────────────────────────────

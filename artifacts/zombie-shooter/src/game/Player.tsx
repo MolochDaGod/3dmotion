@@ -563,6 +563,13 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const actionsRef = useRef<Partial<Record<AnimKey, THREE.AnimationAction>>>({});
   const curAnim    = useRef<AnimKey>("pistolIdle");
 
+  // ── Lazy weapon-pack loading ───────────────────────────────────────────────
+  // Only the pistol pack (+ model) and melee pack load at startup.
+  // All other packs load on first equip; cached so they never load twice.
+  const loadPackRef       = useRef<((mode: WeaponMode) => void) | null>(null);
+  const packLoadedRef     = useRef(new Set<string>(["pistol", "melee"]));
+  const prevWeaponModeRef = useRef<WeaponMode>("pistol");
+
   // ── Hand-bone tracking ────────────────────────────────────────────────────
   const handBoneRef      = useRef<THREE.Bone | null>(null);    // right hand
   const leftHandBoneRef  = useRef<THREE.Bone | null>(null);    // left hand (bow)
@@ -898,7 +905,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
   // ── Sequential FBX loader ─────────────────────────────────────────────────
   // Phase 1: model + pistol (serial, model must exist before clips).
-  // Phase 2: rifle, melee, staff loaded in parallel (3 serial chains).
+  // Phase 2: melee loaded in parallel with pistol (needed for dodge anims).
+  // All other packs (rifle/staff/bow/shield) lazy-load on first weapon equip.
   useEffect(() => {
     let cancelled = false;
     const loader  = new FBXLoader();
@@ -969,16 +977,31 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       );
     }
 
-    loadSeq(PISTOL_QUEUE, 0, () => {
-      loadSeq(RIFLE_QUEUE  as typeof PISTOL_QUEUE, 0);
-      loadSeq(MELEE_QUEUE  as typeof PISTOL_QUEUE, 0);
-      loadSeq(STAFF_QUEUE  as typeof PISTOL_QUEUE, 0);
-      loadSeq(BOW_QUEUE    as typeof PISTOL_QUEUE, 0);
-      loadSeq(SS_QUEUE     as typeof PISTOL_QUEUE, 0);
-    });
+    // ── Lazy pack loader — called from useFrame on weapon switch ────────────
+    const packQueues: Record<string, typeof PISTOL_QUEUE> = {
+      rifle:  RIFLE_QUEUE  as typeof PISTOL_QUEUE,
+      staff:  STAFF_QUEUE  as typeof PISTOL_QUEUE,
+      bow:    BOW_QUEUE    as typeof PISTOL_QUEUE,
+      shield: SS_QUEUE     as typeof PISTOL_QUEUE,
+    };
+
+    loadPackRef.current = (mode: WeaponMode) => {
+      // sword/axe → melee pack; shield → shield/SS pack
+      const key = (mode === "sword" || mode === "axe") ? "melee"
+                : mode === "shield" ? "shield"
+                : (mode as string);
+      if (packLoadedRef.current.has(key) || !(key in packQueues)) return;
+      packLoadedRef.current.add(key);
+      loadSeq(packQueues[key], 0);
+    };
+
+    // Phase 1 — model + pistol (serial); simultaneously start melee (for dodge anims)
+    loadSeq(PISTOL_QUEUE, 0);
+    loadSeq(MELEE_QUEUE as typeof PISTOL_QUEUE, 0);
 
     return () => {
       cancelled = true;
+      loadPackRef.current = null;
       mixerRef.current?.stopAllAction();
     };
   }, []);
@@ -1684,6 +1707,11 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
     // ── Weapon model + hand-bone tracking ──────────────────────────────────
     const wm        = useGameStore.getState().weaponMode;
+    // Lazy-load the weapon animation pack the first time that weapon is equipped
+    if (wm !== prevWeaponModeRef.current) {
+      prevWeaponModeRef.current = wm;
+      loadPackRef.current?.(wm);
+    }
     const isMelee   = wm === "sword" || wm === "axe";
     const isStaffWm = wm === "staff";
     const isBowWm   = wm === "bow";
