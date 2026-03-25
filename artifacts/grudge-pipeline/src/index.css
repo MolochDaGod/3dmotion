@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Rajdhani:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Rajdhani', sans-serif;
+  --font-mono: 'Fira Code', monospace;
+
+  --color-background: hsl(240 10% 4%);
+  --color-panel: hsl(240 10% 7%);
+  --color-panel-border: hsl(240 10% 15%);
+  
+  --color-foreground: hsl(0 0% 90%);
+  --color-muted: hsl(240 10% 60%);
+  
+  --color-primary: hsl(120 100% 54%); /* Neon Green #39ff14 */
+  --color-primary-dim: hsla(120, 100%, 54%, 0.15);
+  
+  --color-secondary: hsl(273 67% 58%); /* Neon Purple #9d4edd */
+  --color-secondary-dim: hsla(273, 67%, 58%, 0.15);
+
+  --color-accent: hsl(183 100% 50%); /* Cyan */
+  --color-destructive: hsl(0 100% 60%);
+  --color-warning: hsl(40 100% 50%);
+
+  --color-border: hsl(240 10% 20%);
+}
+
+:root {
+  --background: 240 10% 4%;
+  --foreground: 0 0% 90%;
+  --primary: 120 100% 54%;
+  --secondary: 273 67% 58%;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased overflow-hidden;
+    background-image: url('/images/cyber-grid.png');
+    background-size: 400px;
+    background-blend-mode: screen;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-wider uppercase;
+  }
+
+  /* Custom Scrollbar for Cyberpunk feel */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
+}
+
+@layer utilities {
+  .glow-text-primary {
+    text-shadow: 0 0 10px hsla(var(--primary), 0.5);
+  }
+  .glow-box-primary {
+    box-shadow: 0 0 15px hsla(var(--primary), 0.2), inset 0 0 10px hsla(var(--primary), 0.1);
+  }
+  .glow-border-primary {
+    box-shadow: 0 0 8px hsla(var(--primary), 0.4);
+  }
+  .glow-box-secondary {
+    box-shadow: 0 0 15px hsla(var(--secondary), 0.2), inset 0 0 10px hsla(var(--secondary), 0.1);
+  }
+  
+  .scanline {
+    position: relative;
+    overflow: hidden;
+  }
+  .scanline::after {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(255,255,255,0),
+      rgba(255,255,255,0) 50%,
+      rgba(0,0,0,0.2) 50%,
+      rgba(0,0,0,0.2)
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0.3;
+  }
+}

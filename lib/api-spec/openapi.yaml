@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: meshy
+    description: Meshy AI 3D pipeline operations
+  - name: chat
+    description: AI chatbot for Meshy prompt optimization
 paths:
   /healthz:
     get:
@@ -24,6 +28,130 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /meshy/chat:
+    post:
+      operationId: meshyChat
+      tags: [chat]
+      summary: AI prompt optimizer chat
+      description: |
+        Chat with an AI assistant that specializes in crafting optimal Meshy API prompts
+        for game-ready 3D characters. Knows all Meshy parameters, pose modes, polycount
+        guidelines, and rigging requirements.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+
+  /meshy/text-to-3d/preview:
+    post:
+      operationId: meshyCreatePreview
+      tags: [meshy]
+      summary: Create a Text-to-3D preview task
+      description: Submit a prompt to Meshy API to generate a preview 3D mesh (no texture).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreviewRequest"
+      responses:
+        "200":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskIdResponse"
+
+  /meshy/text-to-3d/refine:
+    post:
+      operationId: meshyCreateRefine
+      tags: [meshy]
+      summary: Create a Text-to-3D refine task
+      description: Add textures to a completed preview task using PBR maps.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefineRequest"
+      responses:
+        "200":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskIdResponse"
+
+  /meshy/text-to-3d/{id}:
+    get:
+      operationId: meshyGetTask
+      tags: [meshy]
+      summary: Poll a Text-to-3D task
+      description: Get current status and result URLs for a Text-to-3D task.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeshyTask"
+
+  /meshy/rig:
+    post:
+      operationId: meshyCreateRig
+      tags: [meshy]
+      summary: Create an auto-rigging task
+      description: Submit a completed textured GLB for Meshy auto-rigging to produce a game-ready FBX with Mixamo-compatible skeleton.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RigRequest"
+      responses:
+        "200":
+          description: Rigging task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskIdResponse"
+
+  /meshy/rig/{id}:
+    get:
+      operationId: meshyGetRig
+      tags: [meshy]
+      summary: Poll a rigging task
+      description: Get current status and download URLs for a rigging task.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rigging task status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RigTask"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +162,216 @@ components:
       required:
         - status
 
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    ChatRequest:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+      required:
+        - messages
+
+    ChatResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+        extractedPrompt:
+          type: string
+          description: If the AI produced an optimized Meshy prompt, it is extracted here ready for use.
+        extractedParams:
+          $ref: "#/components/schemas/PreviewRequest"
+      required:
+        - reply
+
+    PreviewRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: Main generation prompt (max 600 chars)
+        ai_model:
+          type: string
+          enum: [meshy-5, meshy-6, latest]
+          default: latest
+        model_type:
+          type: string
+          enum: [standard, lowpoly]
+          default: standard
+        topology:
+          type: string
+          enum: [quad, triangle]
+          default: quad
+        target_polycount:
+          type: integer
+          minimum: 100
+          maximum: 300000
+          default: 30000
+        should_remesh:
+          type: boolean
+          default: true
+        pose_mode:
+          type: string
+          enum: [a-pose, t-pose, ""]
+          default: t-pose
+        target_formats:
+          type: array
+          items:
+            type: string
+            enum: [glb, fbx, obj, stl, usdz]
+          default: [glb, fbx]
+        enable_pbr:
+          type: boolean
+          default: true
+      required:
+        - prompt
+
+    RefineRequest:
+      type: object
+      properties:
+        preview_task_id:
+          type: string
+        texture_prompt:
+          type: string
+          description: Additional prompt to guide texturing (max 600 chars)
+        enable_pbr:
+          type: boolean
+          default: true
+        ai_model:
+          type: string
+          enum: [meshy-5, meshy-6, latest]
+          default: latest
+      required:
+        - preview_task_id
+
+    RigRequest:
+      type: object
+      properties:
+        input_task_id:
+          type: string
+          description: The Meshy task ID of a completed textured model. Preferred over model_url.
+        model_url:
+          type: string
+          description: Publicly accessible GLB URL. Use if input_task_id is unavailable.
+        height_meters:
+          type: number
+          default: 1.7
+      required: []
+
+    TaskIdResponse:
+      type: object
+      properties:
+        result:
+          type: string
+          description: The created task ID
+      required:
+        - result
+
+    MeshyTaskResult:
+      type: object
+      properties:
+        model_urls:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of format (glb, fbx, obj) to download URL
+        thumbnail_url:
+          type: string
+        video_url:
+          type: string
+        texture_urls:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+
+    MeshyTask:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, IN_PROGRESS, SUCCEEDED, FAILED, EXPIRED]
+        progress:
+          type: integer
+        created_at:
+          type: integer
+        started_at:
+          type: integer
+        finished_at:
+          type: integer
+        task_error:
+          type: object
+          properties:
+            message:
+              type: string
+        result:
+          $ref: "#/components/schemas/MeshyTaskResult"
+      required:
+        - id
+        - status
+        - progress
+
+    RigTaskResult:
+      type: object
+      properties:
+        rigged_character_fbx_url:
+          type: string
+        rigged_character_glb_url:
+          type: string
+        basic_animations:
+          type: object
+          properties:
+            walking_glb_url:
+              type: string
+            walking_fbx_url:
+              type: string
+            running_glb_url:
+              type: string
+            running_fbx_url:
+              type: string
+
+    RigTask:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, IN_PROGRESS, SUCCEEDED, FAILED, EXPIRED]
+        progress:
+          type: integer
+        created_at:
+          type: integer
+        finished_at:
+          type: integer
+        task_error:
+          type: object
+          properties:
+            message:
+              type: string
+        result:
+          $ref: "#/components/schemas/RigTaskResult"
+      required:
+        - id
+        - status
+        - progress

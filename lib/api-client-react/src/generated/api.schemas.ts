@@ -8,3 +8,199 @@
 export interface HealthStatus {
   status: string;
 }
+
+export type ChatMessageRole =
+  (typeof ChatMessageRole)[keyof typeof ChatMessageRole];
+
+export const ChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface ChatMessage {
+  role: ChatMessageRole;
+  content: string;
+}
+
+export interface ChatRequest {
+  messages: ChatMessage[];
+}
+
+export type PreviewRequestAiModel =
+  (typeof PreviewRequestAiModel)[keyof typeof PreviewRequestAiModel];
+
+export const PreviewRequestAiModel = {
+  "meshy-5": "meshy-5",
+  "meshy-6": "meshy-6",
+  latest: "latest",
+} as const;
+
+export type PreviewRequestModelType =
+  (typeof PreviewRequestModelType)[keyof typeof PreviewRequestModelType];
+
+export const PreviewRequestModelType = {
+  standard: "standard",
+  lowpoly: "lowpoly",
+} as const;
+
+export type PreviewRequestTopology =
+  (typeof PreviewRequestTopology)[keyof typeof PreviewRequestTopology];
+
+export const PreviewRequestTopology = {
+  quad: "quad",
+  triangle: "triangle",
+} as const;
+
+export type PreviewRequestPoseMode =
+  (typeof PreviewRequestPoseMode)[keyof typeof PreviewRequestPoseMode];
+
+export const PreviewRequestPoseMode = {
+  "a-pose": "a-pose",
+  "t-pose": "t-pose",
+  "": "",
+} as const;
+
+export type PreviewRequestTargetFormatsItem =
+  (typeof PreviewRequestTargetFormatsItem)[keyof typeof PreviewRequestTargetFormatsItem];
+
+export const PreviewRequestTargetFormatsItem = {
+  glb: "glb",
+  fbx: "fbx",
+  obj: "obj",
+  stl: "stl",
+  usdz: "usdz",
+} as const;
+
+export interface PreviewRequest {
+  /** Main generation prompt (max 600 chars) */
+  prompt: string;
+  ai_model?: PreviewRequestAiModel;
+  model_type?: PreviewRequestModelType;
+  topology?: PreviewRequestTopology;
+  /**
+   * @minimum 100
+   * @maximum 300000
+   */
+  target_polycount?: number;
+  should_remesh?: boolean;
+  pose_mode?: PreviewRequestPoseMode;
+  target_formats?: PreviewRequestTargetFormatsItem[];
+  enable_pbr?: boolean;
+}
+
+export interface ChatResponse {
+  reply: string;
+  /** If the AI produced an optimized Meshy prompt, it is extracted here ready for use. */
+  extractedPrompt?: string;
+  extractedParams?: PreviewRequest;
+}
+
+export type RefineRequestAiModel =
+  (typeof RefineRequestAiModel)[keyof typeof RefineRequestAiModel];
+
+export const RefineRequestAiModel = {
+  "meshy-5": "meshy-5",
+  "meshy-6": "meshy-6",
+  latest: "latest",
+} as const;
+
+export interface RefineRequest {
+  preview_task_id: string;
+  /** Additional prompt to guide texturing (max 600 chars) */
+  texture_prompt?: string;
+  enable_pbr?: boolean;
+  ai_model?: RefineRequestAiModel;
+}
+
+export interface RigRequest {
+  /** The Meshy task ID of a completed textured model. Preferred over model_url. */
+  input_task_id?: string;
+  /** Publicly accessible GLB URL. Use if input_task_id is unavailable. */
+  model_url?: string;
+  height_meters?: number;
+}
+
+export interface TaskIdResponse {
+  /** The created task ID */
+  result: string;
+}
+
+/**
+ * Map of format (glb, fbx, obj) to download URL
+ */
+export type MeshyTaskResultModelUrls = { [key: string]: string };
+
+export type MeshyTaskResultTextureUrlsItem = { [key: string]: string };
+
+export interface MeshyTaskResult {
+  /** Map of format (glb, fbx, obj) to download URL */
+  model_urls?: MeshyTaskResultModelUrls;
+  thumbnail_url?: string;
+  video_url?: string;
+  texture_urls?: MeshyTaskResultTextureUrlsItem[];
+}
+
+export type MeshyTaskStatus =
+  (typeof MeshyTaskStatus)[keyof typeof MeshyTaskStatus];
+
+export const MeshyTaskStatus = {
+  PENDING: "PENDING",
+  IN_PROGRESS: "IN_PROGRESS",
+  SUCCEEDED: "SUCCEEDED",
+  FAILED: "FAILED",
+  EXPIRED: "EXPIRED",
+} as const;
+
+export type MeshyTaskTaskError = {
+  message?: string;
+};
+
+export interface MeshyTask {
+  id: string;
+  type?: string;
+  status: MeshyTaskStatus;
+  progress: number;
+  created_at?: number;
+  started_at?: number;
+  finished_at?: number;
+  task_error?: MeshyTaskTaskError;
+  result?: MeshyTaskResult;
+}
+
+export type RigTaskResultBasicAnimations = {
+  walking_glb_url?: string;
+  walking_fbx_url?: string;
+  running_glb_url?: string;
+  running_fbx_url?: string;
+};
+
+export interface RigTaskResult {
+  rigged_character_fbx_url?: string;
+  rigged_character_glb_url?: string;
+  basic_animations?: RigTaskResultBasicAnimations;
+}
+
+export type RigTaskStatus = (typeof RigTaskStatus)[keyof typeof RigTaskStatus];
+
+export const RigTaskStatus = {
+  PENDING: "PENDING",
+  IN_PROGRESS: "IN_PROGRESS",
+  SUCCEEDED: "SUCCEEDED",
+  FAILED: "FAILED",
+  EXPIRED: "EXPIRED",
+} as const;
+
+export type RigTaskTaskError = {
+  message?: string;
+};
+
+export interface RigTask {
+  id: string;
+  type?: string;
+  status: RigTaskStatus;
+  progress: number;
+  created_at?: number;
+  finished_at?: number;
+  task_error?: RigTaskTaskError;
+  result?: RigTaskResult;
+}

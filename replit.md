@@ -21,7 +21,9 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server (shared backend for all artifacts)
+│   ├── zombie-shooter/     # React Three Fiber survival shooter game
+│   └── grudge-pipeline/    # Meshy AI Studio — 3D character generation pipeline
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks

@@ -5,18 +5,31 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ChatRequest,
+  ChatResponse,
+  HealthStatus,
+  MeshyTask,
+  PreviewRequest,
+  RefineRequest,
+  RigRequest,
+  RigTask,
+  TaskIdResponse,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -92,6 +105,533 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Chat with an AI assistant that specializes in crafting optimal Meshy API prompts
+for game-ready 3D characters. Knows all Meshy parameters, pose modes, polycount
+guidelines, and rigging requirements.
+
+ * @summary AI prompt optimizer chat
+ */
+export const getMeshyChatUrl = () => {
+  return `/api/meshy/chat`;
+};
+
+export const meshyChat = async (
+  chatRequest: ChatRequest,
+  options?: RequestInit,
+): Promise<ChatResponse> => {
+  return customFetch<ChatResponse>(getMeshyChatUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(chatRequest),
+  });
+};
+
+export const getMeshyChatMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyChat>>,
+    TError,
+    { data: BodyType<ChatRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof meshyChat>>,
+  TError,
+  { data: BodyType<ChatRequest> },
+  TContext
+> => {
+  const mutationKey = ["meshyChat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof meshyChat>>,
+    { data: BodyType<ChatRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return meshyChat(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MeshyChatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof meshyChat>>
+>;
+export type MeshyChatMutationBody = BodyType<ChatRequest>;
+export type MeshyChatMutationError = ErrorType<unknown>;
+
+/**
+ * @summary AI prompt optimizer chat
+ */
+export const useMeshyChat = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyChat>>,
+    TError,
+    { data: BodyType<ChatRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof meshyChat>>,
+  TError,
+  { data: BodyType<ChatRequest> },
+  TContext
+> => {
+  return useMutation(getMeshyChatMutationOptions(options));
+};
+
+/**
+ * Submit a prompt to Meshy API to generate a preview 3D mesh (no texture).
+ * @summary Create a Text-to-3D preview task
+ */
+export const getMeshyCreatePreviewUrl = () => {
+  return `/api/meshy/text-to-3d/preview`;
+};
+
+export const meshyCreatePreview = async (
+  previewRequest: PreviewRequest,
+  options?: RequestInit,
+): Promise<TaskIdResponse> => {
+  return customFetch<TaskIdResponse>(getMeshyCreatePreviewUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(previewRequest),
+  });
+};
+
+export const getMeshyCreatePreviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreatePreview>>,
+    TError,
+    { data: BodyType<PreviewRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof meshyCreatePreview>>,
+  TError,
+  { data: BodyType<PreviewRequest> },
+  TContext
+> => {
+  const mutationKey = ["meshyCreatePreview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof meshyCreatePreview>>,
+    { data: BodyType<PreviewRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return meshyCreatePreview(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MeshyCreatePreviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof meshyCreatePreview>>
+>;
+export type MeshyCreatePreviewMutationBody = BodyType<PreviewRequest>;
+export type MeshyCreatePreviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a Text-to-3D preview task
+ */
+export const useMeshyCreatePreview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreatePreview>>,
+    TError,
+    { data: BodyType<PreviewRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof meshyCreatePreview>>,
+  TError,
+  { data: BodyType<PreviewRequest> },
+  TContext
+> => {
+  return useMutation(getMeshyCreatePreviewMutationOptions(options));
+};
+
+/**
+ * Add textures to a completed preview task using PBR maps.
+ * @summary Create a Text-to-3D refine task
+ */
+export const getMeshyCreateRefineUrl = () => {
+  return `/api/meshy/text-to-3d/refine`;
+};
+
+export const meshyCreateRefine = async (
+  refineRequest: RefineRequest,
+  options?: RequestInit,
+): Promise<TaskIdResponse> => {
+  return customFetch<TaskIdResponse>(getMeshyCreateRefineUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(refineRequest),
+  });
+};
+
+export const getMeshyCreateRefineMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateRefine>>,
+    TError,
+    { data: BodyType<RefineRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof meshyCreateRefine>>,
+  TError,
+  { data: BodyType<RefineRequest> },
+  TContext
+> => {
+  const mutationKey = ["meshyCreateRefine"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof meshyCreateRefine>>,
+    { data: BodyType<RefineRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return meshyCreateRefine(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MeshyCreateRefineMutationResult = NonNullable<
+  Awaited<ReturnType<typeof meshyCreateRefine>>
+>;
+export type MeshyCreateRefineMutationBody = BodyType<RefineRequest>;
+export type MeshyCreateRefineMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a Text-to-3D refine task
+ */
+export const useMeshyCreateRefine = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateRefine>>,
+    TError,
+    { data: BodyType<RefineRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof meshyCreateRefine>>,
+  TError,
+  { data: BodyType<RefineRequest> },
+  TContext
+> => {
+  return useMutation(getMeshyCreateRefineMutationOptions(options));
+};
+
+/**
+ * Get current status and result URLs for a Text-to-3D task.
+ * @summary Poll a Text-to-3D task
+ */
+export const getMeshyGetTaskUrl = (id: string) => {
+  return `/api/meshy/text-to-3d/${id}`;
+};
+
+export const meshyGetTask = async (
+  id: string,
+  options?: RequestInit,
+): Promise<MeshyTask> => {
+  return customFetch<MeshyTask>(getMeshyGetTaskUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getMeshyGetTaskQueryKey = (id: string) => {
+  return [`/api/meshy/text-to-3d/${id}`] as const;
+};
+
+export const getMeshyGetTaskQueryOptions = <
+  TData = Awaited<ReturnType<typeof meshyGetTask>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetTask>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getMeshyGetTaskQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof meshyGetTask>>> = ({
+    signal,
+  }) => meshyGetTask(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof meshyGetTask>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type MeshyGetTaskQueryResult = NonNullable<
+  Awaited<ReturnType<typeof meshyGetTask>>
+>;
+export type MeshyGetTaskQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Poll a Text-to-3D task
+ */
+
+export function useMeshyGetTask<
+  TData = Awaited<ReturnType<typeof meshyGetTask>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetTask>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getMeshyGetTaskQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Submit a completed textured GLB for Meshy auto-rigging to produce a game-ready FBX with Mixamo-compatible skeleton.
+ * @summary Create an auto-rigging task
+ */
+export const getMeshyCreateRigUrl = () => {
+  return `/api/meshy/rig`;
+};
+
+export const meshyCreateRig = async (
+  rigRequest: RigRequest,
+  options?: RequestInit,
+): Promise<TaskIdResponse> => {
+  return customFetch<TaskIdResponse>(getMeshyCreateRigUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rigRequest),
+  });
+};
+
+export const getMeshyCreateRigMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateRig>>,
+    TError,
+    { data: BodyType<RigRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof meshyCreateRig>>,
+  TError,
+  { data: BodyType<RigRequest> },
+  TContext
+> => {
+  const mutationKey = ["meshyCreateRig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof meshyCreateRig>>,
+    { data: BodyType<RigRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return meshyCreateRig(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MeshyCreateRigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof meshyCreateRig>>
+>;
+export type MeshyCreateRigMutationBody = BodyType<RigRequest>;
+export type MeshyCreateRigMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an auto-rigging task
+ */
+export const useMeshyCreateRig = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateRig>>,
+    TError,
+    { data: BodyType<RigRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof meshyCreateRig>>,
+  TError,
+  { data: BodyType<RigRequest> },
+  TContext
+> => {
+  return useMutation(getMeshyCreateRigMutationOptions(options));
+};
+
+/**
+ * Get current status and download URLs for a rigging task.
+ * @summary Poll a rigging task
+ */
+export const getMeshyGetRigUrl = (id: string) => {
+  return `/api/meshy/rig/${id}`;
+};
+
+export const meshyGetRig = async (
+  id: string,
+  options?: RequestInit,
+): Promise<RigTask> => {
+  return customFetch<RigTask>(getMeshyGetRigUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getMeshyGetRigQueryKey = (id: string) => {
+  return [`/api/meshy/rig/${id}`] as const;
+};
+
+export const getMeshyGetRigQueryOptions = <
+  TData = Awaited<ReturnType<typeof meshyGetRig>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetRig>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getMeshyGetRigQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof meshyGetRig>>> = ({
+    signal,
+  }) => meshyGetRig(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof meshyGetRig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type MeshyGetRigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof meshyGetRig>>
+>;
+export type MeshyGetRigQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Poll a rigging task
+ */
+
+export function useMeshyGetRig<
+  TData = Awaited<ReturnType<typeof meshyGetRig>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetRig>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getMeshyGetRigQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

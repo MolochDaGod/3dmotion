@@ -6,4 +6,29 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./chatMessage";
+export * from "./chatMessageRole";
+export * from "./chatRequest";
+export * from "./chatResponse";
 export * from "./healthStatus";
+export * from "./meshyTask";
+export * from "./meshyTaskResult";
+export * from "./meshyTaskResultModelUrls";
+export * from "./meshyTaskResultTextureUrlsItem";
+export * from "./meshyTaskStatus";
+export * from "./meshyTaskTaskError";
+export * from "./previewRequest";
+export * from "./previewRequestAiModel";
+export * from "./previewRequestModelType";
+export * from "./previewRequestPoseMode";
+export * from "./previewRequestTargetFormatsItem";
+export * from "./previewRequestTopology";
+export * from "./refineRequest";
+export * from "./refineRequestAiModel";
+export * from "./rigRequest";
+export * from "./rigTask";
+export * from "./rigTaskResult";
+export * from "./rigTaskResultBasicAnimations";
+export * from "./rigTaskStatus";
+export * from "./rigTaskTaskError";
+export * from "./taskIdResponse";

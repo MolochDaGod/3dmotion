@@ -14,3 +14,251 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Chat with an AI assistant that specializes in crafting optimal Meshy API prompts
+for game-ready 3D characters. Knows all Meshy parameters, pose modes, polycount
+guidelines, and rigging requirements.
+
+ * @summary AI prompt optimizer chat
+ */
+export const MeshyChatBody = zod.object({
+  messages: zod.array(
+    zod.object({
+      role: zod.enum(["user", "assistant"]),
+      content: zod.string(),
+    }),
+  ),
+});
+
+export const meshyChatResponseExtractedParamsAiModelDefault = `latest`;
+export const meshyChatResponseExtractedParamsModelTypeDefault = `standard`;
+export const meshyChatResponseExtractedParamsTopologyDefault = `quad`;
+export const meshyChatResponseExtractedParamsTargetPolycountDefault = 30000;
+export const meshyChatResponseExtractedParamsTargetPolycountMin = 100;
+export const meshyChatResponseExtractedParamsTargetPolycountMax = 300000;
+
+export const meshyChatResponseExtractedParamsShouldRemeshDefault = true;
+export const meshyChatResponseExtractedParamsPoseModeDefault = `t-pose`;
+export const meshyChatResponseExtractedParamsEnablePbrDefault = true;
+
+export const MeshyChatResponse = zod.object({
+  reply: zod.string(),
+  extractedPrompt: zod
+    .string()
+    .optional()
+    .describe(
+      "If the AI produced an optimized Meshy prompt, it is extracted here ready for use.",
+    ),
+  extractedParams: zod
+    .object({
+      prompt: zod.string().describe("Main generation prompt (max 600 chars)"),
+      ai_model: zod
+        .enum(["meshy-5", "meshy-6", "latest"])
+        .default(meshyChatResponseExtractedParamsAiModelDefault),
+      model_type: zod
+        .enum(["standard", "lowpoly"])
+        .default(meshyChatResponseExtractedParamsModelTypeDefault),
+      topology: zod
+        .enum(["quad", "triangle"])
+        .default(meshyChatResponseExtractedParamsTopologyDefault),
+      target_polycount: zod
+        .number()
+        .min(meshyChatResponseExtractedParamsTargetPolycountMin)
+        .max(meshyChatResponseExtractedParamsTargetPolycountMax)
+        .default(meshyChatResponseExtractedParamsTargetPolycountDefault),
+      should_remesh: zod
+        .boolean()
+        .default(meshyChatResponseExtractedParamsShouldRemeshDefault),
+      pose_mode: zod
+        .enum(["a-pose", "t-pose", ""])
+        .default(meshyChatResponseExtractedParamsPoseModeDefault),
+      target_formats: zod
+        .array(zod.enum(["glb", "fbx", "obj", "stl", "usdz"]))
+        .default([`glb`, `fbx`]),
+      enable_pbr: zod
+        .boolean()
+        .default(meshyChatResponseExtractedParamsEnablePbrDefault),
+    })
+    .optional(),
+});
+
+/**
+ * Submit a prompt to Meshy API to generate a preview 3D mesh (no texture).
+ * @summary Create a Text-to-3D preview task
+ */
+export const meshyCreatePreviewBodyAiModelDefault = `latest`;
+export const meshyCreatePreviewBodyModelTypeDefault = `standard`;
+export const meshyCreatePreviewBodyTopologyDefault = `quad`;
+export const meshyCreatePreviewBodyTargetPolycountDefault = 30000;
+export const meshyCreatePreviewBodyTargetPolycountMin = 100;
+export const meshyCreatePreviewBodyTargetPolycountMax = 300000;
+
+export const meshyCreatePreviewBodyShouldRemeshDefault = true;
+export const meshyCreatePreviewBodyPoseModeDefault = `t-pose`;
+export const meshyCreatePreviewBodyEnablePbrDefault = true;
+
+export const MeshyCreatePreviewBody = zod.object({
+  prompt: zod.string().describe("Main generation prompt (max 600 chars)"),
+  ai_model: zod
+    .enum(["meshy-5", "meshy-6", "latest"])
+    .default(meshyCreatePreviewBodyAiModelDefault),
+  model_type: zod
+    .enum(["standard", "lowpoly"])
+    .default(meshyCreatePreviewBodyModelTypeDefault),
+  topology: zod
+    .enum(["quad", "triangle"])
+    .default(meshyCreatePreviewBodyTopologyDefault),
+  target_polycount: zod
+    .number()
+    .min(meshyCreatePreviewBodyTargetPolycountMin)
+    .max(meshyCreatePreviewBodyTargetPolycountMax)
+    .default(meshyCreatePreviewBodyTargetPolycountDefault),
+  should_remesh: zod
+    .boolean()
+    .default(meshyCreatePreviewBodyShouldRemeshDefault),
+  pose_mode: zod
+    .enum(["a-pose", "t-pose", ""])
+    .default(meshyCreatePreviewBodyPoseModeDefault),
+  target_formats: zod
+    .array(zod.enum(["glb", "fbx", "obj", "stl", "usdz"]))
+    .default([`glb`, `fbx`]),
+  enable_pbr: zod.boolean().default(meshyCreatePreviewBodyEnablePbrDefault),
+});
+
+export const MeshyCreatePreviewResponse = zod.object({
+  result: zod.string().describe("The created task ID"),
+});
+
+/**
+ * Add textures to a completed preview task using PBR maps.
+ * @summary Create a Text-to-3D refine task
+ */
+export const meshyCreateRefineBodyEnablePbrDefault = true;
+export const meshyCreateRefineBodyAiModelDefault = `latest`;
+
+export const MeshyCreateRefineBody = zod.object({
+  preview_task_id: zod.string(),
+  texture_prompt: zod
+    .string()
+    .optional()
+    .describe("Additional prompt to guide texturing (max 600 chars)"),
+  enable_pbr: zod.boolean().default(meshyCreateRefineBodyEnablePbrDefault),
+  ai_model: zod
+    .enum(["meshy-5", "meshy-6", "latest"])
+    .default(meshyCreateRefineBodyAiModelDefault),
+});
+
+export const MeshyCreateRefineResponse = zod.object({
+  result: zod.string().describe("The created task ID"),
+});
+
+/**
+ * Get current status and result URLs for a Text-to-3D task.
+ * @summary Poll a Text-to-3D task
+ */
+export const MeshyGetTaskParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const MeshyGetTaskResponse = zod.object({
+  id: zod.string(),
+  type: zod.string().optional(),
+  status: zod.enum([
+    "PENDING",
+    "IN_PROGRESS",
+    "SUCCEEDED",
+    "FAILED",
+    "EXPIRED",
+  ]),
+  progress: zod.number(),
+  created_at: zod.number().optional(),
+  started_at: zod.number().optional(),
+  finished_at: zod.number().optional(),
+  task_error: zod
+    .object({
+      message: zod.string().optional(),
+    })
+    .optional(),
+  result: zod
+    .object({
+      model_urls: zod
+        .record(zod.string(), zod.string())
+        .optional()
+        .describe("Map of format (glb, fbx, obj) to download URL"),
+      thumbnail_url: zod.string().optional(),
+      video_url: zod.string().optional(),
+      texture_urls: zod
+        .array(zod.record(zod.string(), zod.string()))
+        .optional(),
+    })
+    .optional(),
+});
+
+/**
+ * Submit a completed textured GLB for Meshy auto-rigging to produce a game-ready FBX with Mixamo-compatible skeleton.
+ * @summary Create an auto-rigging task
+ */
+export const meshyCreateRigBodyHeightMetersDefault = 1.7;
+
+export const MeshyCreateRigBody = zod.object({
+  input_task_id: zod
+    .string()
+    .optional()
+    .describe(
+      "The Meshy task ID of a completed textured model. Preferred over model_url.",
+    ),
+  model_url: zod
+    .string()
+    .optional()
+    .describe(
+      "Publicly accessible GLB URL. Use if input_task_id is unavailable.",
+    ),
+  height_meters: zod.number().default(meshyCreateRigBodyHeightMetersDefault),
+});
+
+export const MeshyCreateRigResponse = zod.object({
+  result: zod.string().describe("The created task ID"),
+});
+
+/**
+ * Get current status and download URLs for a rigging task.
+ * @summary Poll a rigging task
+ */
+export const MeshyGetRigParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const MeshyGetRigResponse = zod.object({
+  id: zod.string(),
+  type: zod.string().optional(),
+  status: zod.enum([
+    "PENDING",
+    "IN_PROGRESS",
+    "SUCCEEDED",
+    "FAILED",
+    "EXPIRED",
+  ]),
+  progress: zod.number(),
+  created_at: zod.number().optional(),
+  finished_at: zod.number().optional(),
+  task_error: zod
+    .object({
+      message: zod.string().optional(),
+    })
+    .optional(),
+  result: zod
+    .object({
+      rigged_character_fbx_url: zod.string().optional(),
+      rigged_character_glb_url: zod.string().optional(),
+      basic_animations: zod
+        .object({
+          walking_glb_url: zod.string().optional(),
+          walking_fbx_url: zod.string().optional(),
+          running_glb_url: zod.string().optional(),
+          running_fbx_url: zod.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});

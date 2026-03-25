@@ -1,0 +1,16 @@
+packages:
+  "framer-motion": "For fluid panel animations, progress bars, and high-quality UI transitions"
+  "zustand": "For cross-panel pipeline state management without prop drilling"
+  "clsx": "Utility for constructing class names conditionally"
+  "tailwind-merge": "Utility to safely merge Tailwind classes"
+  "lucide-react": "For UI icons"
+
+images:
+  - path: "artifacts/grudge-pipeline/public/images/cyber-grid.png"
+    description: "A dark, subtle, seamless hexagonal cyber grid pattern, very low opacity, dark charcoal background with barely visible glowing neon green circuit lines."
+    aspect_ratio: "16:9"
+
+notes:
+  - "The API endpoints are proxied via the backend to the Meshy API."
+  - "Polling is implemented for Text-to-3D and Rigging tasks with auto-stop on completion."
+  - "State is shared across the 3 panels using a Zustand store."
