@@ -838,7 +838,7 @@ function RigStep() {
   const isRemeshDone = remeshQuery.data?.status === "SUCCEEDED";
   const isRetextureDone = retextureQuery.data?.status === "SUCCEEDED";
 
-  const isActive = isRefineDone || isRemeshDone;
+  const isActive = isRefineDone || isRemeshDone || isRetextureDone;
 
   const sourceTaskId = isRemeshDone
     ? remeshTaskId
