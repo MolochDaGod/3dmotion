@@ -4,7 +4,7 @@ import { useTexture } from "@react-three/drei";
 import { RigidBody, CuboidCollider, HeightfieldCollider } from "@react-three/rapier";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import * as THREE from "three";
-import { GRAVEYARD } from "./assets/manifest";
+import { GRAVEYARD, texPath } from "./assets/manifest";
 import {
   getTerrainHeight, buildTerrainHeightArray,
   TERRAIN_SIZE, TERRAIN_SEGS,
@@ -48,7 +48,7 @@ function RuinProp({ modelNum, position, rotY, scale }: {
 }) {
   const url     = GRAVEYARD.ruinFbx(modelNum);
   const fbx     = useLoader(FBXLoader, url);
-  const texture = useTexture(GRAVEYARD.texture);
+  const texture = useTexture(texPath(GRAVEYARD.texture));
 
   const obj = useMemo(() => {
     texture.colorSpace = THREE.SRGBColorSpace;

@@ -1,36 +1,47 @@
 #!/usr/bin/env node
 /**
  * convert-textures.mjs
- * Converts PNG textures under public/models/ to WebP for ~50-75% size reduction.
+ * Converts PNG textures under public/models/ to WebP using the `sharp` library.
+ *
  * Run via: pnpm --filter @workspace/zombie-shooter run convert-textures
- * Requires ImageMagick (magick CLI) — available in the Replit environment.
+ *
+ * Output: A .webp sibling file is written alongside each .png.
+ * The original .png files are kept as fallbacks for browsers that don't support WebP.
+ * In game code, use the texPath() helper from manifest.ts to automatically prefer .webp.
  */
-import { execSync } from "child_process";
 import { readdirSync, statSync } from "fs";
 import { join, extname, basename } from "path";
+import sharp from "sharp";
 
 const ROOT = new URL("../public/models", import.meta.url).pathname;
 
-function walk(dir) {
+async function convertFile(pngPath) {
+  const outPath = pngPath.replace(/\.png$/i, ".webp");
+  await sharp(pngPath)
+    .webp({ quality: 85 })
+    .toFile(outPath);
+
+  const pngSize  = statSync(pngPath).size;
+  const webpSize = statSync(outPath).size;
+  const pct      = Math.round((1 - webpSize / pngSize) * 100);
+  const sign     = pct >= 0 ? "-" : "+";
+  console.log(`  ${basename(pngPath)} → ${basename(outPath)}  (${sign}${Math.abs(pct)}%)`);
+}
+
+async function walk(dir) {
   const entries = readdirSync(dir);
   for (const name of entries) {
     const full = join(dir, name);
     if (statSync(full).isDirectory()) {
-      walk(full);
+      await walk(full);
     } else if (extname(name).toLowerCase() === ".png") {
-      const out = full.replace(/\.png$/i, ".webp");
-      try {
-        execSync(`magick "${full}" -quality 85 "${out}"`, { stdio: "pipe" });
-        const pngSize = statSync(full).size;
-        const webpSize = statSync(out).size;
-        const pct = Math.round((1 - webpSize / pngSize) * 100);
-        console.log(`✓ ${basename(full)} → ${basename(out)} (${pct}% smaller)`);
-      } catch {
-        console.warn(`✗ Failed: ${full}`);
-      }
+      await convertFile(full);
     }
   }
 }
 
-walk(ROOT);
+console.log(`Converting PNG textures in ${ROOT} ...\n`);
+await walk(ROOT);
 console.log("\nWebP conversion complete.");
+console.log("Both .png and .webp files are kept; texPath() in the game selects");
+console.log("the right format at runtime based on browser WebP support.");

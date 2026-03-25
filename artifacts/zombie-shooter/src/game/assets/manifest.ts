@@ -166,24 +166,58 @@ export const WEAPON_PROPS = {
 } as const;
 
 export const WEAPON_TEXTURES = {
-  sword:   `${WT}/Texture_MAp_sword.webp`,
-  axe:     `${WT}/Texture_MAp_axe.webp`,
-  staff:   `${WT}/cane_texture.webp`,
-  shield:  `${WT}/shield_texture.webp`,
+  sword:   `${WT}/Texture_MAp_sword.png`,
+  axe:     `${WT}/Texture_MAp_axe.png`,
+  staff:   `${WT}/cane_texture.png`,
+  shield:  `${WT}/shield_texture.png`,
 } as const;
 
 // ── Environment ───────────────────────────────────────────────────────────────
 
 export const ENVIRONMENT = {
   bossGlb:     `${ENV}/boss.glb`,
-  bossTex:     `${ENV}/boss.webp`,
+  bossTex:     `${ENV}/boss.png`,
 } as const;
 
 export const GRAVEYARD = {
   /** Returns the URL for ruin model n (1–21) */
   ruinFbx: (n: number) => `${GY}/fbx/_ruin_${n}.fbx`,
-  texture:  `${GY}/texture/Texture_MAp_ruins.webp`,
+  texture:  `${GY}/texture/Texture_MAp_ruins.png`,
 } as const;
+
+// ── WebP texture helper ────────────────────────────────────────────────────────
+/**
+ * Synchronously detects WebP browser support (result cached after first call).
+ * All callers of texture paths should use texPath() so browsers without WebP
+ * support automatically fall back to the original PNG.
+ *
+ * ~95% of browsers support WebP (Chrome 32+, Firefox 65+, Safari 14+, Edge 18+).
+ * The PNG originals remain alongside the converted WebP files as the fallback.
+ */
+let _webpSupported: boolean | null = null;
+
+function webpSupported(): boolean {
+  if (_webpSupported !== null) return _webpSupported;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    _webpSupported = canvas.toDataURL("image/webp").startsWith("data:image/webp");
+  } catch {
+    _webpSupported = false;
+  }
+  return _webpSupported;
+}
+
+/**
+ * Returns the WebP variant of a PNG texture path if the browser supports it,
+ * otherwise returns the original PNG path unchanged.
+ *
+ * Both .png and .webp versions must exist in the public folder.
+ * Use the convert-textures script to generate the .webp files.
+ */
+export function texPath(pngUrl: string): string {
+  return webpSupported() ? pngUrl.replace(/\.png$/i, ".webp") : pngUrl;
+}
 
 // ── Collision / interaction groups ────────────────────────────────────────────
 /**

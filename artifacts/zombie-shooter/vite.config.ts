@@ -52,6 +52,18 @@ export default defineConfig({
               cacheableResponse: { statuses: [200] },
             },
           },
+          {
+            urlPattern: /\.(?:js|css)(\?.*)?$/i,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "js-css-cache",
+              expiration: {
+                maxEntries: 60,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
+              },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
         ],
       },
       manifest: {

@@ -13,7 +13,7 @@ import type { SkillHitPayload } from "./Game";
 import {
   CHARACTER, ANIM_PISTOL, ANIM_RIFLE, ANIM_MELEE,
   ANIM_STAFF, ANIM_BOW, ANIM_SHIELD_SWORD,
-  WEAPON_PROPS, WEAPON_TEXTURES,
+  WEAPON_PROPS, WEAPON_TEXTURES, texPath,
 } from "./assets/manifest";
 
 // ─── Capsule ──────────────────────────────────────────────────────────────────
@@ -1055,7 +1055,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       // At scale 0.012 a ~120cm staff ≈ 1.44 world units; offset ≈ -0.48.
       fbx.position.set(0, -0.5, 0);
       const texLoader = new THREE.TextureLoader();
-      texLoader.load(WEAPON_TEXTURES.staff, (tex) => {
+      texLoader.load(texPath(WEAPON_TEXTURES.staff), (tex) => {
         tex.flipY = false;
         tex.colorSpace = THREE.SRGBColorSpace;
         fbx.traverse((c) => {
