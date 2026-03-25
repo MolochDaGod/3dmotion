@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./aiCharacter";
+export * from "./characterListResponse";
 export * from "./chatMessage";
 export * from "./chatMessageRole";
 export * from "./chatRequest";
 export * from "./chatResponse";
+export * from "./createCharacterRequest";
+export * from "./createCharacterResponse";
 export * from "./healthStatus";
 export * from "./meshyTask";
 export * from "./meshyTaskResult";

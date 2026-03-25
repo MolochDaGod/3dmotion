@@ -17,8 +17,11 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  CharacterListResponse,
   ChatRequest,
   ChatResponse,
+  CreateCharacterRequest,
+  CreateCharacterResponse,
   HealthStatus,
   MeshyTask,
   PreviewRequest,
@@ -42,6 +45,169 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+/**
+ * Retrieve all AI-generated characters saved to the game roster.
+ * @summary List AI characters
+ */
+export const getListCharactersUrl = () => {
+  return `/api/characters`;
+};
+
+export const listCharacters = async (
+  options?: RequestInit,
+): Promise<CharacterListResponse> => {
+  return customFetch<CharacterListResponse>(getListCharactersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCharactersQueryKey = () => {
+  return [`/api/characters`] as const;
+};
+
+export const getListCharactersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCharacters>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCharacters>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCharactersQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCharacters>>> = ({
+    signal,
+  }) => listCharacters({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCharacters>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCharactersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCharacters>>
+>;
+export type ListCharactersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List AI characters
+ */
+
+export function useListCharacters<
+  TData = Awaited<ReturnType<typeof listCharacters>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCharacters>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCharactersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Persist a Meshy AI character so the game loads it dynamically.
+ * @summary Save a character to the game roster
+ */
+export const getCreateCharacterUrl = () => {
+  return `/api/characters`;
+};
+
+export const createCharacter = async (
+  createCharacterRequest: CreateCharacterRequest,
+  options?: RequestInit,
+): Promise<CreateCharacterResponse> => {
+  return customFetch<CreateCharacterResponse>(getCreateCharacterUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createCharacterRequest),
+  });
+};
+
+export const getCreateCharacterMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCharacter>>,
+    TError,
+    { data: BodyType<CreateCharacterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createCharacter>>,
+  TError,
+  { data: BodyType<CreateCharacterRequest> },
+  TContext
+> => {
+  const mutationKey = ["createCharacter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createCharacter>>,
+    { data: BodyType<CreateCharacterRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createCharacter(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateCharacterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createCharacter>>
+>;
+export type CreateCharacterMutationBody = BodyType<CreateCharacterRequest>;
+export type CreateCharacterMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save a character to the game roster
+ */
+export const useCreateCharacter = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createCharacter>>,
+    TError,
+    { data: BodyType<CreateCharacterRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createCharacter>>,
+  TError,
+  { data: BodyType<CreateCharacterRequest> },
+  TContext
+> => {
+  return useMutation(getCreateCharacterMutationOptions(options));
+};
 
 /**
  * Returns server health status

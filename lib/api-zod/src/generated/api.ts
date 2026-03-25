@@ -8,6 +8,46 @@
 import * as zod from "zod";
 
 /**
+ * Retrieve all AI-generated characters saved to the game roster.
+ * @summary List AI characters
+ */
+export const ListCharactersResponse = zod.object({
+  characters: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      name: zod.string(),
+      meshUrl: zod.string(),
+      scale: zod.number(),
+      capsuleHH: zod.number(),
+      capsuleR: zod.number(),
+      color: zod.string(),
+      source: zod.string(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * Persist a Meshy AI character so the game loads it dynamically.
+ * @summary Save a character to the game roster
+ */
+export const createCharacterBodyScaleDefault = 0.01;
+export const createCharacterBodyCapsuleHHDefault = 0.5;
+export const createCharacterBodyCapsuleRDefault = 0.35;
+export const createCharacterBodyColorDefault = `#39ff14`;
+export const createCharacterBodySourceDefault = `meshy`;
+
+export const CreateCharacterBody = zod.object({
+  name: zod.string(),
+  meshUrl: zod.string().describe("Meshy CDN FBX URL"),
+  scale: zod.number().default(createCharacterBodyScaleDefault),
+  capsuleHH: zod.number().default(createCharacterBodyCapsuleHHDefault),
+  capsuleR: zod.number().default(createCharacterBodyCapsuleRDefault),
+  color: zod.string().default(createCharacterBodyColorDefault),
+  source: zod.string().default(createCharacterBodySourceDefault),
+});
+
+/**
  * Returns server health status
  * @summary Health check
  */

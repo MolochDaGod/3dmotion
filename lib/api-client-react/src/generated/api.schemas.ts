@@ -5,6 +5,37 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface AiCharacter {
+  id: string;
+  name: string;
+  meshUrl: string;
+  scale: number;
+  capsuleHH: number;
+  capsuleR: number;
+  color: string;
+  source: string;
+  createdAt: string;
+}
+
+export interface CreateCharacterRequest {
+  name: string;
+  /** Meshy CDN FBX URL */
+  meshUrl: string;
+  scale?: number;
+  capsuleHH?: number;
+  capsuleR?: number;
+  color?: string;
+  source?: string;
+}
+
+export interface CreateCharacterResponse {
+  character: AiCharacter;
+}
+
+export interface CharacterListResponse {
+  characters: AiCharacter[];
+}
+
 export interface HealthStatus {
   status: string;
 }

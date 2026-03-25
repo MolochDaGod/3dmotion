@@ -3,6 +3,7 @@ import Game from "@/game/Game";
 import { EditorPanel } from "@/game/EditorPanel";
 import { useEditorStore } from "@/game/useEditorStore";
 import { MainMenu } from "@/game/MainMenu";
+import { useCharacterStore } from "@/game/useCharacterStore";
 
 function App() {
   const [gameStarted, setGameStarted] = useState(false);
@@ -10,6 +11,11 @@ function App() {
   const [score,       setScore]       = useState(0);
 
   const { editorVisible, toggleEditor, togglePerf } = useEditorStore();
+  const fetchAiChars = useCharacterStore((s) => s.fetchAiChars);
+
+  useEffect(() => {
+    fetchAiChars();
+  }, [fetchAiChars]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

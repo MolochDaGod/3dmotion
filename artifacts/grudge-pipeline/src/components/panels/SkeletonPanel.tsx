@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Panel, PanelHeader, Button, cn } from "../ui/cyber-ui";
 import { usePipelineStore } from "../../store/use-pipeline-store";
 import { useMeshyGetRig } from "../../hooks/use-meshy";
+import { useToast } from "../../hooks/use-toast";
 
 const fetchApi = async <T,>(path: string, options?: RequestInit): Promise<T> => {
   const res = await fetch(`/api${path}`, {
@@ -22,13 +23,12 @@ export function SkeletonPanel() {
   const fbxUrl = rigQuery.data?.result?.rigged_character_fbx_url;
   const rigSucceeded = rigQuery.data?.status === "SUCCEEDED" && !!fbxUrl;
 
+  const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [sendName, setSendName] = useState("");
   const [sendScale, setSendScale] = useState(0.01);
   const [sendColor, setSendColor] = useState("#39ff14");
   const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<"success" | "error" | null>(null);
-  const [sendError, setSendError] = useState<string | null>(null);
 
   const displayUrl = fbxUrl ?? "(paste rigged FBX URL here)";
 
@@ -51,8 +51,6 @@ export function SkeletonPanel() {
   const handleSendToGame = async () => {
     if (!fbxUrl || !sendName.trim()) return;
     setSending(true);
-    setSendResult(null);
-    setSendError(null);
     try {
       await fetchApi("/characters", {
         method: "POST",
@@ -66,11 +64,17 @@ export function SkeletonPanel() {
           source: "meshy",
         }),
       });
-      setSendResult("success");
+      toast({
+        title: "Character deployed",
+        description: `"${sendName.trim()}" was added to the game roster. Reload Motion Training to see it.`,
+      });
       setSendName("");
     } catch (err) {
-      setSendResult("error");
-      setSendError(err instanceof Error ? err.message : "Unknown error");
+      toast({
+        title: "Deploy failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
     } finally {
       setSending(false);
     }
@@ -194,17 +198,6 @@ export function SkeletonPanel() {
               )}
             </Button>
 
-            {sendResult === "success" && (
-              <div className="flex items-center gap-2 font-mono text-[10px] text-primary">
-                <Check className="w-3 h-3" />
-                Character added to game roster! Reload Motion Training to see it.
-              </div>
-            )}
-            {sendResult === "error" && (
-              <div className="font-mono text-[10px] text-destructive">
-                Error: {sendError}
-              </div>
-            )}
           </div>
         )}
 
