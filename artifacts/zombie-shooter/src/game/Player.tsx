@@ -176,6 +176,12 @@ const PISTOL_QUEUE: Array<{ key: AnimKey | "__model__"; file: string }> = [
   { key: "pistolCrouchDown",    file: ANIM_PISTOL.crouchDown },
   { key: "pistolCrouchIdle",    file: ANIM_PISTOL.crouchIdle },
   { key: "pistolCrouchUp",      file: ANIM_PISTOL.crouchUp },
+  // Directional dodge animations — shared with melee FBX clips but loaded at startup
+  // so dodge works immediately with any equipped weapon (no melee equip required).
+  { key: "dodgeFwd", file: ANIM_MELEE.runFwd },
+  { key: "dodgeBwd", file: ANIM_MELEE.runBwd },
+  { key: "dodgeL",   file: ANIM_MELEE.strafeL },
+  { key: "dodgeR",   file: ANIM_MELEE.strafeR },
 ];
 
 const RIFLE_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -210,11 +216,8 @@ const MELEE_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "meleeJump",    file: ANIM_MELEE.jump },
   { key: "meleeCrouch",  file: ANIM_MELEE.crouch },
   { key: "meleeBlock",   file: ANIM_MELEE.block },
-  // Dodge — same source FBX re-registered as blocking-once clips
-  { key: "dodgeFwd", file: ANIM_MELEE.runFwd },
-  { key: "dodgeBwd", file: ANIM_MELEE.runBwd },
-  { key: "dodgeL",   file: ANIM_MELEE.strafeL },
-  { key: "dodgeR",   file: ANIM_MELEE.strafeR },
+  // Note: dodge entries (dodgeFwd/Bwd/L/R) live in PISTOL_QUEUE, not here,
+  // so the full melee pack lazy-loads only when the player first equips sword/axe.
 ];
 
 const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -995,9 +998,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       loadSeq(packQueues[key], 0);
     };
 
-    // Phase 1 — model + pistol (serial); simultaneously start melee (for dodge anims)
+    // Phase 1 — model + pistol pack (serial).
+    // Dodge animations are included in PISTOL_QUEUE so they're available immediately.
+    // Melee, rifle, staff, bow, and shield packs lazy-load on first equip (see useFrame).
     loadSeq(PISTOL_QUEUE, 0);
-    loadSeq(MELEE_QUEUE as typeof PISTOL_QUEUE, 0);
 
     return () => {
       cancelled = true;

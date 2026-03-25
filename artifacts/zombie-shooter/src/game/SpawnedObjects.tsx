@@ -5,7 +5,7 @@ import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import * as THREE from "three";
 import { useAdminStore } from "./useAdminStore";
 import { useGameStore } from "./useGameStore";
-import { GRAVEYARD } from "./assets/manifest";
+import { GRAVEYARD, texPath } from "./assets/manifest";
 
 // ─── Ruin mesh (always loads atlas texture) ──────────────────────────────────
 function SpawnedRuinFBX({ meshPath, position, rotationY, scale }: {
@@ -15,7 +15,7 @@ function SpawnedRuinFBX({ meshPath, position, rotationY, scale }: {
   scale: number;
 }) {
   const fbx     = useLoader(FBXLoader, meshPath);
-  const texture = useTexture(GRAVEYARD.texture);
+  const texture = useTexture(texPath(GRAVEYARD.texture));
 
   const obj = useMemo(() => {
     const clone = fbx.clone(true);
