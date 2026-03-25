@@ -178,10 +178,9 @@ export default function Game({ onGameOver }: GameProps) {
 
   // Remove overlay from DOM after fade-out finishes (600 ms transition)
   useEffect(() => {
-    if (isLoaded) {
-      const t = setTimeout(() => setShowOverlay(false), 650);
-      return () => clearTimeout(t);
-    }
+    if (!isLoaded) return;
+    const t = setTimeout(() => setShowOverlay(false), 650);
+    return () => clearTimeout(t);
   }, [isLoaded]);
 
   const {

@@ -136,7 +136,7 @@ function Ground() {
           args={[
             TERRAIN_SEGS,
             TERRAIN_SEGS,
-            heights,
+            Array.from(heights),
             { x: TERRAIN_SIZE, y: 1, z: TERRAIN_SIZE },
           ]}
         />

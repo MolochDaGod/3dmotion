@@ -141,15 +141,22 @@ export const SkillEffects = forwardRef<SkillEffectsHandle>(
         if (e.t >= 1) {
           // Dispose materials and remove from scene
           if (e.type === "ring") {
-            (e.mesh as THREE.Mesh).material.dispose();
+            const mat = (e.mesh as THREE.Mesh).material;
+            (Array.isArray(mat) ? mat : [mat]).forEach((m) => m.dispose());
             groupRef.current?.remove(e.mesh);
           } else if (e.type === "burst") {
             const g = e.mesh as THREE.Group;
-            for (const c of g.children) (c as THREE.Mesh).material.dispose();
+            for (const c of g.children) {
+              const mat = (c as THREE.Mesh).material;
+              (Array.isArray(mat) ? mat : [mat]).forEach((m) => m.dispose());
+            }
             groupRef.current?.remove(g);
           } else if (e.type === "spark_ring") {
             const g = e.mesh as THREE.Group;
-            for (const c of g.children) (c as THREE.Mesh).material.dispose();
+            for (const c of g.children) {
+              const mat = (c as THREE.Mesh).material;
+              (Array.isArray(mat) ? mat : [mat]).forEach((m) => m.dispose());
+            }
             groupRef.current?.remove(g);
           }
         } else {

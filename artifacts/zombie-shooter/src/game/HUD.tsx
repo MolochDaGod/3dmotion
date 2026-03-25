@@ -478,7 +478,7 @@ export function HUD() {
         {/* ── Skill Bar — bottom center ──────────────────────────────── */}
         {(() => {
           const skills = WEAPON_SKILLS[weaponMode] ?? [];
-          if (skills.length === 0) return null;
+          if ((skills as unknown[]).length === 0) return null;
           // Weapon accent colour (matches weapon cycle bar)
           const WEAPON_ACCENTS: Record<string, string> = {
             pistol: "#80cfff", rifle: "#aaffaa", sword: "#ffaa55",

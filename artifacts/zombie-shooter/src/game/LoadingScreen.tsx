@@ -28,6 +28,7 @@ export function ProgressBridge({
       const t = setTimeout(onLoaded, 300);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [progress, active, total, loaded, onProgress, onLoaded]);
 
   return null;
