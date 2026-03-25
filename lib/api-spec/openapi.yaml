@@ -152,6 +152,126 @@ paths:
               schema:
                 $ref: "#/components/schemas/RigTask"
 
+  /meshy/text-to-image:
+    post:
+      operationId: meshyCreateTextToImage
+      tags: [meshy]
+      summary: Create a Text-to-Image task
+      description: Generate a high-quality image from a text prompt, optionally in T-pose or multi-view for character concept art.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TextToImageRequest"
+      responses:
+        "200":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskIdResponse"
+
+  /meshy/text-to-image/{id}:
+    get:
+      operationId: meshyGetTextToImage
+      tags: [meshy]
+      summary: Poll a Text-to-Image task
+      description: Get current status and generated image URLs for a Text-to-Image task.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TextToImageTask"
+
+  /meshy/retexture:
+    post:
+      operationId: meshyCreateRetexture
+      tags: [meshy]
+      summary: Create a Retexture task
+      description: Apply a new texture style to an existing 3D model using either a text prompt or reference image.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RetextureRequest"
+      responses:
+        "200":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskIdResponse"
+
+  /meshy/retexture/{id}:
+    get:
+      operationId: meshyGetRetexture
+      tags: [meshy]
+      summary: Poll a Retexture task
+      description: Get current status and retextured model URLs.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetextureTask"
+
+  /meshy/remesh:
+    post:
+      operationId: meshyCreateRemesh
+      tags: [meshy]
+      summary: Create a Remesh task
+      description: Reduce polycount, re-topology, or convert format of an existing model. Required before rigging if model exceeds 300k faces.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RemeshRequest"
+      responses:
+        "200":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskIdResponse"
+
+  /meshy/remesh/{id}:
+    get:
+      operationId: meshyGetRemesh
+      tags: [meshy]
+      summary: Poll a Remesh task
+      description: Get current status and remeshed model download URLs.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemeshTask"
+
 components:
   schemas:
     HealthStatus:
@@ -343,9 +463,13 @@ components:
               type: string
             walking_fbx_url:
               type: string
+            walking_armature_glb_url:
+              type: string
             running_glb_url:
               type: string
             running_fbx_url:
+              type: string
+            running_armature_glb_url:
               type: string
 
     RigTask:
@@ -371,6 +495,230 @@ components:
               type: string
         result:
           $ref: "#/components/schemas/RigTaskResult"
+      required:
+        - id
+        - status
+        - progress
+
+    TextToImageRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: Text description of the image to generate (max 600 chars)
+        ai_model:
+          type: string
+          enum: [nano-banana, nano-banana-pro]
+          default: nano-banana
+        generate_multi_view:
+          type: boolean
+          default: false
+          description: Generate multi-view image showing character from multiple angles
+        pose_mode:
+          type: string
+          enum: [a-pose, t-pose, ""]
+          description: Optional pose preset for character generation
+        aspect_ratio:
+          type: string
+          enum: ["1:1", "16:9", "9:16", "4:3", "3:4"]
+          default: "1:1"
+      required:
+        - prompt
+        - ai_model
+
+    TextToImageTaskResult:
+      type: object
+      properties:
+        image_urls:
+          type: array
+          items:
+            type: string
+          description: URLs of the generated images
+
+    TextToImageTask:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, IN_PROGRESS, SUCCEEDED, FAILED, EXPIRED]
+        progress:
+          type: integer
+        created_at:
+          type: integer
+        finished_at:
+          type: integer
+        task_error:
+          type: object
+          properties:
+            message:
+              type: string
+        result:
+          $ref: "#/components/schemas/TextToImageTaskResult"
+      required:
+        - id
+        - status
+        - progress
+
+    RetextureRequest:
+      type: object
+      properties:
+        input_task_id:
+          type: string
+          description: ID of a completed Text-to-3D, Image-to-3D, or Remesh task to retexture.
+        model_url:
+          type: string
+          description: Publicly accessible URL to a GLB/FBX/OBJ/STL model.
+        text_style_prompt:
+          type: string
+          description: Describe the desired texture style (max 600 chars). Required if image_style_url is not provided.
+        image_style_url:
+          type: string
+          description: URL of a reference image to guide texturing. Required if text_style_prompt is not provided.
+        ai_model:
+          type: string
+          enum: [meshy-5, meshy-6, latest]
+          default: latest
+        enable_original_uv:
+          type: boolean
+          default: true
+          description: Preserve existing UV mapping from the uploaded model.
+        enable_pbr:
+          type: boolean
+          default: false
+          description: Generate PBR maps (metallic, roughness, normal) in addition to base color.
+        remove_lighting:
+          type: boolean
+          default: true
+          description: Remove baked highlights/shadows for clean lighting (meshy-6+ only).
+        target_formats:
+          type: array
+          items:
+            type: string
+            enum: [glb, fbx, obj, stl, usdz]
+          default: [glb, fbx]
+      required: []
+
+    RetextureTaskResult:
+      type: object
+      properties:
+        model_urls:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of format (glb, fbx, obj) to download URL
+        texture_urls:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+
+    RetextureTask:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, IN_PROGRESS, SUCCEEDED, FAILED, EXPIRED]
+        progress:
+          type: integer
+        created_at:
+          type: integer
+        finished_at:
+          type: integer
+        task_error:
+          type: object
+          properties:
+            message:
+              type: string
+        result:
+          $ref: "#/components/schemas/RetextureTaskResult"
+      required:
+        - id
+        - status
+        - progress
+
+    RemeshRequest:
+      type: object
+      properties:
+        input_task_id:
+          type: string
+          description: ID of a completed Text-to-3D, Image-to-3D, or Retexture task to remesh.
+        model_url:
+          type: string
+          description: Publicly accessible URL to a 3D model (GLB/GLTF/OBJ/FBX/STL).
+        target_formats:
+          type: array
+          items:
+            type: string
+            enum: [glb, fbx, obj, usdz, blend, stl]
+          default: [glb, fbx]
+        topology:
+          type: string
+          enum: [quad, triangle]
+          default: triangle
+        target_polycount:
+          type: integer
+          minimum: 100
+          maximum: 300000
+          default: 30000
+        resize_height:
+          type: number
+          default: 0
+          description: Resize model to this height in meters (0 = no resize)
+        auto_size:
+          type: boolean
+          default: false
+          description: AI estimates real-world height and resizes automatically
+        origin_at:
+          type: string
+          enum: [bottom, center, ""]
+          description: Position of the origin after resize
+        convert_format_only:
+          type: boolean
+          default: false
+          description: Only convert file format, skip re-topology
+      required: []
+
+    RemeshTaskResult:
+      type: object
+      properties:
+        model_urls:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of format (glb, fbx, obj, etc.) to download URL
+
+    RemeshTask:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, IN_PROGRESS, SUCCEEDED, FAILED, EXPIRED]
+        progress:
+          type: integer
+        created_at:
+          type: integer
+        finished_at:
+          type: integer
+        task_error:
+          type: object
+          properties:
+            message:
+              type: string
+        result:
+          $ref: "#/components/schemas/RemeshTaskResult"
       required:
         - id
         - status

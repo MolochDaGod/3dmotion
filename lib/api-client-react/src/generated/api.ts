@@ -23,9 +23,15 @@ import type {
   MeshyTask,
   PreviewRequest,
   RefineRequest,
+  RemeshRequest,
+  RemeshTask,
+  RetextureRequest,
+  RetextureTask,
   RigRequest,
   RigTask,
   TaskIdResponse,
+  TextToImageRequest,
+  TextToImageTask,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -632,6 +638,531 @@ export function useMeshyGetRig<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getMeshyGetRigQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Generate a high-quality image from a text prompt, optionally in T-pose or multi-view for character concept art.
+ * @summary Create a Text-to-Image task
+ */
+export const getMeshyCreateTextToImageUrl = () => {
+  return `/api/meshy/text-to-image`;
+};
+
+export const meshyCreateTextToImage = async (
+  textToImageRequest: TextToImageRequest,
+  options?: RequestInit,
+): Promise<TaskIdResponse> => {
+  return customFetch<TaskIdResponse>(getMeshyCreateTextToImageUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(textToImageRequest),
+  });
+};
+
+export const getMeshyCreateTextToImageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateTextToImage>>,
+    TError,
+    { data: BodyType<TextToImageRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof meshyCreateTextToImage>>,
+  TError,
+  { data: BodyType<TextToImageRequest> },
+  TContext
+> => {
+  const mutationKey = ["meshyCreateTextToImage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof meshyCreateTextToImage>>,
+    { data: BodyType<TextToImageRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return meshyCreateTextToImage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MeshyCreateTextToImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof meshyCreateTextToImage>>
+>;
+export type MeshyCreateTextToImageMutationBody = BodyType<TextToImageRequest>;
+export type MeshyCreateTextToImageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a Text-to-Image task
+ */
+export const useMeshyCreateTextToImage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateTextToImage>>,
+    TError,
+    { data: BodyType<TextToImageRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof meshyCreateTextToImage>>,
+  TError,
+  { data: BodyType<TextToImageRequest> },
+  TContext
+> => {
+  return useMutation(getMeshyCreateTextToImageMutationOptions(options));
+};
+
+/**
+ * Get current status and generated image URLs for a Text-to-Image task.
+ * @summary Poll a Text-to-Image task
+ */
+export const getMeshyGetTextToImageUrl = (id: string) => {
+  return `/api/meshy/text-to-image/${id}`;
+};
+
+export const meshyGetTextToImage = async (
+  id: string,
+  options?: RequestInit,
+): Promise<TextToImageTask> => {
+  return customFetch<TextToImageTask>(getMeshyGetTextToImageUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getMeshyGetTextToImageQueryKey = (id: string) => {
+  return [`/api/meshy/text-to-image/${id}`] as const;
+};
+
+export const getMeshyGetTextToImageQueryOptions = <
+  TData = Awaited<ReturnType<typeof meshyGetTextToImage>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetTextToImage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getMeshyGetTextToImageQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof meshyGetTextToImage>>
+  > = ({ signal }) => meshyGetTextToImage(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof meshyGetTextToImage>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type MeshyGetTextToImageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof meshyGetTextToImage>>
+>;
+export type MeshyGetTextToImageQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Poll a Text-to-Image task
+ */
+
+export function useMeshyGetTextToImage<
+  TData = Awaited<ReturnType<typeof meshyGetTextToImage>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetTextToImage>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getMeshyGetTextToImageQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Apply a new texture style to an existing 3D model using either a text prompt or reference image.
+ * @summary Create a Retexture task
+ */
+export const getMeshyCreateRetextureUrl = () => {
+  return `/api/meshy/retexture`;
+};
+
+export const meshyCreateRetexture = async (
+  retextureRequest: RetextureRequest,
+  options?: RequestInit,
+): Promise<TaskIdResponse> => {
+  return customFetch<TaskIdResponse>(getMeshyCreateRetextureUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(retextureRequest),
+  });
+};
+
+export const getMeshyCreateRetextureMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateRetexture>>,
+    TError,
+    { data: BodyType<RetextureRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof meshyCreateRetexture>>,
+  TError,
+  { data: BodyType<RetextureRequest> },
+  TContext
+> => {
+  const mutationKey = ["meshyCreateRetexture"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof meshyCreateRetexture>>,
+    { data: BodyType<RetextureRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return meshyCreateRetexture(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MeshyCreateRetextureMutationResult = NonNullable<
+  Awaited<ReturnType<typeof meshyCreateRetexture>>
+>;
+export type MeshyCreateRetextureMutationBody = BodyType<RetextureRequest>;
+export type MeshyCreateRetextureMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a Retexture task
+ */
+export const useMeshyCreateRetexture = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateRetexture>>,
+    TError,
+    { data: BodyType<RetextureRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof meshyCreateRetexture>>,
+  TError,
+  { data: BodyType<RetextureRequest> },
+  TContext
+> => {
+  return useMutation(getMeshyCreateRetextureMutationOptions(options));
+};
+
+/**
+ * Get current status and retextured model URLs.
+ * @summary Poll a Retexture task
+ */
+export const getMeshyGetRetextureUrl = (id: string) => {
+  return `/api/meshy/retexture/${id}`;
+};
+
+export const meshyGetRetexture = async (
+  id: string,
+  options?: RequestInit,
+): Promise<RetextureTask> => {
+  return customFetch<RetextureTask>(getMeshyGetRetextureUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getMeshyGetRetextureQueryKey = (id: string) => {
+  return [`/api/meshy/retexture/${id}`] as const;
+};
+
+export const getMeshyGetRetextureQueryOptions = <
+  TData = Awaited<ReturnType<typeof meshyGetRetexture>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetRetexture>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getMeshyGetRetextureQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof meshyGetRetexture>>
+  > = ({ signal }) => meshyGetRetexture(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof meshyGetRetexture>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type MeshyGetRetextureQueryResult = NonNullable<
+  Awaited<ReturnType<typeof meshyGetRetexture>>
+>;
+export type MeshyGetRetextureQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Poll a Retexture task
+ */
+
+export function useMeshyGetRetexture<
+  TData = Awaited<ReturnType<typeof meshyGetRetexture>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetRetexture>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getMeshyGetRetextureQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Reduce polycount, re-topology, or convert format of an existing model. Required before rigging if model exceeds 300k faces.
+ * @summary Create a Remesh task
+ */
+export const getMeshyCreateRemeshUrl = () => {
+  return `/api/meshy/remesh`;
+};
+
+export const meshyCreateRemesh = async (
+  remeshRequest: RemeshRequest,
+  options?: RequestInit,
+): Promise<TaskIdResponse> => {
+  return customFetch<TaskIdResponse>(getMeshyCreateRemeshUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(remeshRequest),
+  });
+};
+
+export const getMeshyCreateRemeshMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateRemesh>>,
+    TError,
+    { data: BodyType<RemeshRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof meshyCreateRemesh>>,
+  TError,
+  { data: BodyType<RemeshRequest> },
+  TContext
+> => {
+  const mutationKey = ["meshyCreateRemesh"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof meshyCreateRemesh>>,
+    { data: BodyType<RemeshRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return meshyCreateRemesh(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MeshyCreateRemeshMutationResult = NonNullable<
+  Awaited<ReturnType<typeof meshyCreateRemesh>>
+>;
+export type MeshyCreateRemeshMutationBody = BodyType<RemeshRequest>;
+export type MeshyCreateRemeshMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a Remesh task
+ */
+export const useMeshyCreateRemesh = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof meshyCreateRemesh>>,
+    TError,
+    { data: BodyType<RemeshRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof meshyCreateRemesh>>,
+  TError,
+  { data: BodyType<RemeshRequest> },
+  TContext
+> => {
+  return useMutation(getMeshyCreateRemeshMutationOptions(options));
+};
+
+/**
+ * Get current status and remeshed model download URLs.
+ * @summary Poll a Remesh task
+ */
+export const getMeshyGetRemeshUrl = (id: string) => {
+  return `/api/meshy/remesh/${id}`;
+};
+
+export const meshyGetRemesh = async (
+  id: string,
+  options?: RequestInit,
+): Promise<RemeshTask> => {
+  return customFetch<RemeshTask>(getMeshyGetRemeshUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getMeshyGetRemeshQueryKey = (id: string) => {
+  return [`/api/meshy/remesh/${id}`] as const;
+};
+
+export const getMeshyGetRemeshQueryOptions = <
+  TData = Awaited<ReturnType<typeof meshyGetRemesh>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetRemesh>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getMeshyGetRemeshQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof meshyGetRemesh>>> = ({
+    signal,
+  }) => meshyGetRemesh(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof meshyGetRemesh>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type MeshyGetRemeshQueryResult = NonNullable<
+  Awaited<ReturnType<typeof meshyGetRemesh>>
+>;
+export type MeshyGetRemeshQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Poll a Remesh task
+ */
+
+export function useMeshyGetRemesh<
+  TData = Awaited<ReturnType<typeof meshyGetRemesh>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof meshyGetRemesh>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getMeshyGetRemeshQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

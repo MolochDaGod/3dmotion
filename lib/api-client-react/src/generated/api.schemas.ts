@@ -170,8 +170,10 @@ export interface MeshyTask {
 export type RigTaskResultBasicAnimations = {
   walking_glb_url?: string;
   walking_fbx_url?: string;
+  walking_armature_glb_url?: string;
   running_glb_url?: string;
   running_fbx_url?: string;
+  running_armature_glb_url?: string;
 };
 
 export interface RigTaskResult {
@@ -203,4 +205,245 @@ export interface RigTask {
   finished_at?: number;
   task_error?: RigTaskTaskError;
   result?: RigTaskResult;
+}
+
+export type TextToImageRequestAiModel =
+  (typeof TextToImageRequestAiModel)[keyof typeof TextToImageRequestAiModel];
+
+export const TextToImageRequestAiModel = {
+  "nano-banana": "nano-banana",
+  "nano-banana-pro": "nano-banana-pro",
+} as const;
+
+/**
+ * Optional pose preset for character generation
+ */
+export type TextToImageRequestPoseMode =
+  (typeof TextToImageRequestPoseMode)[keyof typeof TextToImageRequestPoseMode];
+
+export const TextToImageRequestPoseMode = {
+  "a-pose": "a-pose",
+  "t-pose": "t-pose",
+  "": "",
+} as const;
+
+export type TextToImageRequestAspectRatio =
+  (typeof TextToImageRequestAspectRatio)[keyof typeof TextToImageRequestAspectRatio];
+
+export const TextToImageRequestAspectRatio = {
+  "1:1": "1:1",
+  "16:9": "16:9",
+  "9:16": "9:16",
+  "4:3": "4:3",
+  "3:4": "3:4",
+} as const;
+
+export interface TextToImageRequest {
+  /** Text description of the image to generate (max 600 chars) */
+  prompt: string;
+  ai_model: TextToImageRequestAiModel;
+  /** Generate multi-view image showing character from multiple angles */
+  generate_multi_view?: boolean;
+  /** Optional pose preset for character generation */
+  pose_mode?: TextToImageRequestPoseMode;
+  aspect_ratio?: TextToImageRequestAspectRatio;
+}
+
+export interface TextToImageTaskResult {
+  /** URLs of the generated images */
+  image_urls?: string[];
+}
+
+export type TextToImageTaskStatus =
+  (typeof TextToImageTaskStatus)[keyof typeof TextToImageTaskStatus];
+
+export const TextToImageTaskStatus = {
+  PENDING: "PENDING",
+  IN_PROGRESS: "IN_PROGRESS",
+  SUCCEEDED: "SUCCEEDED",
+  FAILED: "FAILED",
+  EXPIRED: "EXPIRED",
+} as const;
+
+export type TextToImageTaskTaskError = {
+  message?: string;
+};
+
+export interface TextToImageTask {
+  id: string;
+  type?: string;
+  status: TextToImageTaskStatus;
+  progress: number;
+  created_at?: number;
+  finished_at?: number;
+  task_error?: TextToImageTaskTaskError;
+  result?: TextToImageTaskResult;
+}
+
+export type RetextureRequestAiModel =
+  (typeof RetextureRequestAiModel)[keyof typeof RetextureRequestAiModel];
+
+export const RetextureRequestAiModel = {
+  "meshy-5": "meshy-5",
+  "meshy-6": "meshy-6",
+  latest: "latest",
+} as const;
+
+export type RetextureRequestTargetFormatsItem =
+  (typeof RetextureRequestTargetFormatsItem)[keyof typeof RetextureRequestTargetFormatsItem];
+
+export const RetextureRequestTargetFormatsItem = {
+  glb: "glb",
+  fbx: "fbx",
+  obj: "obj",
+  stl: "stl",
+  usdz: "usdz",
+} as const;
+
+export interface RetextureRequest {
+  /** ID of a completed Text-to-3D, Image-to-3D, or Remesh task to retexture. */
+  input_task_id?: string;
+  /** Publicly accessible URL to a GLB/FBX/OBJ/STL model. */
+  model_url?: string;
+  /** Describe the desired texture style (max 600 chars). Required if image_style_url is not provided. */
+  text_style_prompt?: string;
+  /** URL of a reference image to guide texturing. Required if text_style_prompt is not provided. */
+  image_style_url?: string;
+  ai_model?: RetextureRequestAiModel;
+  /** Preserve existing UV mapping from the uploaded model. */
+  enable_original_uv?: boolean;
+  /** Generate PBR maps (metallic, roughness, normal) in addition to base color. */
+  enable_pbr?: boolean;
+  /** Remove baked highlights/shadows for clean lighting (meshy-6+ only). */
+  remove_lighting?: boolean;
+  target_formats?: RetextureRequestTargetFormatsItem[];
+}
+
+/**
+ * Map of format (glb, fbx, obj) to download URL
+ */
+export type RetextureTaskResultModelUrls = { [key: string]: string };
+
+export type RetextureTaskResultTextureUrlsItem = { [key: string]: string };
+
+export interface RetextureTaskResult {
+  /** Map of format (glb, fbx, obj) to download URL */
+  model_urls?: RetextureTaskResultModelUrls;
+  texture_urls?: RetextureTaskResultTextureUrlsItem[];
+}
+
+export type RetextureTaskStatus =
+  (typeof RetextureTaskStatus)[keyof typeof RetextureTaskStatus];
+
+export const RetextureTaskStatus = {
+  PENDING: "PENDING",
+  IN_PROGRESS: "IN_PROGRESS",
+  SUCCEEDED: "SUCCEEDED",
+  FAILED: "FAILED",
+  EXPIRED: "EXPIRED",
+} as const;
+
+export type RetextureTaskTaskError = {
+  message?: string;
+};
+
+export interface RetextureTask {
+  id: string;
+  type?: string;
+  status: RetextureTaskStatus;
+  progress: number;
+  created_at?: number;
+  finished_at?: number;
+  task_error?: RetextureTaskTaskError;
+  result?: RetextureTaskResult;
+}
+
+export type RemeshRequestTargetFormatsItem =
+  (typeof RemeshRequestTargetFormatsItem)[keyof typeof RemeshRequestTargetFormatsItem];
+
+export const RemeshRequestTargetFormatsItem = {
+  glb: "glb",
+  fbx: "fbx",
+  obj: "obj",
+  usdz: "usdz",
+  blend: "blend",
+  stl: "stl",
+} as const;
+
+export type RemeshRequestTopology =
+  (typeof RemeshRequestTopology)[keyof typeof RemeshRequestTopology];
+
+export const RemeshRequestTopology = {
+  quad: "quad",
+  triangle: "triangle",
+} as const;
+
+/**
+ * Position of the origin after resize
+ */
+export type RemeshRequestOriginAt =
+  (typeof RemeshRequestOriginAt)[keyof typeof RemeshRequestOriginAt];
+
+export const RemeshRequestOriginAt = {
+  bottom: "bottom",
+  center: "center",
+  "": "",
+} as const;
+
+export interface RemeshRequest {
+  /** ID of a completed Text-to-3D, Image-to-3D, or Retexture task to remesh. */
+  input_task_id?: string;
+  /** Publicly accessible URL to a 3D model (GLB/GLTF/OBJ/FBX/STL). */
+  model_url?: string;
+  target_formats?: RemeshRequestTargetFormatsItem[];
+  topology?: RemeshRequestTopology;
+  /**
+   * @minimum 100
+   * @maximum 300000
+   */
+  target_polycount?: number;
+  /** Resize model to this height in meters (0 = no resize) */
+  resize_height?: number;
+  /** AI estimates real-world height and resizes automatically */
+  auto_size?: boolean;
+  /** Position of the origin after resize */
+  origin_at?: RemeshRequestOriginAt;
+  /** Only convert file format, skip re-topology */
+  convert_format_only?: boolean;
+}
+
+/**
+ * Map of format (glb, fbx, obj, etc.) to download URL
+ */
+export type RemeshTaskResultModelUrls = { [key: string]: string };
+
+export interface RemeshTaskResult {
+  /** Map of format (glb, fbx, obj, etc.) to download URL */
+  model_urls?: RemeshTaskResultModelUrls;
+}
+
+export type RemeshTaskStatus =
+  (typeof RemeshTaskStatus)[keyof typeof RemeshTaskStatus];
+
+export const RemeshTaskStatus = {
+  PENDING: "PENDING",
+  IN_PROGRESS: "IN_PROGRESS",
+  SUCCEEDED: "SUCCEEDED",
+  FAILED: "FAILED",
+  EXPIRED: "EXPIRED",
+} as const;
+
+export type RemeshTaskTaskError = {
+  message?: string;
+};
+
+export interface RemeshTask {
+  id: string;
+  type?: string;
+  status: RemeshTaskStatus;
+  progress: number;
+  created_at?: number;
+  finished_at?: number;
+  task_error?: RemeshTaskTaskError;
+  result?: RemeshTaskResult;
 }

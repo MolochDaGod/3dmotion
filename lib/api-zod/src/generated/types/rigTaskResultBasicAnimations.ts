@@ -9,6 +9,8 @@
 export type RigTaskResultBasicAnimations = {
   walking_glb_url?: string;
   walking_fbx_url?: string;
+  walking_armature_glb_url?: string;
   running_glb_url?: string;
   running_fbx_url?: string;
+  running_armature_glb_url?: string;
 };

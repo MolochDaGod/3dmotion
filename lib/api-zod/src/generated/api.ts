@@ -255,10 +255,276 @@ export const MeshyGetRigResponse = zod.object({
         .object({
           walking_glb_url: zod.string().optional(),
           walking_fbx_url: zod.string().optional(),
+          walking_armature_glb_url: zod.string().optional(),
           running_glb_url: zod.string().optional(),
           running_fbx_url: zod.string().optional(),
+          running_armature_glb_url: zod.string().optional(),
         })
         .optional(),
+    })
+    .optional(),
+});
+
+/**
+ * Generate a high-quality image from a text prompt, optionally in T-pose or multi-view for character concept art.
+ * @summary Create a Text-to-Image task
+ */
+export const meshyCreateTextToImageBodyAiModelDefault = `nano-banana`;
+export const meshyCreateTextToImageBodyGenerateMultiViewDefault = false;
+export const meshyCreateTextToImageBodyAspectRatioDefault = `1:1`;
+
+export const MeshyCreateTextToImageBody = zod.object({
+  prompt: zod
+    .string()
+    .describe("Text description of the image to generate (max 600 chars)"),
+  ai_model: zod
+    .enum(["nano-banana", "nano-banana-pro"])
+    .default(meshyCreateTextToImageBodyAiModelDefault),
+  generate_multi_view: zod
+    .boolean()
+    .default(meshyCreateTextToImageBodyGenerateMultiViewDefault)
+    .describe(
+      "Generate multi-view image showing character from multiple angles",
+    ),
+  pose_mode: zod
+    .enum(["a-pose", "t-pose", ""])
+    .optional()
+    .describe("Optional pose preset for character generation"),
+  aspect_ratio: zod
+    .enum(["1:1", "16:9", "9:16", "4:3", "3:4"])
+    .default(meshyCreateTextToImageBodyAspectRatioDefault),
+});
+
+export const MeshyCreateTextToImageResponse = zod.object({
+  result: zod.string().describe("The created task ID"),
+});
+
+/**
+ * Get current status and generated image URLs for a Text-to-Image task.
+ * @summary Poll a Text-to-Image task
+ */
+export const MeshyGetTextToImageParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const MeshyGetTextToImageResponse = zod.object({
+  id: zod.string(),
+  type: zod.string().optional(),
+  status: zod.enum([
+    "PENDING",
+    "IN_PROGRESS",
+    "SUCCEEDED",
+    "FAILED",
+    "EXPIRED",
+  ]),
+  progress: zod.number(),
+  created_at: zod.number().optional(),
+  finished_at: zod.number().optional(),
+  task_error: zod
+    .object({
+      message: zod.string().optional(),
+    })
+    .optional(),
+  result: zod
+    .object({
+      image_urls: zod
+        .array(zod.string())
+        .optional()
+        .describe("URLs of the generated images"),
+    })
+    .optional(),
+});
+
+/**
+ * Apply a new texture style to an existing 3D model using either a text prompt or reference image.
+ * @summary Create a Retexture task
+ */
+export const meshyCreateRetextureBodyAiModelDefault = `latest`;
+export const meshyCreateRetextureBodyEnableOriginalUvDefault = true;
+export const meshyCreateRetextureBodyEnablePbrDefault = false;
+export const meshyCreateRetextureBodyRemoveLightingDefault = true;
+
+export const MeshyCreateRetextureBody = zod.object({
+  input_task_id: zod
+    .string()
+    .optional()
+    .describe(
+      "ID of a completed Text-to-3D, Image-to-3D, or Remesh task to retexture.",
+    ),
+  model_url: zod
+    .string()
+    .optional()
+    .describe("Publicly accessible URL to a GLB\/FBX\/OBJ\/STL model."),
+  text_style_prompt: zod
+    .string()
+    .optional()
+    .describe(
+      "Describe the desired texture style (max 600 chars). Required if image_style_url is not provided.",
+    ),
+  image_style_url: zod
+    .string()
+    .optional()
+    .describe(
+      "URL of a reference image to guide texturing. Required if text_style_prompt is not provided.",
+    ),
+  ai_model: zod
+    .enum(["meshy-5", "meshy-6", "latest"])
+    .default(meshyCreateRetextureBodyAiModelDefault),
+  enable_original_uv: zod
+    .boolean()
+    .default(meshyCreateRetextureBodyEnableOriginalUvDefault)
+    .describe("Preserve existing UV mapping from the uploaded model."),
+  enable_pbr: zod
+    .boolean()
+    .default(meshyCreateRetextureBodyEnablePbrDefault)
+    .describe(
+      "Generate PBR maps (metallic, roughness, normal) in addition to base color.",
+    ),
+  remove_lighting: zod
+    .boolean()
+    .default(meshyCreateRetextureBodyRemoveLightingDefault)
+    .describe(
+      "Remove baked highlights\/shadows for clean lighting (meshy-6+ only).",
+    ),
+  target_formats: zod
+    .array(zod.enum(["glb", "fbx", "obj", "stl", "usdz"]))
+    .default([`glb`, `fbx`]),
+});
+
+export const MeshyCreateRetextureResponse = zod.object({
+  result: zod.string().describe("The created task ID"),
+});
+
+/**
+ * Get current status and retextured model URLs.
+ * @summary Poll a Retexture task
+ */
+export const MeshyGetRetextureParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const MeshyGetRetextureResponse = zod.object({
+  id: zod.string(),
+  type: zod.string().optional(),
+  status: zod.enum([
+    "PENDING",
+    "IN_PROGRESS",
+    "SUCCEEDED",
+    "FAILED",
+    "EXPIRED",
+  ]),
+  progress: zod.number(),
+  created_at: zod.number().optional(),
+  finished_at: zod.number().optional(),
+  task_error: zod
+    .object({
+      message: zod.string().optional(),
+    })
+    .optional(),
+  result: zod
+    .object({
+      model_urls: zod
+        .record(zod.string(), zod.string())
+        .optional()
+        .describe("Map of format (glb, fbx, obj) to download URL"),
+      texture_urls: zod
+        .array(zod.record(zod.string(), zod.string()))
+        .optional(),
+    })
+    .optional(),
+});
+
+/**
+ * Reduce polycount, re-topology, or convert format of an existing model. Required before rigging if model exceeds 300k faces.
+ * @summary Create a Remesh task
+ */
+export const meshyCreateRemeshBodyTopologyDefault = `triangle`;
+export const meshyCreateRemeshBodyTargetPolycountDefault = 30000;
+export const meshyCreateRemeshBodyTargetPolycountMin = 100;
+export const meshyCreateRemeshBodyTargetPolycountMax = 300000;
+
+export const meshyCreateRemeshBodyResizeHeightDefault = 0;
+export const meshyCreateRemeshBodyAutoSizeDefault = false;
+export const meshyCreateRemeshBodyConvertFormatOnlyDefault = false;
+
+export const MeshyCreateRemeshBody = zod.object({
+  input_task_id: zod
+    .string()
+    .optional()
+    .describe(
+      "ID of a completed Text-to-3D, Image-to-3D, or Retexture task to remesh.",
+    ),
+  model_url: zod
+    .string()
+    .optional()
+    .describe(
+      "Publicly accessible URL to a 3D model (GLB\/GLTF\/OBJ\/FBX\/STL).",
+    ),
+  target_formats: zod
+    .array(zod.enum(["glb", "fbx", "obj", "usdz", "blend", "stl"]))
+    .default([`glb`, `fbx`]),
+  topology: zod
+    .enum(["quad", "triangle"])
+    .default(meshyCreateRemeshBodyTopologyDefault),
+  target_polycount: zod
+    .number()
+    .min(meshyCreateRemeshBodyTargetPolycountMin)
+    .max(meshyCreateRemeshBodyTargetPolycountMax)
+    .default(meshyCreateRemeshBodyTargetPolycountDefault),
+  resize_height: zod
+    .number()
+    .default(meshyCreateRemeshBodyResizeHeightDefault)
+    .describe("Resize model to this height in meters (0 = no resize)"),
+  auto_size: zod
+    .boolean()
+    .default(meshyCreateRemeshBodyAutoSizeDefault)
+    .describe("AI estimates real-world height and resizes automatically"),
+  origin_at: zod
+    .enum(["bottom", "center", ""])
+    .optional()
+    .describe("Position of the origin after resize"),
+  convert_format_only: zod
+    .boolean()
+    .default(meshyCreateRemeshBodyConvertFormatOnlyDefault)
+    .describe("Only convert file format, skip re-topology"),
+});
+
+export const MeshyCreateRemeshResponse = zod.object({
+  result: zod.string().describe("The created task ID"),
+});
+
+/**
+ * Get current status and remeshed model download URLs.
+ * @summary Poll a Remesh task
+ */
+export const MeshyGetRemeshParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const MeshyGetRemeshResponse = zod.object({
+  id: zod.string(),
+  type: zod.string().optional(),
+  status: zod.enum([
+    "PENDING",
+    "IN_PROGRESS",
+    "SUCCEEDED",
+    "FAILED",
+    "EXPIRED",
+  ]),
+  progress: zod.number(),
+  created_at: zod.number().optional(),
+  finished_at: zod.number().optional(),
+  task_error: zod
+    .object({
+      message: zod.string().optional(),
+    })
+    .optional(),
+  result: zod
+    .object({
+      model_urls: zod
+        .record(zod.string(), zod.string())
+        .optional()
+        .describe("Map of format (glb, fbx, obj, etc.) to download URL"),
     })
     .optional(),
 });
