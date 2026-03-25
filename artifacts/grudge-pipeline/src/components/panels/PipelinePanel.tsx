@@ -14,6 +14,7 @@ import {
   useMeshyCreateRetexture, useMeshyGetRetexture,
   useMeshyCreateRemesh, useMeshyGetRemesh,
 } from "../../hooks/use-meshy";
+import type { RetextureFormat, RemeshFormat } from "../../types/api";
 
 export function PipelinePanel() {
   return (
@@ -419,19 +420,25 @@ function RefineStep() {
 
 function RetextureStep() {
   const {
-    refineTaskId, retextureTaskId, setRetextureTaskId,
+    previewTaskId, refineTaskId, retextureTaskId, setRetextureTaskId,
     conceptImageUrl,
   } = usePipelineStore();
 
+  const previewQuery = useMeshyGetTask(previewTaskId);
   const refineQuery = useMeshyGetTask(refineTaskId);
+  const isPreviewDone = previewQuery.data?.status === "SUCCEEDED";
   const isRefineDone = refineQuery.data?.status === "SUCCEEDED";
+  const isActive = isPreviewDone || isRefineDone;
+
+  const sourceTaskId = isRefineDone ? refineTaskId : previewTaskId;
 
   const [textStylePrompt, setTextStylePrompt] = useState("");
   const [imageStyleUrl, setImageStyleUrl] = useState("");
+  const [standaloneModelUrl, setStandaloneModelUrl] = useState("");
   const [useConceptImage, setUseConceptImage] = useState(true);
   const [enablePbr, setEnablePbr] = useState(false);
   const [retextureAiModel, setRetextureAiModel] = useState<"meshy-5" | "meshy-6" | "latest">("latest");
-  const [retextureFormats, setRetextureFormats] = useState<string[]>(["glb", "fbx"]);
+  const [retextureFormats, setRetextureFormats] = useState<RetextureFormat[]>(["glb", "fbx"]);
 
   const createRetexture = useMeshyCreateRetexture();
   const taskQuery = useMeshyGetRetexture(retextureTaskId);
@@ -441,26 +448,41 @@ function RetextureStep() {
   const result = taskQuery.data?.result;
   const modelUrls = result?.model_urls ?? {};
 
+  const canSubmit =
+    (isActive || !!standaloneModelUrl) &&
+    retextureFormats.length > 0 &&
+    (
+      (useConceptImage && !!conceptImageUrl) ||
+      !!imageStyleUrl ||
+      !!textStylePrompt
+    );
+
   const handleRetexture = () => {
-    if (!refineTaskId) return;
     const resolvedImageUrl =
       useConceptImage && conceptImageUrl ? conceptImageUrl :
       imageStyleUrl || undefined;
-    createRetexture.mutate({
-      input_task_id: refineTaskId,
-      text_style_prompt: resolvedImageUrl ? undefined : (textStylePrompt || undefined),
-      image_style_url: resolvedImageUrl,
+    const payload: Parameters<ReturnType<typeof useMeshyCreateRetexture>["mutate"]>[0] = {
       ai_model: retextureAiModel,
       enable_pbr: enablePbr,
       enable_original_uv: true,
       remove_lighting: true,
-      target_formats: retextureFormats as any,
-    }, {
+      target_formats: retextureFormats,
+      text_style_prompt: resolvedImageUrl ? undefined : (textStylePrompt || undefined),
+      image_style_url: resolvedImageUrl,
+    };
+    if (standaloneModelUrl) {
+      payload.model_url = standaloneModelUrl;
+    } else if (sourceTaskId) {
+      payload.input_task_id = sourceTaskId;
+    } else {
+      return;
+    }
+    createRetexture.mutate(payload, {
       onSuccess: (data) => setRetextureTaskId(data.result),
     });
   };
 
-  const toggleRetextureFormat = (fmt: string) => {
+  const toggleRetextureFormat = (fmt: RetextureFormat) => {
     setRetextureFormats((prev) =>
       prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt],
     );
@@ -470,7 +492,7 @@ function RetextureStep() {
     <StepCard
       stepNum="2B"
       title="RETEXTURE"
-      isActive={isRefineDone}
+      isActive={isActive}
       status={status}
       progress={progress}
       badge={
@@ -481,7 +503,23 @@ function RetextureStep() {
     >
       <p className="text-[11px] text-muted font-mono">
         Re-style the model using a new texture prompt or your concept art image.
+        {isActive && (
+          <span className="text-primary">
+            {" "}Input: {isRefineDone ? "refined" : "preview"} model.
+          </span>
+        )}
       </p>
+
+      <div>
+        <Label>Standalone Model URL (optional — overrides pipeline input)</Label>
+        <Input
+          type="url"
+          value={standaloneModelUrl}
+          onChange={(e) => setStandaloneModelUrl(e.target.value)}
+          placeholder="https://... GLB/FBX URL to retexture directly"
+          className="w-full"
+        />
+      </div>
 
       {conceptImageUrl && (
         <label className="flex items-center gap-2 cursor-pointer">
@@ -568,11 +606,9 @@ function RetextureStep() {
         onClick={handleRetexture}
         isLoading={createRetexture.isPending || status === "IN_PROGRESS" || status === "PENDING"}
         disabled={
-          !isRefineDone ||
+          !canSubmit ||
           status === "IN_PROGRESS" ||
-          status === "PENDING" ||
-          retextureFormats.length === 0 ||
-          ((!conceptImageUrl || !useConceptImage) && !textStylePrompt && !imageStyleUrl)
+          status === "PENDING"
         }
       >
         <Paintbrush className="w-4 h-4" /> Apply Retexture
@@ -596,23 +632,38 @@ function RetextureStep() {
 
 function RemeshStep() {
   const {
-    refineTaskId, retextureTaskId,
+    previewTaskId, refineTaskId, retextureTaskId,
     remeshTaskId, setRemeshTaskId, setRigTaskId,
   } = usePipelineStore();
 
+  const previewQuery = useMeshyGetTask(previewTaskId);
   const refineQuery = useMeshyGetTask(refineTaskId);
   const retextureQuery = useMeshyGetRetexture(retextureTaskId);
+  const isPreviewDone = previewQuery.data?.status === "SUCCEEDED";
   const isRefineDone = refineQuery.data?.status === "SUCCEEDED";
   const isRetextureDone = retextureQuery.data?.status === "SUCCEEDED";
-  const isActive = isRefineDone;
+  const isActive = isPreviewDone || isRefineDone || isRetextureDone;
 
-  const sourceTaskId = isRetextureDone ? retextureTaskId : refineTaskId;
+  const sourceTaskId = isRetextureDone
+    ? retextureTaskId
+    : isRefineDone
+    ? refineTaskId
+    : previewTaskId;
 
+  const sourceLabel = isRetextureDone
+    ? "retextured"
+    : isRefineDone
+    ? "refined"
+    : isPreviewDone
+    ? "preview"
+    : null;
+
+  const [standaloneModelUrl, setStandaloneModelUrl] = useState("");
   const [topology, setTopology] = useState<"quad" | "triangle">("quad");
   const [targetPolycount, setTargetPolycount] = useState(30000);
   const [resizeHeight, setResizeHeight] = useState(0);
   const [autoSize, setAutoSize] = useState(false);
-  const [remeshFormats, setRemeshFormats] = useState<string[]>(["glb", "fbx"]);
+  const [remeshFormats, setRemeshFormats] = useState<RemeshFormat[]>(["glb", "fbx"]);
 
   const createRemesh = useMeshyCreateRemesh();
   const taskQuery = useMeshyGetRemesh(remeshTaskId);
@@ -621,22 +672,30 @@ function RemeshStep() {
   const progress = taskQuery.data?.progress;
   const modelUrls = taskQuery.data?.result?.model_urls ?? {};
 
-  const toggleRemeshFormat = (fmt: string) => {
+  const canSubmit = (isActive || !!standaloneModelUrl) && remeshFormats.length > 0;
+
+  const toggleRemeshFormat = (fmt: RemeshFormat) => {
     setRemeshFormats((prev) =>
       prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt],
     );
   };
 
   const handleRemesh = () => {
-    if (!sourceTaskId) return;
-    createRemesh.mutate({
-      input_task_id: sourceTaskId,
+    const payload: Parameters<ReturnType<typeof useMeshyCreateRemesh>["mutate"]>[0] = {
       topology,
       target_polycount: targetPolycount,
-      target_formats: remeshFormats as any,
+      target_formats: remeshFormats,
       resize_height: resizeHeight > 0 ? resizeHeight : undefined,
       auto_size: autoSize || undefined,
-    }, {
+    };
+    if (standaloneModelUrl) {
+      payload.model_url = standaloneModelUrl;
+    } else if (sourceTaskId) {
+      payload.input_task_id = sourceTaskId;
+    } else {
+      return;
+    }
+    createRemesh.mutate(payload, {
       onSuccess: (data) => {
         setRemeshTaskId(data.result);
         setRigTaskId(null);
@@ -658,12 +717,22 @@ function RemeshStep() {
       }
     >
       <p className="text-[11px] text-muted font-mono">
-        Reduce polycount before rigging. Using{" "}
-        <span className="text-primary">
-          {isRetextureDone ? "retextured" : "refined"} model
-        </span>{" "}
-        as input.
+        Reduce polycount and re-topology before rigging.
+        {sourceLabel && (
+          <span className="text-primary"> Input: {sourceLabel} model.</span>
+        )}
       </p>
+
+      <div>
+        <Label>Standalone Model URL (optional — overrides pipeline input)</Label>
+        <Input
+          type="url"
+          value={standaloneModelUrl}
+          onChange={(e) => setStandaloneModelUrl(e.target.value)}
+          placeholder="https://... GLB/OBJ/FBX URL to remesh directly"
+          className="w-full"
+        />
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -740,7 +809,7 @@ function RemeshStep() {
         className="w-full"
         onClick={handleRemesh}
         isLoading={createRemesh.isPending || status === "IN_PROGRESS" || status === "PENDING"}
-        disabled={!isActive || status === "IN_PROGRESS" || status === "PENDING" || remeshFormats.length === 0}
+        disabled={!canSubmit || status === "IN_PROGRESS" || status === "PENDING"}
       >
         <Scissors className="w-4 h-4" /> Remesh Model
       </Button>
