@@ -52,6 +52,12 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 ## Packages
 
+### `artifacts/zombie-shooter` key sub-systems
+
+- **MainMenu** (`src/game/MainMenu.tsx`): Multi-screen menu system — Home (cinematic + nav sidebar), Character Select, Model Viewer, Settings, Playback (placeholder). Replaces the old inline `TitleScreen`.
+- **ModelViewer** (`src/game/ModelViewer.tsx`): Standalone R3F canvas for previewing any FBX character with animations, wireframe, skeleton helper, grid, camera presets, and live model stats (vertex/triangle/material/texture/bone counts).
+- **useSettingsStore** (`src/game/useSettingsStore.ts`): Zustand + localStorage store for quality presets (Low/Medium/High/Ultra → pixelRatio, shadowMapSize, bloom), FOV, and sensitivity.
+
 ### `artifacts/api-server` (`@workspace/api-server`)
 
 Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
