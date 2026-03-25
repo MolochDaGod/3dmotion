@@ -436,6 +436,8 @@ function RetextureStep() {
   const [imageStyleUrl, setImageStyleUrl] = useState(conceptImageUrl ?? "");
   const [standaloneModelUrl, setStandaloneModelUrl] = useState("");
   const [enablePbr, setEnablePbr] = useState(false);
+  const [enableOriginalUv, setEnableOriginalUv] = useState(true);
+  const [removeLighting, setRemoveLighting] = useState(true);
   const [retextureAiModel, setRetextureAiModel] = useState<"meshy-5" | "meshy-6" | "latest">("latest");
   const [retextureFormats, setRetextureFormats] = useState<RetextureFormat[]>(["glb", "fbx"]);
 
@@ -463,8 +465,8 @@ function RetextureStep() {
     const payload: Parameters<ReturnType<typeof useMeshyCreateRetexture>["mutate"]>[0] = {
       ai_model: retextureAiModel,
       enable_pbr: enablePbr,
-      enable_original_uv: true,
-      remove_lighting: true,
+      enable_original_uv: enableOriginalUv,
+      remove_lighting: removeLighting,
       target_formats: retextureFormats,
       text_style_prompt: resolvedImageUrl ? undefined : (textStylePrompt || undefined),
       image_style_url: resolvedImageUrl,
@@ -585,15 +587,35 @@ function RetextureStep() {
         </div>
       </div>
 
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={enablePbr}
-          onChange={(e) => setEnablePbr(e.target.checked)}
-          className="accent-primary"
-        />
-        <span className="text-sm text-foreground/80">Enable PBR maps</span>
-      </label>
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enablePbr}
+            onChange={(e) => setEnablePbr(e.target.checked)}
+            className="accent-primary"
+          />
+          <span className="text-sm text-foreground/80">Enable PBR maps</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enableOriginalUv}
+            onChange={(e) => setEnableOriginalUv(e.target.checked)}
+            className="accent-primary"
+          />
+          <span className="text-sm text-foreground/80">Preserve original UV</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={removeLighting}
+            onChange={(e) => setRemoveLighting(e.target.checked)}
+            className="accent-primary"
+          />
+          <span className="text-sm text-foreground/80">Remove baked lighting</span>
+        </label>
+      </div>
 
       <Button
         className="w-full !bg-accent/10 !text-accent border-accent/50 hover:!bg-accent/20"
@@ -873,6 +895,7 @@ function RigStep() {
       stepNum={4}
       title="AUTO-RIG BINDING"
       isActive={isActive}
+      badge={<span className="text-[10px] font-mono text-yellow-400 border border-yellow-400/30 bg-yellow-400/5 px-2 py-0.5 rounded">Required if &gt;300k faces skipped</span>}
       status={status}
       progress={progress}
     >
