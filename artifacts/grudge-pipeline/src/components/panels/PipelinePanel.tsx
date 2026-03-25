@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Layers, Image as ImageIcon, Crosshair, Play, Download,
   Paintbrush, Scissors, AlertTriangle, ExternalLink,
@@ -436,13 +436,17 @@ function RetextureStep() {
   const [imageStyleUrl, setImageStyleUrl] = useState(conceptImageUrl ?? "");
   const [standaloneModelUrl, setStandaloneModelUrl] = useState("");
   const [enablePbr, setEnablePbr] = useState(false);
+  const prevConceptImageUrlRef = useRef(conceptImageUrl);
   const [enableOriginalUv, setEnableOriginalUv] = useState(true);
   const [removeLighting, setRemoveLighting] = useState(true);
   const [retextureAiModel, setRetextureAiModel] = useState<"meshy-5" | "meshy-6" | "latest">("latest");
   const [retextureFormats, setRetextureFormats] = useState<RetextureFormat[]>(["glb", "fbx"]);
 
   useEffect(() => {
-    if (conceptImageUrl && !imageStyleUrl) {
+    const prev = prevConceptImageUrlRef.current;
+    prevConceptImageUrlRef.current = conceptImageUrl;
+    if (!conceptImageUrl) return;
+    if (imageStyleUrl === prev || !imageStyleUrl) {
       setImageStyleUrl(conceptImageUrl);
     }
   }, [conceptImageUrl]);
