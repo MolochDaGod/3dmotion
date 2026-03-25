@@ -98,7 +98,7 @@ export function LoadingScreen({ progress }: { progress: number }) {
           lineHeight:  1,
         }}
       >
-        ZOMBIE HUNTER
+        MOTION TRAINING
       </h1>
 
       {/* ── Sub-divider ─────────────────────────────────────────────── */}

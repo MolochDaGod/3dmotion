@@ -1,5 +1,5 @@
 /**
- * Central asset manifest for Zombie Hunter.
+ * Central asset manifest for Motion Training.
  *
  * All public-folder asset paths are declared here.
  * Update paths in ONE place — every consumer imports from this module.

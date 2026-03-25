@@ -23,7 +23,7 @@ function App() {
       <div className="fixed inset-0 bg-black flex items-center justify-center">
         <div className="text-center text-white">
           <h1 className="text-6xl font-bold mb-4 text-red-500 drop-shadow-lg">
-            ZOMBIE HUNTER
+            MOTION TRAINING
           </h1>
           {gameOver && (
             <div className="mb-6">
