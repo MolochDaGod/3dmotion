@@ -13,6 +13,7 @@ import { HUD } from "./HUD";
 import { MagicSystem } from "./MagicProjectile";
 import { SpellRadial } from "./SpellRadial";
 import { useGameStore, MagicProjectileState } from "./useGameStore";
+import { ProgressBridge, LoadingScreen } from "./LoadingScreen";
 
 // ─── Skill hit payload ────────────────────────────────────────────────────────
 // Player resolves who got hit (via Rapier shape cast or geometry) then calls
@@ -72,6 +73,8 @@ function SceneContent({
   onDamagePlayer,
   onPlayerDead,
   onMagicHit,
+  onLoadProgress,
+  onLoaded,
 }: {
   zombies: ZombieData[];
   bullets: BulletData[];
@@ -84,6 +87,8 @@ function SceneContent({
   onDamagePlayer: (amount: number) => void;
   onPlayerDead:   () => void;
   onMagicHit: (id: string, pos: THREE.Vector3, spell: MagicProjectileState["spell"]) => void;
+  onLoadProgress: (p: number) => void;
+  onLoaded:       () => void;
 }) {
   return (
     <>
@@ -148,6 +153,9 @@ function SceneContent({
           mipmapBlur
         />
       </EffectComposer>
+
+      {/* ── Asset load progress bridge (must be inside Canvas) ── */}
+      <ProgressBridge onProgress={onLoadProgress} onLoaded={onLoaded} />
     </>
   );
 }
@@ -158,6 +166,22 @@ export default function Game({ onGameOver }: GameProps) {
   ]);
   const [bullets, setBullets] = useState<BulletData[]>([]);
   const playerPosRef = useRef(new THREE.Vector3(0, 0, 0));
+
+  // ── Asset loading state ───────────────────────────────────────────────────
+  const [loadProgress,  setLoadProgress]  = useState(0);
+  const [isLoaded,      setIsLoaded]      = useState(false);
+  const [showOverlay,   setShowOverlay]   = useState(true);
+
+  const handleLoadProgress = useCallback((p: number) => setLoadProgress(p), []);
+  const handleLoaded       = useCallback(() => setIsLoaded(true), []);
+
+  // Remove overlay from DOM after fade-out finishes (600 ms transition)
+  useEffect(() => {
+    if (isLoaded) {
+      const t = setTimeout(() => setShowOverlay(false), 650);
+      return () => clearTimeout(t);
+    }
+  }, [isLoaded]);
 
   const {
     takeDamage, addScore, addKill, score, wave, nextWave, kills,
@@ -350,8 +374,26 @@ export default function Game({ onGameOver }: GameProps) {
           onDamagePlayer={handleDamagePlayer}
           onPlayerDead={handlePlayerDead}
           onMagicHit={handleMagicHit}
+          onLoadProgress={handleLoadProgress}
+          onLoaded={handleLoaded}
         />
       </Canvas>
+
+      {/* ── Loading screen (fades out when assets ready, unmounts after transition) ── */}
+      {showOverlay && (
+        <div
+          style={{
+            position:      "absolute",
+            inset:         0,
+            transition:    "opacity 0.6s ease-out",
+            opacity:       isLoaded ? 0 : 1,
+            pointerEvents: isLoaded ? "none" : "auto",
+          }}
+        >
+          <LoadingScreen progress={loadProgress} />
+        </div>
+      )}
+
       <HUD />
       <SpellRadial />
     </div>

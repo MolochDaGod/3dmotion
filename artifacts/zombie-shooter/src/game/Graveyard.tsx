@@ -97,31 +97,31 @@ function Ground() {
     <>
       {/* ── Main ground body ── */}
       <RigidBody type="fixed" colliders={false} friction={0.9} restitution={0}>
-        {/* Thick slab: half-extents 60 × 0.5 × 60, top surface at y=0 */}
+        {/* Physics slab: top surface sits exactly at y=0 */}
         <CuboidCollider
-          args={[60, 0.5, 60]}
-          position={[0, -0.5, 0]}
+          args={[60, 3, 60]}
+          position={[0, -3, 0]}
           collisionGroups={COLLIDE_TERRAIN}
         />
 
-        {/* Visible ground mesh */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[120, 120, 40, 40]} />
+        {/* ── Visible terrain slab — 6m thick so it looks like solid earth ── */}
+        {/* Top surface at y=0, bottom at y=-6 */}
+        <mesh position={[0, -3, 0]} receiveShadow castShadow={false}>
+          <boxGeometry args={[120, 6, 120]} />
           <meshStandardMaterial
-            color="#1a1e12"
+            color="#191d11"
             roughness={1.0}
             metalness={0.0}
           />
         </mesh>
 
-        {/* Subtle terrain variation — slightly raised patches */}
+        {/* Dark surface overlay — adds a second colour layer for the top face */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]} receiveShadow>
-          <planeGeometry args={[120, 120]} />
+          <planeGeometry args={[120, 120, 40, 40]} />
           <meshStandardMaterial
-            color="#161a10"
+            color="#141810"
             roughness={1.0}
-            transparent
-            opacity={0.6}
+            metalness={0.0}
           />
         </mesh>
       </RigidBody>
@@ -248,11 +248,12 @@ export function Graveyard() {
       ))}
 
       {/* ── FBX ruin props (each wrapped in Suspense) ── */}
+      {/* y=-1.0 embeds the base 1 m into the terrain so ruins emerge naturally */}
       {RUIN_PLACEMENTS.map(([modelNum, x, z, rotY, scale], i) => (
         <Suspense key={i} fallback={null}>
           <RuinProp
             modelNum={modelNum}
-            position={[x, 0, z]}
+            position={[x, -1.0, z]}
             rotY={rotY}
             scale={scale}
           />
