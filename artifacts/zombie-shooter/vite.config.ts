@@ -51,12 +51,15 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
     },
-    dedupe: ["react", "react-dom", "three", "@react-three/fiber", "@react-three/drei"],
+    dedupe: ["react", "react-dom", "three", "@react-three/fiber", "@react-three/drei", "leva"],
   },
   root: path.resolve(import.meta.dirname),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+  },
+  optimizeDeps: {
+    include: ["leva", "r3f-perf"],
   },
   server: {
     port,

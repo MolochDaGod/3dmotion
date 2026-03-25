@@ -133,9 +133,21 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 
 **Physics collision groups:** COLLIDE_TERRAIN on Graveyard ground+walls; COLLIDE_PLAYER on capsule; COLLIDE_ZOMBIE/PROJECTILE defined for future use
 
-**Post-processing:** Bloom via EffectComposer (threshold 0.35, intensity 1.6, mipmapBlur) in Game.tsx SceneContent
+**Post-processing:** EffectComposer in Game.tsx with Bloom + DepthOfField + Vignette + ChromaticAberration — all driven by live values from useEditorStore (backtick to open editor panel).
 
-**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload/spell-select · F cast spell · C character panel · P camera mode
+**In-Game Editor Panel (backtick `):**
+- `src/game/useEditorStore.ts` — Zustand store for all editor-tunable values (postFX, scene lights, gameplay, perf toggle)
+- `src/game/EditorPanel.tsx` — Leva UI controls synced to useEditorStore. 4 folders: Post-FX / Scene / Gameplay / Performance. Always mounted; panel visibility via CSS `#leva__root` injection in App.tsx.
+- Editor panel is always available (even on title screen), hidden by default. Values persist across open/close.
+- F2 — toggles r3f-perf performance overlay (FPS, draw calls, memory) inside Canvas
+
+**Zombie AI (Zombie.tsx):**
+- ZState now includes "wander" — when player is outside detection radius, zombies slowly patrol in random directions
+- Wander: `running` animation at 0.35× timeScale (slow creepy lurch), direction changes every 2–5 s, bounded to 80m
+- Chase speed and detection radius are live-tweakable from the editor panel
+- Attack damage driven by `ed.zombieAttackDamage` (editor slider)
+
+**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload/spell-select · F cast spell · C character panel · P camera mode · ` editor panel · F2 perf overlay
 
 **Key files:** ANNIHILATE_LEARNINGS.md — architecture reference from studied game repo
 

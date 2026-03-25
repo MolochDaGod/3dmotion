@@ -1,8 +1,11 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
+import {
+  EffectComposer, Bloom, Vignette, DepthOfField, ChromaticAberration,
+} from "@react-three/postprocessing";
 import { Sky } from "@react-three/drei";
+import { Perf } from "r3f-perf";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
 import { getTerrainHeight } from "./terrain";
@@ -16,6 +19,7 @@ import { MagicSystem } from "./MagicProjectile";
 import { SpellRadial } from "./SpellRadial";
 import { useGameStore, MagicProjectileState } from "./useGameStore";
 import { ProgressBridge, LoadingScreen } from "./LoadingScreen";
+import { useEditorStore } from "./useEditorStore";
 
 // ─── Skill hit payload ────────────────────────────────────────────────────────
 // Player resolves who got hit (via Rapier shape cast or geometry) then calls
@@ -92,10 +96,21 @@ function SceneContent({
   onLoadProgress: (p: number) => void;
   onLoaded:       () => void;
 }) {
+  const ed = useEditorStore();
+
+  // ChromaticAberration expects a THREE.Vector2 — rebuild only when strength changes
+  const caOffset = useMemo(
+    () => new THREE.Vector2(ed.chromaticStrength, ed.chromaticStrength),
+    [ed.chromaticStrength]
+  );
+
   return (
     <>
+      {/* ── Performance overlay (F2 or toggle from editor panel) ── */}
+      {ed.showPerf && <Perf position="top-left" />}
+
       {/* ── Daytime atmosphere ── */}
-      <fog attach="fog" args={["#c9dff0", 90, 230]} />
+      <fog attach="fog" args={["#c9dff0", ed.fogNear, ed.fogFar]} />
       <color attach="background" args={["#87ceeb"]} />
 
       {/* Procedural sky — sun high in south-east */}
@@ -110,11 +125,11 @@ function SceneContent({
         mieDirectionalG={0.82}
       />
 
-      {/* ── Sunlight (warm golden, casting hard shadows) ── */}
-      <ambientLight intensity={0.55} color="#ffe8d0" />
+      {/* ── Sunlight — intensities driven by editor store ── */}
+      <ambientLight intensity={ed.ambientIntensity} color="#ffe8d0" />
       <directionalLight
         position={[60, 90, -50]}
-        intensity={2.8}
+        intensity={ed.sunIntensity}
         color="#fff5e0"
         castShadow
         shadow-mapSize={[2048, 2048]}
@@ -157,14 +172,29 @@ function SceneContent({
       {/* Magic projectile VFX — lives outside Physics since projectiles fly freely */}
       <MagicSystem onProjectileHit={onMagicHit} />
 
-      {/* ── Post-processing — Bloom for torches / spell glow ── */}
+      {/* ── Post-processing pipeline ───────────────────────────────────────────
+           Bloom         — spell glow, torches, emissive surfaces
+           DepthOfField  — subtle cinematic background blur (editor-tunable)
+           Vignette      — edge darkening for immersive framing
+           Chromatic     — barrel/lens aberration (0 by default, editor can crank up)   */}
       <EffectComposer>
         <Bloom
-          luminanceThreshold={0.75}
-          luminanceSmoothing={0.5}
-          intensity={0.5}
+          luminanceThreshold={ed.bloomThreshold}
+          luminanceSmoothing={ed.bloomSmoothing}
+          intensity={ed.bloomIntensity}
           mipmapBlur
         />
+        <DepthOfField
+          focusDistance={ed.dofFocusDistance}
+          focalLength={ed.dofFocalLength}
+          bokehScale={ed.dofBokehScale}
+        />
+        <Vignette
+          eskil={false}
+          offset={ed.vignetteOffset}
+          darkness={ed.vignetteDarkness}
+        />
+        <ChromaticAberration offset={caOffset} />
       </EffectComposer>
 
       {/* ── Asset load progress bridge (must be inside Canvas) ── */}
@@ -360,10 +390,11 @@ export default function Game({ onGameOver }: GameProps) {
   // ── Wave spawner ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
+      const cap = useEditorStore.getState().maxZombies;
       setZombies((prev) => {
-        if (prev.length >= MAX_ZOMBIES) return prev;
+        if (prev.length >= cap) return prev;
         const currentWave = waveRef.current;
-        const count = Math.min(2, MAX_ZOMBIES - prev.length);
+        const count = Math.min(2, cap - prev.length);
         return [...prev, ...Array.from({ length: count }, () => spawnZombie(currentWave))];
       });
       if (killCountRef.current >= waveRef.current * 10) nextWave();

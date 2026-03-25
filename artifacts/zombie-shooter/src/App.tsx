@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Game from "@/game/Game";
+import { EditorPanel } from "@/game/EditorPanel";
+import { useEditorStore } from "@/game/useEditorStore";
 
 function TitleScreen({
   onStart,
@@ -110,6 +112,7 @@ function TitleScreen({
           <p style={{ margin: 0 }}>Mouse — Aim &nbsp;·&nbsp; LMB — Shoot / Attack &nbsp;·&nbsp; R — Spell Radial</p>
           <p style={{ margin: 0 }}>Q — Cycle Weapon &nbsp;·&nbsp; F — Cast Spell &nbsp;·&nbsp; Ctrl — Roll &nbsp;·&nbsp; C — Character &nbsp;·&nbsp; P — Camera</p>
           <p style={{ margin: 0 }}>1 / 2 / 3 / 4 — Weapon Skills</p>
+          <p style={{ margin: "6px 0 0", color: "#3a2a1a" }}>` — Dev Editor &nbsp;·&nbsp; F2 — Performance Overlay</p>
         </div>
 
         {/* Start button */}
@@ -156,14 +159,34 @@ function App() {
   const [gameOver,    setGameOver]    = useState(false);
   const [score,       setScore]       = useState(0);
 
+  const { editorVisible, toggleEditor, togglePerf } = useEditorStore();
+
+  // Backtick  → toggle editor panel   F2 → toggle performance overlay
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "Backquote") { e.preventDefault(); toggleEditor(); }
+      if (e.code === "F2")        { e.preventDefault(); togglePerf(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleEditor, togglePerf]);
+
   const handleStart    = () => { setGameStarted(true); setGameOver(false); setScore(0); };
   const handleGameOver = (finalScore: number) => { setGameOver(true); setScore(finalScore); setGameStarted(false); };
 
-  if (!gameStarted) {
-    return <TitleScreen onStart={handleStart} gameOver={gameOver} score={score} />;
-  }
+  return (
+    <>
+      {/* Leva panel visibility via CSS — avoids React-singleton conflict with <Leva /> */}
+      <style>{`#leva__root { display: ${editorVisible ? "block" : "none"} !important; }`}</style>
+      {/* Always-mounted: keeps Leva controls alive and values preserved across toggles */}
+      <EditorPanel />
 
-  return <Game onGameOver={handleGameOver} />;
+      {gameStarted
+        ? <Game onGameOver={handleGameOver} />
+        : <TitleScreen onStart={handleStart} gameOver={gameOver} score={score} />
+      }
+    </>
+  );
 }
 
 export default App;

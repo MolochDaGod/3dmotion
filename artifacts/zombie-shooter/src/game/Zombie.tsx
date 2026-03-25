@@ -6,6 +6,7 @@ import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.j
 import { RigidBody, BallCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { getPath, isNavReady } from "./NavGrid";
+import { useEditorStore } from "./useEditorStore";
 
 useGLTF.preload("/models/mutant.gltf");
 
@@ -26,13 +27,14 @@ interface ZombieProps {
   onDied: (id: string) => void;
 }
 
-type ZState = "loading" | "idle" | "run" | "attack" | "hit" | "dead";
+type ZState = "loading" | "idle" | "wander" | "run" | "attack" | "hit" | "dead";
 
 const ATTACK_RANGE    = 1.9;
 const ATTACK_DAMAGE   = 10;
 const ATTACK_COOLDOWN = 4.0;
-const DETECTOR_RADIUS = 22;
 const DEAD_LINGER     = 3.5;
+const WANDER_SPEED    = 0.30;  // fraction of data.speed used while wandering
+const WANDER_BOUNDS   = 80;    // world-unit boundary — zombies bounce back inside
 
 const ONCE_ANIMS = new Set([
   "punch", "punchStart", "punchEnd", "fist",
@@ -77,6 +79,14 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
   const prevHealthRef   = useRef(data.health);
   const tmpDir          = useRef(new THREE.Vector3());
 
+  // ── Wander ─────────────────────────────────────────────────────────────────
+  // Each zombie starts with a random direction and a staggered timer so they
+  // don't all pivot at the same moment.
+  const wanderDirRef   = useRef(new THREE.Vector3(
+    Math.random() - 0.5, 0, Math.random() - 0.5
+  ).normalize());
+  const wanderTimerRef = useRef(Math.random() * 4);  // 0–4 s initial offset
+
   // ── A* navigation ──────────────────────────────────────────────────────────
   // waypointsRef: current A* path as [x,z] pairs, consumed front-to-back
   const waypointsRef = useRef<[number, number][]>([]);
@@ -90,12 +100,12 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
     }
   }, [data.id]);
 
-  function fadeToAction(name: string, fadeIn = 0.18) {
+  function fadeToAction(name: string, fadeIn = 0.18, timeScale = 1.0) {
     const action = actions[name];
     if (!action) return;
     const prev = activeActionRef.current;
     if (prev && prev !== action) prev.fadeOut(fadeIn);
-    action.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(fadeIn).play();
+    action.reset().setEffectiveTimeScale(timeScale).setEffectiveWeight(1).fadeIn(fadeIn).play();
     activeActionRef.current = action;
   }
 
@@ -104,6 +114,8 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
     stateRef.current = next;
     switch (next) {
       case "idle":   fadeToAction("idle"); break;
+      // Wander: reuse the run cycle at ~35% speed — gives a creepy slow lurch
+      case "wander": fadeToAction("running", 0.4, 0.35); break;
       case "run":    fadeToAction("running"); break;
       case "attack":
         fadeToAction("punchStart", 0.1);
@@ -164,12 +176,41 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
       if (!data.isDead) transitionTo("hit");
     }
 
+    // Read editor settings each frame (getState avoids React re-render overhead)
+    const ed = useEditorStore.getState();
+    const detectionRadius = ed.zombieDetectionRadius;
+    const speedMult       = ed.zombieSpeedMult;
+
     tmpDir.current.set(pp.x - pos.x, 0, pp.z - pos.z);
     const dist = tmpDir.current.length();
 
-    if (dist > DETECTOR_RADIUS) {
-      if (st !== "idle") transitionTo("idle");
-      // Still sync sensor to current position
+    if (dist > detectionRadius) {
+      // ── Wander: zombie slowly patrol when player is far away ──────────────
+      if (st !== "wander") transitionTo("wander");
+
+      wanderTimerRef.current -= delta;
+      if (wanderTimerRef.current <= 0) {
+        // Pick a new random wander direction every 2–5 seconds
+        wanderTimerRef.current = 2 + Math.random() * 3;
+        const angle = Math.random() * Math.PI * 2;
+        wanderDirRef.current.set(Math.sin(angle), 0, Math.cos(angle));
+      }
+
+      const ws = data.speed * WANDER_SPEED * speedMult;
+      const nx = pos.x + wanderDirRef.current.x * ws * delta;
+      const nz = pos.z + wanderDirRef.current.z * ws * delta;
+
+      if (Math.abs(nx) < WANDER_BOUNDS && Math.abs(nz) < WANDER_BOUNDS) {
+        pos.x = nx;
+        pos.z = nz;
+      } else {
+        wanderDirRef.current.negate();
+      }
+
+      groupRef.current.rotation.y = Math.atan2(wanderDirRef.current.x, wanderDirRef.current.z);
+      data.position.copy(pos);
+      pos.y = getTerrainHeight(pos.x, pos.z);
+      data.position.y = pos.y;
       rbRef.current?.setNextKinematicTranslation({ x: pos.x, y: pos.y + 1.0, z: pos.z });
       return;
     }
@@ -182,7 +223,7 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
         if (attackCdRef.current <= 0) {
           attackCdRef.current = ATTACK_COOLDOWN;
           transitionTo("attack");
-          setTimeout(() => onDamagePlayer(ATTACK_DAMAGE), 700);
+          setTimeout(() => onDamagePlayer(ed.zombieAttackDamage), 700);
         } else if (st !== "idle") {
           transitionTo("idle");
         }
@@ -231,8 +272,8 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
         }
 
         const len = Math.sqrt(steerX * steerX + steerZ * steerZ) || 1;
-        pos.x += (steerX / len) * data.speed * delta;
-        pos.z += (steerZ / len) * data.speed * delta;
+        pos.x += (steerX / len) * data.speed * speedMult * delta;
+        pos.z += (steerZ / len) * data.speed * speedMult * delta;
         data.position.copy(pos);
       }
     }
