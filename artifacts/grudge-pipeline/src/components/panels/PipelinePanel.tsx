@@ -433,12 +433,17 @@ function RetextureStep() {
   const sourceTaskId = isRefineDone ? refineTaskId : previewTaskId;
 
   const [textStylePrompt, setTextStylePrompt] = useState("");
-  const [imageStyleUrl, setImageStyleUrl] = useState("");
+  const [imageStyleUrl, setImageStyleUrl] = useState(conceptImageUrl ?? "");
   const [standaloneModelUrl, setStandaloneModelUrl] = useState("");
-  const [useConceptImage, setUseConceptImage] = useState(true);
   const [enablePbr, setEnablePbr] = useState(false);
   const [retextureAiModel, setRetextureAiModel] = useState<"meshy-5" | "meshy-6" | "latest">("latest");
   const [retextureFormats, setRetextureFormats] = useState<RetextureFormat[]>(["glb", "fbx"]);
+
+  useEffect(() => {
+    if (conceptImageUrl && !imageStyleUrl) {
+      setImageStyleUrl(conceptImageUrl);
+    }
+  }, [conceptImageUrl]);
 
   const createRetexture = useMeshyCreateRetexture();
   const taskQuery = useMeshyGetRetexture(retextureTaskId);
@@ -451,16 +456,10 @@ function RetextureStep() {
   const canSubmit =
     (isActive || !!standaloneModelUrl) &&
     retextureFormats.length > 0 &&
-    (
-      (useConceptImage && !!conceptImageUrl) ||
-      !!imageStyleUrl ||
-      !!textStylePrompt
-    );
+    (!!imageStyleUrl || !!textStylePrompt);
 
   const handleRetexture = () => {
-    const resolvedImageUrl =
-      useConceptImage && conceptImageUrl ? conceptImageUrl :
-      imageStyleUrl || undefined;
+    const resolvedImageUrl = imageStyleUrl || undefined;
     const payload: Parameters<ReturnType<typeof useMeshyCreateRetexture>["mutate"]>[0] = {
       ai_model: retextureAiModel,
       enable_pbr: enablePbr,
@@ -522,22 +521,27 @@ function RetextureStep() {
       </div>
 
       {conceptImageUrl && (
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={useConceptImage}
-            onChange={(e) => setUseConceptImage(e.target.checked)}
-            className="accent-primary"
-          />
-          <div className="flex items-center gap-2">
-            <img src={conceptImageUrl} alt="Concept" className="w-8 h-8 object-cover rounded border border-primary/50" />
-            <span className="text-sm text-foreground/80">Use concept art as style reference</span>
-          </div>
-        </label>
+        <div className="flex items-center gap-2 text-[11px] font-mono text-primary bg-primary/5 border border-primary/20 rounded px-3 py-2">
+          <img src={conceptImageUrl} alt="Concept" className="w-8 h-8 object-cover rounded border border-primary/50 shrink-0" />
+          <span>Concept art detected — URL auto-filled below. Clear it to use a text prompt instead.</span>
+        </div>
       )}
 
-      {(!conceptImageUrl || !useConceptImage) && (
-        <div className="space-y-3">
+      <div className="space-y-3">
+        <div>
+          <Label>Image Style URL {conceptImageUrl ? "(auto-filled from concept art)" : "(optional)"}</Label>
+          <Input
+            type="url"
+            value={imageStyleUrl}
+            onChange={(e) => setImageStyleUrl(e.target.value)}
+            placeholder="https://... (overrides text prompt when provided)"
+            className="w-full"
+          />
+          {imageStyleUrl && conceptImageUrl && imageStyleUrl === conceptImageUrl && (
+            <p className="text-[10px] font-mono text-primary mt-1">↑ Auto-populated from concept art</p>
+          )}
+        </div>
+        {!imageStyleUrl && (
           <div>
             <Label>Style Prompt</Label>
             <Textarea
@@ -547,18 +551,8 @@ function RetextureStep() {
               className="h-20"
             />
           </div>
-          <div>
-            <Label>Image Style URL (optional)</Label>
-            <Input
-              type="url"
-              value={imageStyleUrl}
-              onChange={(e) => setImageStyleUrl(e.target.value)}
-              placeholder="https://... (overrides text prompt)"
-              className="w-full"
-            />
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -776,7 +770,7 @@ function RemeshStep() {
         <div>
           <Label>Output Formats</Label>
           <div className="flex gap-2 pt-1 flex-wrap">
-            {(["glb", "fbx", "obj", "blend"] as const).map((fmt) => (
+            {(["glb", "fbx", "obj", "blend", "usdz", "stl"] as const).map((fmt) => (
               <label key={fmt} className="flex items-center gap-1 cursor-pointer">
                 <input
                   type="checkbox"
