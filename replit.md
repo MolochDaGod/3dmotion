@@ -156,12 +156,16 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 - Attack damage driven by `ed.zombieAttackDamage` (editor slider)
 
 **Character Swap System:**
-- `src/game/CharacterRegistry.ts` — `CharacterDef` interface + registry array. Each def specifies: `id`, `name`, `mesh` (FBX path), `scale`, `capsuleHH/R`, `color`. All Mixamo animation packs are shared between characters automatically.
-- `src/game/useCharacterStore.ts` — Zustand store: `activeId`, `def`, `cycleNext()`, `setActive(id)`.
-- `Player.tsx` reads `useCharacterStore.getState().def` at mount-time; uses `def.mesh` and `def.scale` so each FBX loads with correct proportions.
-- `Game.tsx` passes `key={activeId}` to `<Player>` — React cleanly remounts the entire player (skeleton, mixer, weapons) when character changes.
-- To add a new Meshy AI / Mixamo character: export as FBX with Mixamo skeleton → drop under `public/models/character/` → add one entry to `CHARACTER_REGISTRY` in CharacterRegistry.ts.
-- **N key** — cycles to next registered character.
+- `src/game/CharacterRegistry.ts` — `CharacterDef` interface + static registry array. Each def: `id`, `name`, `mesh` (FBX path or https:// CDN URL), `scale`, `capsuleHH/R`, `color`, `source?` ("meshy" for AI-generated). All Mixamo animation packs are shared automatically.
+- `src/game/useCharacterStore.ts` — Zustand store: `activeId`, `def`, `aiChars`, `allChars` (static + AI merged), `cycleNext()`, `setActive(id)`, `fetchAiChars()` (non-blocking API fetch on CharacterScreen mount).
+- `Player.tsx` reads `useCharacterStore.getState().def` at mount-time; uses `def.mesh` and `def.scale`. `def.mesh` can be a local path or an absolute CDN URL — Three.js FBXLoader handles both.
+- `Game.tsx` passes `key={activeId}` to `<Player>` — React cleanly remounts the entire player when character changes.
+- **Meshy→Game Live Bridge**: Complete pipeline from Grudge Pipeline → API → DB → Game:
+  1. Grudge Pipeline rigging step succeeds → "SEND TO GAME" panel appears in SkeletonPanel with name/scale/color inputs
+  2. POST `/api/characters` persists the Meshy CDN FBX URL to `ai_characters` DB table
+  3. Game's CharacterScreen calls `fetchAiChars()` on mount → GET `/api/characters` → merges AI chars into `allChars`
+  4. AI characters appear in Character Select with a neon green "AI" badge and green-tinted card border
+- **N key** — cycles to next registered character (across static + AI chars).
 
 **NavGrid Web Worker (A* off main thread):**
 - `src/game/navWorker.ts` — Vite module worker that imports NavGrid.ts + terrain.ts (pure TS/math, no browser APIs). Handles `init` and `path` messages.

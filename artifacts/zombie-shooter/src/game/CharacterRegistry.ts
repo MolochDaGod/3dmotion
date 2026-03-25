@@ -15,7 +15,7 @@
 export interface CharacterDef {
   id: string;
   name: string;
-  /** Path to the base-mesh FBX under /public */
+  /** Path to the base-mesh FBX under /public, or an absolute https:// CDN URL */
   mesh: string;
   /** Uniform scale applied to the loaded FBX group (Mixamo default ≈ 0.01) */
   scale: number;
@@ -25,6 +25,8 @@ export interface CharacterDef {
   capsuleR: number;
   /** CSS color shown next to the name in the HUD character picker */
   color: string;
+  /** "meshy" for AI-generated characters, undefined for built-in roster */
+  source?: "meshy";
 }
 
 export const CHARACTER_REGISTRY: CharacterDef[] = [

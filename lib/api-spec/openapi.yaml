@@ -14,7 +14,41 @@ tags:
     description: Meshy AI 3D pipeline operations
   - name: chat
     description: AI chatbot for Meshy prompt optimization
+  - name: characters
+    description: AI character roster management
 paths:
+  /characters:
+    get:
+      operationId: listCharacters
+      tags: [characters]
+      summary: List AI characters
+      description: Retrieve all AI-generated characters saved to the game roster.
+      responses:
+        "200":
+          description: Character list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CharacterListResponse"
+    post:
+      operationId: createCharacter
+      tags: [characters]
+      summary: Save a character to the game roster
+      description: Persist a Meshy AI character so the game loads it dynamically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCharacterRequest"
+      responses:
+        "201":
+          description: Character created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateCharacterResponse"
+
   /healthz:
     get:
       operationId: healthCheck
@@ -274,6 +308,85 @@ paths:
 
 components:
   schemas:
+    AiCharacter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        meshUrl:
+          type: string
+        scale:
+          type: number
+        capsuleHH:
+          type: number
+        capsuleR:
+          type: number
+        color:
+          type: string
+        source:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - meshUrl
+        - scale
+        - capsuleHH
+        - capsuleR
+        - color
+        - source
+        - createdAt
+
+    CreateCharacterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        meshUrl:
+          type: string
+          description: Meshy CDN FBX URL
+        scale:
+          type: number
+          default: 0.01
+        capsuleHH:
+          type: number
+          default: 0.5
+        capsuleR:
+          type: number
+          default: 0.35
+        color:
+          type: string
+          default: "#39ff14"
+        source:
+          type: string
+          default: meshy
+      required:
+        - name
+        - meshUrl
+
+    CreateCharacterResponse:
+      type: object
+      properties:
+        character:
+          $ref: "#/components/schemas/AiCharacter"
+      required:
+        - character
+
+    CharacterListResponse:
+      type: object
+      properties:
+        characters:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiCharacter"
+      required:
+        - characters
+
     HealthStatus:
       type: object
       properties:

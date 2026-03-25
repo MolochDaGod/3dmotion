@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { CHARACTER_REGISTRY } from "./CharacterRegistry";
 import { useCharacterStore } from "./useCharacterStore";
 import { useSettingsStore, QUALITY_PRESETS, QualityPreset } from "./useSettingsStore";
 import { ModelViewer } from "./ModelViewer";
@@ -95,7 +94,7 @@ function HomeScreen({
             {[
               { icon: "⚔", label: "7 Weapons" },
               { icon: "✦", label: "8 Magic Spells" },
-              { icon: "◈", label: `${CHARACTER_REGISTRY.length} Characters` },
+              { icon: "◈", label: "Characters" },
               { icon: "⚡", label: "God Mode" },
               { icon: "🏛", label: "21 Ruin Props" },
               { icon: "◎", label: "Wave Survival" },
@@ -226,14 +225,26 @@ function NavCard({
 
 // ─── CHARACTER SELECT screen ──────────────────────────────────────────────────
 function CharacterScreen({ onBack, onStart }: { onBack: () => void; onStart: () => void }) {
-  const { activeId, setActive, def: activeDef } = useCharacterStore();
+  const { activeId, setActive, def: activeDef, allChars, fetchAiChars } = useCharacterStore();
+
+  useEffect(() => {
+    fetchAiChars();
+  }, [fetchAiChars]);
+
+  const aiCount = allChars.filter((c) => c.source === "meshy").length;
 
   return (
     <MenuShell title="CHARACTER SELECT" onBack={onBack}>
-      <SectionTitle>Registered Operatives — {CHARACTER_REGISTRY.length} available</SectionTitle>
+      <SectionTitle>
+        Registered Operatives — {allChars.length} available{aiCount > 0 ? ` (${aiCount} AI)` : ""}
+      </SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14, maxWidth: 860 }}>
-        {CHARACTER_REGISTRY.map((c) => {
+        {allChars.map((c) => {
           const active = c.id === activeId;
+          const isAi = c.source === "meshy";
+          const meshLabel = isAi
+            ? (c.mesh.split("/").pop()?.split("?")[0] ?? "remote")
+            : (c.mesh.split("/").pop() ?? c.mesh);
           return (
             <div
               key={c.id}
@@ -241,13 +252,25 @@ function CharacterScreen({ onBack, onStart }: { onBack: () => void; onStart: () 
               style={{
                 padding: "18px 20px",
                 background: active ? `${c.color}11` : "rgba(255,255,255,0.02)",
-                border: `2px solid ${active ? c.color + "88" : "#1a1a1a"}`,
+                border: `2px solid ${active ? c.color + "88" : isAi ? "#1a3a1a" : "#1a1a1a"}`,
                 borderRadius: 4,
                 cursor: "pointer",
                 transition: "all 0.15s ease",
                 fontFamily: mono,
+                position: "relative",
               }}
             >
+              {isAi && (
+                <div style={{
+                  position: "absolute", top: 8, right: 10,
+                  fontSize: 8, letterSpacing: 2, fontWeight: 700,
+                  color: "#39ff14", background: "rgba(57,255,20,0.1)",
+                  border: "1px solid rgba(57,255,20,0.3)",
+                  borderRadius: 2, padding: "1px 5px",
+                }}>
+                  AI
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                 <div style={{ width: 12, height: 12, borderRadius: "50%", background: c.color, boxShadow: active ? `0 0 10px ${c.color}` : "none" }} />
                 <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, color: active ? c.color : "#8a7a6a", textTransform: "uppercase" }}>
@@ -260,10 +283,10 @@ function CharacterScreen({ onBack, onStart }: { onBack: () => void; onStart: () 
                   ["Scale",    `${c.scale}×`],
                   ["Height",   `${(c.capsuleHH * 2 + c.capsuleR * 2).toFixed(2)} m`],
                   ["Capsule R", `${c.capsuleR} m`],
-                  ["Mesh",     c.mesh.split("/").pop()!],
+                  ["Mesh",     meshLabel],
                 ].map(([k, v]) => (
                   <div key={k} style={{ fontSize: 9, color: "#3a3a3a" }}>
-                    <span style={{ color: "#2a4a2a" }}>{k}:</span> <span style={{ color: "#5a5a5a" }}>{v}</span>
+                    <span style={{ color: isAi ? "#2a4a2a" : "#2a4a2a" }}>{k}:</span> <span style={{ color: "#5a5a5a" }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -280,11 +303,12 @@ function CharacterScreen({ onBack, onStart }: { onBack: () => void; onStart: () 
         </span>
       </div>
 
-      {CHARACTER_REGISTRY.length === 1 && (
+      {allChars.length === 1 && (
         <div style={{ marginTop: 24, fontFamily: mono, fontSize: 11, color: "#3a2a1a", lineHeight: 1.8 }}>
           <span style={{ color: "#885533" }}>// ADD MORE CHARACTERS</span><br />
-          Export any rigged FBX from Meshy → drop in <code style={{ color: "#cc8844" }}>public/models/character/</code><br />
-          Then add an entry to <code style={{ color: "#cc8844" }}>CharacterRegistry.ts</code>
+          Use <span style={{ color: "#4a8a4a" }}>Grudge Pipeline</span> to generate and send AI characters, or<br />
+          export any rigged FBX from Meshy → drop in <code style={{ color: "#cc8844" }}>public/models/character/</code><br />
+          and add an entry to <code style={{ color: "#cc8844" }}>CharacterRegistry.ts</code>
         </div>
       )}
     </MenuShell>
