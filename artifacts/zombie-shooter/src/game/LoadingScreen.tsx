@@ -34,7 +34,7 @@ export function ProgressBridge({
   return null;
 }
 
-// ── Loading overlay — lives OUTSIDE the Canvas ────────────────────────────────
+// ── Loading overlay — simple dark screen, no video ────────────────────────────
 const MESSAGES = [
   "Awakening the dead…",
   "Sharpening the blades…",
@@ -46,8 +46,7 @@ const MESSAGES = [
 
 export function LoadingScreen({ progress }: { progress: number }) {
   const [msgIdx, setMsgIdx] = useState(0);
-  const [dots, setDots]     = useState("");
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [dots,   setDots]   = useState("");
 
   useEffect(() => {
     const t = setInterval(() => setMsgIdx((i) => (i + 1) % MESSAGES.length), 2000);
@@ -57,14 +56,6 @@ export function LoadingScreen({ progress }: { progress: number }) {
   useEffect(() => {
     const t = setInterval(() => setDots((d) => (d.length >= 3 ? "" : d + ".")), 420);
     return () => clearInterval(t);
-  }, []);
-
-  // Attempt autoplay (browsers may block if not muted — video is muted)
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.playbackRate = 0.2;
-    v.play().catch(() => {});
   }, []);
 
   const pct = Math.round(progress);
@@ -79,111 +70,73 @@ export function LoadingScreen({ progress }: { progress: number }) {
         flexDirection:  "column",
         alignItems:     "center",
         justifyContent: "center",
+        background:     "#050905",
         fontFamily:     "'Courier New', Courier, monospace",
         color:          "#e8ddd0",
         userSelect:     "none",
-        overflow:       "hidden",
       }}
     >
-      {/* ── Background video ─────────────────────────────────────────── */}
-      <video
-        ref={videoRef}
-        src="/hero-scroll.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
+      {/* Title */}
+      <h1
         style={{
-          position:   "absolute",
-          inset:      0,
-          width:      "100%",
-          height:     "100%",
-          objectFit:  "cover",
-          zIndex:     0,
+          fontSize:      "clamp(1.6rem, 4vw, 2.8rem)",
+          fontWeight:    900,
+          color:         "#cc1111",
+          margin:        "0 0 8px",
+          letterSpacing: 6,
+          textShadow:    "0 0 30px #cc111166",
         }}
-      />
+      >
+        MOTION TRAINING
+      </h1>
 
-      {/* ── Dark gradient overlay so text stays legible ───────────────── */}
+      {/* Divider */}
+      <div style={{ width: 220, height: 1, background: "linear-gradient(90deg,transparent,#6a2a1a,transparent)", margin: "16px 0 24px" }} />
+
+      {/* Progress bar track */}
       <div
         style={{
-          position:   "absolute",
-          inset:      0,
-          zIndex:     1,
-          background: "linear-gradient(to bottom, rgba(2,5,2,0.55) 0%, rgba(5,10,6,0.80) 60%, rgba(5,10,6,0.95) 100%)",
+          width:        "min(420px, 72vw)",
+          height:       14,
+          background:   "#0e1409",
+          border:       "1px solid #2a1a0a",
+          borderRadius: 2,
+          overflow:     "hidden",
+          boxShadow:    "0 0 10px #00000080 inset",
         }}
-      />
-
-      {/* ── All UI content sits above the overlay ─────────────────────── */}
-      <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
-
-        {/* Decorative border */}
-        <div style={{ opacity: 0.25, fontSize: 13, letterSpacing: 8, marginBottom: 28, color: "#8a6a4a" }}>
-          ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦ ✦
-        </div>
-
-        {/* Title */}
-        <h1
-          style={{
-            fontSize:      "clamp(2.4rem, 7vw, 5rem)",
-            fontWeight:    900,
-            color:         "#cc1111",
-            margin:        0,
-            letterSpacing: 6,
-            textShadow:    "0 0 40px #cc111180, 0 0 80px #cc111140, 0 2px 0 #000",
-            lineHeight:    1,
-          }}
-        >
-          MOTION TRAINING
-        </h1>
-
-        {/* Sub-divider */}
-        <div style={{ width: 320, height: 1, background: "linear-gradient(90deg,transparent,#8a3a2a,transparent)", margin: "22px 0" }} />
-
-        {/* Progress bar */}
+      >
         <div
           style={{
-            width:        "min(480px, 80vw)",
-            height:       18,
-            background:   "#0e1409",
-            border:       "1px solid #3a2a1a",
-            borderRadius: 2,
-            overflow:     "hidden",
-            boxShadow:    "0 0 12px #00000080 inset",
+            height:     "100%",
+            width:      `${pct}%`,
+            background: "linear-gradient(90deg, #7a0a0a, #cc2222, #ee4444)",
+            boxShadow:  "0 0 12px #cc222280",
+            transition: "width 0.25s ease-out",
           }}
-        >
-          <div
-            style={{
-              height:     "100%",
-              width:      `${pct}%`,
-              background: "linear-gradient(90deg, #7a0a0a, #cc2222, #ee4444)",
-              boxShadow:  "0 0 14px #cc222280",
-              transition: "width 0.25s ease-out",
-            }}
-          />
-        </div>
-
-        {/* Percentage */}
-        <p style={{ margin: "10px 0 0", fontSize: 13, color: "#6a5a4a", letterSpacing: 3 }}>
-          {pct < 100 ? `${pct}%` : "READY"}
-        </p>
-
-        {/* Flavour message */}
-        <p
-          style={{
-            marginTop:     32,
-            fontSize:      14,
-            color:         "#7a6a5a",
-            letterSpacing: 2,
-            minHeight:     20,
-            textTransform: "uppercase",
-          }}
-        >
-          {MESSAGES[msgIdx]}{dots}
-        </p>
+        />
       </div>
 
-      {/* Bottom decoration */}
-      <div style={{ position: "absolute", bottom: 28, zIndex: 2, fontSize: 11, color: "#3a2a1a", letterSpacing: 4 }}>
+      {/* Percentage */}
+      <p style={{ margin: "10px 0 0", fontSize: 12, color: "#5a4a3a", letterSpacing: 3 }}>
+        {pct < 100 ? `${pct}%` : "READY"}
+      </p>
+
+      {/* Flavour message */}
+      <p
+        style={{
+          marginTop:     28,
+          fontSize:      13,
+          color:         "#6a5a4a",
+          letterSpacing: 2,
+          minHeight:     20,
+          textTransform: "uppercase",
+        }}
+      >
+        {MESSAGES[msgIdx]}{dots}
+      </p>
+
+      {/* Bottom tag */}
+      <div style={{ position: "absolute", bottom: 24, fontSize: 10, color: "#2a1a0a", letterSpacing: 4 }}>
         THIRD PERSON SHOOTER
       </div>
     </div>

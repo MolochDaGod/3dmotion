@@ -471,10 +471,11 @@ const _leanQ        = new THREE.Quaternion();
 
 // ─── Queue slot type ──────────────────────────────────────────────────────────
 type QueueSlot = {
-  key:       AnimKey;
-  fade:      number;
-  manaCost?: number;   // mana consumed when this animation STARTS playing
-  dmgMs?:    number;   // ms after start to fire damage
+  key:        AnimKey;
+  fade:       number;
+  timeScale?: number;  // playback speed (default 1.0)
+  manaCost?:  number;  // mana consumed when this animation STARTS playing
+  dmgMs?:     number;  // ms after start to fire damage
 } | null;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -641,7 +642,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         }
       }
       blockingOnce.current = true;
-      _rawPlay(slot.key, slot.fade);
+      _rawPlay(slot.key, slot.fade, slot.timeScale ?? 1);
       if (slot.dmgMs) {
         const ms = slot.dmgMs;
         setTimeout(() => fireDamageRef.current?.(), ms);
@@ -1154,7 +1155,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         if (!ok) return;
       }
       blockingOnce.current = true;
-      _rawPlay(slot.key, slot.fade);
+      _rawPlay(slot.key, slot.fade, slot.timeScale ?? 1);
       if (slot.dmgMs) {
         const ms = slot.dmgMs;
         setTimeout(() => fireDamageRef.current?.(), ms);
@@ -1247,12 +1248,21 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       maxLife:   spellDef.speed > 0 ? 3.5 : 1.2,
     });
 
-    // Play cast animation if in staff mode
+    // Play cast animation if in staff mode — each spell gets its own anim + speed
     const wm = store.weaponMode;
     if (wm === "staff") {
+      // Spell → animation mapping: gives each spell a distinct feel
+      const SPELL_ANIM: Record<string, { key: "staffCast1" | "staffCast2"; timeScale: number }> = {
+        orb:     { key: "staffCast1", timeScale: 0.85 }, // slow floating orb gesture
+        javelin: { key: "staffCast2", timeScale: 1.45 }, // fast piercing thrust
+        wave:    { key: "staffCast1", timeScale: 0.50 }, // wide, sweeping wave cast
+        nova:    { key: "staffCast2", timeScale: 1.00 }, // full-weight explosion push
+      };
+      const spellAnim = SPELL_ANIM[store.selectedSpell] ?? { key: "staffCast1" as const, timeScale: 1 };
       requestBlockingAnim({
-        key:  "staffCast1",
-        fade: blockingOnce.current ? FADE_ATK_CHAIN : FADE_ATK_START,
+        key:       spellAnim.key,
+        fade:      blockingOnce.current ? FADE_ATK_CHAIN : FADE_ATK_START,
+        timeScale: spellAnim.timeScale,
       });
     }
   }, [camera, useMana, addMagicProjectile, requestBlockingAnim]);
