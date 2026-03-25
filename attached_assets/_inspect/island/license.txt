@@ -1,0 +1,11 @@
+Model Information:
+* title:	Rock, reef, beaches, seaside, small island
+* source:	https://sketchfab.com/3d-models/rock-reef-beaches-seaside-small-island-414de6175f2d4a1d8e2cb5e7d11ca2d7
+* author:	Metazeon (https://sketchfab.com/Metazeon)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Rock, reef, beaches, seaside, small island" (https://sketchfab.com/3d-models/rock-reef-beaches-seaside-small-island-414de6175f2d4a1d8e2cb5e7d11ca2d7) by Metazeon (https://sketchfab.com/Metazeon) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
