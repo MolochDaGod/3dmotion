@@ -293,6 +293,78 @@ function BoulderCluster({ x, z, rotY, sx, sy, sz }: {
   );
 }
 
+// ─── Grave markers ────────────────────────────────────────────────────────────
+const GRAVE_PLACEMENTS: [number, number, number][] = [
+  // [x, z, rotY]
+  [  3,  -6, 0.1], [ -4,  -8, 3.0], [  7,   4, 1.2], [ -7,   5, 0.5],
+  [  1,  10, 2.2], [  9, -15, 0.8], [-10, -13, 1.6], [  2,  17, 3.4],
+  [ 14,   2, 0.3], [-13,   0, 2.8], [  5, -24, 1.0], [ -5, -22, 0.7],
+  [ 17, -18, 2.1], [-18,  14, 0.9], [ 20,  18, 1.7], [-20, -22, 0.4],
+  [  0,  28, 2.5], [ 12,  25, 1.3], [-14, -28, 0.6], [ 25,  -5, 2.9],
+  [-25,   8, 1.1], [ 28,  22, 0.2], [-28, -18, 1.8], [  8, -32, 0.4],
+];
+
+function GraveMarker({ x, z, rotY }: { x: number; z: number; rotY: number }) {
+  const y = getTerrainHeight(x, z);
+  const stoneColor = "#8a8070";
+  return (
+    <group position={[x, y, z]} rotation={[0, rotY, 0]}>
+      {/* Main slab */}
+      <mesh castShadow receiveShadow position={[0, 0.6, 0]} rotation={[-0.06, 0, 0]}>
+        <boxGeometry args={[0.38, 0.72, 0.10]} />
+        <meshStandardMaterial color={stoneColor} roughness={0.95} metalness={0} />
+      </mesh>
+      {/* Arch top */}
+      <mesh castShadow position={[0, 1.02, 0]}>
+        <cylinderGeometry args={[0.19, 0.19, 0.10, 8, 1, false, 0, Math.PI]} />
+        <meshStandardMaterial color={stoneColor} roughness={0.95} metalness={0} />
+      </mesh>
+      {/* Base block */}
+      <mesh receiveShadow position={[0, 0.08, 0]}>
+        <boxGeometry args={[0.46, 0.14, 0.18]} />
+        <meshStandardMaterial color="#6a6055" roughness={1} metalness={0} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Torch ────────────────────────────────────────────────────────────────────
+const TORCH_PLACEMENTS: [number, number, number][] = [
+  [ -9, -14, 0], [ 10, -11, 0], [-15,   6, 0], [ 15,   8, 0],
+  [  1, -21, 0], [-22, -18, 0], [ 23, -17, 0],
+];
+
+function Torch({ x, z }: { x: number; z: number }) {
+  const y = getTerrainHeight(x, z);
+  return (
+    <group position={[x, y, z]}>
+      {/* Pole */}
+      <mesh castShadow position={[0, 0.9, 0]}>
+        <cylinderGeometry args={[0.04, 0.05, 1.8, 5]} />
+        <meshStandardMaterial color="#4a3010" roughness={1} />
+      </mesh>
+      {/* Head */}
+      <mesh position={[0, 1.85, 0]}>
+        <cylinderGeometry args={[0.07, 0.06, 0.18, 6]} />
+        <meshStandardMaterial color="#333" roughness={0.8} />
+      </mesh>
+      {/* Fire glow — emissive sphere */}
+      <mesh position={[0, 2.0, 0]}>
+        <sphereGeometry args={[0.12, 7, 6]} />
+        <meshStandardMaterial color="#ff6010" emissive="#ff4000" emissiveIntensity={3.5} transparent opacity={0.85} />
+      </mesh>
+      {/* Point light for warm glow */}
+      <pointLight
+        position={[0, 2.2, 0]}
+        intensity={4}
+        distance={10}
+        color="#ff8030"
+        castShadow={false}
+      />
+    </group>
+  );
+}
+
 // ─── NavGrid obstacle data (exported for NavGrid.initNavGrid) ─────────────────
 // Provides {x, z, radius} for every solid obstacle so A* can avoid them.
 export const NAV_OBSTACLES: NavObstacle[] = [
@@ -331,6 +403,16 @@ export function Graveyard() {
             scale={scale}
           />
         </Suspense>
+      ))}
+
+      {/* ── Grave markers (procedural stone slabs) ── */}
+      {GRAVE_PLACEMENTS.map(([x, z, rotY], i) => (
+        <GraveMarker key={`g${i}`} x={x} z={z} rotY={rotY} />
+      ))}
+
+      {/* ── Torches (emissive fire glow + point light) ── */}
+      {TORCH_PLACEMENTS.map(([x, z], i) => (
+        <Torch key={`t${i}`} x={x} z={z} />
       ))}
     </group>
   );

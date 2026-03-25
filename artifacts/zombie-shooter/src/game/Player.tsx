@@ -1410,10 +1410,22 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   }, [setMeleeBlocking]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (["AltLeft","AltRight","F2","F3","ControlLeft","ControlRight"].includes(e.code)) {
+    if (["AltLeft","AltRight","F1","F2","F3","F9","ControlLeft","ControlRight"].includes(e.code)) {
       e.preventDefault();
     }
     keys.current[e.code] = true;
+
+    // F1 — toggle God Mode (noclip, free-fly, T-pose)
+    if (e.code === "F1") {
+      useGameStore.getState().toggleGodMode();
+      return;
+    }
+
+    // F9 — toggle Admin Panel
+    if (e.code === "F9") {
+      useGameStore.getState().toggleAdminPanel();
+      return;
+    }
 
     if (e.code === "KeyR") {
       // R = reload for ranged weapons, open spell radial for staff/magic
@@ -1713,6 +1725,31 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       trackWeapon(bowPropGroupRef.current, bowPropObj, isBowWm, bowQAdj.current, leftHand);
     if (shieldPropGroupRef.current && shieldPropObj)
       trackWeapon(shieldPropGroupRef.current, shieldPropObj, isSSWm, shieldQAdj.current, leftHand);
+
+    // ── GOD MODE: noclip free-fly (T-pose) ─────────────────────────────────
+    const godModeActive = useGameStore.getState().godMode;
+    // Freeze the animation mixer in T-pose (timeScale=0) when god mode is on
+    if (mixerRef.current) mixerRef.current.timeScale = godModeActive ? 0 : 1;
+
+    if (godModeActive && playerRBRef.current) {
+      const gSpeed = (keys.current["ShiftLeft"] || keys.current["ShiftRight"]) ? 30 : 12;
+      const fwdV = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+      const rgtV = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
+      const flyDir = new THREE.Vector3();
+      if (fwd)   flyDir.add(fwdV);
+      if (bwd)   flyDir.sub(fwdV);
+      if (left)  flyDir.sub(rgtV);
+      if (right) flyDir.add(rgtV);
+      if (flyDir.lengthSq() > 0) flyDir.normalize().multiplyScalar(gSpeed * delta);
+      if (keys.current["Space"])                                           flyDir.y += gSpeed * delta;
+      if (keys.current["ControlLeft"] || keys.current["ControlRight"])    flyDir.y -= gSpeed * delta;
+      const pos  = playerRBRef.current.translation();
+      const next = { x: pos.x + flyDir.x, y: pos.y + flyDir.y, z: pos.z + flyDir.z };
+      playerRBRef.current.setNextKinematicTranslation(next);
+      rootRef.current.position.set(next.x, next.y - CAPSULE_CY, next.z);
+      playerPosRef.current.copy(rootRef.current.position);
+      return; // skip normal physics + locomotion state machine
+    }
 
     // ── Movement input ──────────────────────────────────────────────────────
     const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));

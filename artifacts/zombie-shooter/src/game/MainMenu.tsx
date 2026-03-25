@@ -90,12 +90,37 @@ function HomeScreen({
           {/* Start */}
           <StartButton label={gameOver ? "PLAY AGAIN" : "START GAME"} onClick={onStart} />
 
+          {/* Feature badges */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", margin: "28px 0 0" }}>
+            {[
+              { icon: "⚔", label: "7 Weapons" },
+              { icon: "✦", label: "8 Magic Spells" },
+              { icon: "◈", label: `${CHARACTER_REGISTRY.length} Characters` },
+              { icon: "⚡", label: "God Mode" },
+              { icon: "🏛", label: "21 Ruin Props" },
+              { icon: "◎", label: "Wave Survival" },
+            ].map((f) => (
+              <div key={f.label} style={{
+                display: "flex", alignItems: "center", gap: 5, padding: "4px 10px",
+                background: "rgba(255,255,255,0.02)", border: "1px solid #2a1a1a",
+                borderRadius: 2, fontFamily: mono, fontSize: 9, letterSpacing: 1, color: "#5a3a2a",
+              }}>
+                <span style={{ fontSize: 10 }}>{f.icon}</span>
+                <span>{f.label}</span>
+              </div>
+            ))}
+          </div>
+
           {/* Quick controls ref */}
-          <div style={{ marginTop: 32, color: "#3a2a1a", fontSize: 11, textAlign: "center", lineHeight: 2.1, letterSpacing: 0.8 }}>
+          <div style={{ marginTop: 24, color: "#2a1a0a", fontSize: 10, textAlign: "center", lineHeight: 2.2, letterSpacing: 0.8 }}>
             <p style={{ margin: 0 }}>WASD — Move &nbsp;·&nbsp; Shift — Sprint &nbsp;·&nbsp; Space — Jump &nbsp;·&nbsp; Alt — Crouch</p>
-            <p style={{ margin: 0 }}>LMB — Shoot · Q — Cycle Weapon · R — Spell Radial · F — Cast</p>
-            <p style={{ margin: 0 }}>C — Character · P — Camera · Ctrl — Roll &nbsp;·&nbsp; 1/2/3/4 — Skills</p>
-            <p style={{ margin: "4px 0 0", color: "#2a1a0a" }}>` — Dev Editor &nbsp;·&nbsp; F2 — Performance Overlay</p>
+            <p style={{ margin: 0 }}>LMB — Shoot &nbsp;·&nbsp; Q — Cycle Weapon &nbsp;·&nbsp; R — Spell &nbsp;·&nbsp; F — Cast &nbsp;·&nbsp; 1/2/3/4 — Skills</p>
+            <p style={{ margin: 0 }}>C — Character &nbsp;·&nbsp; P — Camera &nbsp;·&nbsp; Ctrl — Roll &nbsp;·&nbsp; F2 — Perf</p>
+            <p style={{ margin: "2px 0 0", color: "#3a2a0a", fontWeight: 700 }}>
+              <span style={{ color: "#664444" }}>F1</span> — God Mode &nbsp;·&nbsp;
+              <span style={{ color: "#664444" }}>F9</span> — Admin Panel &nbsp;·&nbsp;
+              <span style={{ color: "#443333" }}>` — Dev Editor</span>
+            </p>
           </div>
         </div>
 

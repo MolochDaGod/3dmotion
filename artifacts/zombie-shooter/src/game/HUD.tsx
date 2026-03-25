@@ -334,6 +334,60 @@ const SKILL_ICONS: Record<string, string> = {
   cleave:   "🪓",
 };
 
+// ─── God Mode Banner ─────────────────────────────────────────────────────────
+function GodModeBanner() {
+  const godMode = useGameStore((s) => s.godMode);
+  if (!godMode) return null;
+  return (
+    <div style={{
+      position: "absolute",
+      top: 42,
+      left: "50%",
+      transform: "translateX(-50%)",
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      padding: "6px 20px",
+      background: "rgba(180,20,20,0.18)",
+      border: "1px solid rgba(200,40,40,0.45)",
+      borderRadius: 3,
+      backdropFilter: "blur(4px)",
+      pointerEvents: "none",
+      zIndex: 100,
+    }}>
+      {/* Pulsing dot */}
+      <div style={{
+        width: 8, height: 8, borderRadius: "50%",
+        background: "#ee3333",
+        boxShadow: "0 0 8px #ff4444",
+        animation: "god-pulse 1.2s ease-in-out infinite",
+      }} />
+      <span style={{
+        fontFamily: "'Courier New', monospace",
+        fontSize: 11,
+        letterSpacing: 3,
+        color: "#ff6666",
+        fontWeight: 700,
+        textTransform: "uppercase",
+      }}>
+        ⚡ GOD MODE — NOCLIP ACTIVE
+      </span>
+      <div style={{
+        width: 8, height: 8, borderRadius: "50%",
+        background: "#ee3333",
+        boxShadow: "0 0 8px #ff4444",
+        animation: "god-pulse 1.2s ease-in-out infinite 0.6s",
+      }} />
+      <style>{`
+        @keyframes god-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%       { opacity: 0.4; transform: scale(0.7); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ─── HUD ──────────────────────────────────────────────────────────────────────
 
 export function HUD() {
@@ -752,8 +806,12 @@ export function HUD() {
           &nbsp;·&nbsp; <span className="text-white/40">R</span> spell select
           &nbsp;·&nbsp; <span className="text-white/40">F</span> cast spell
           &nbsp;·&nbsp; <span className="text-white/40">C</span> character
-          &nbsp;·&nbsp; <span className="text-white/40">P</span> pause
+          &nbsp;·&nbsp; <span className="text-white/40">F1</span> god mode
+          &nbsp;·&nbsp; <span className="text-white/40">F9</span> admin
         </div>
+
+        {/* ── God Mode Banner ─────────────────────────────────────────────── */}
+        <GodModeBanner />
 
         {/* Warnings */}
         {ammo === 0 && !isReloading && !isMeleeMode && !isStaffMode && !isBowMode && (

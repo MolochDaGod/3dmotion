@@ -21,6 +21,8 @@ import { SpellRadial } from "./SpellRadial";
 import { useGameStore, MagicProjectileState } from "./useGameStore";
 import { ProgressBridge, LoadingScreen } from "./LoadingScreen";
 import { useEditorStore } from "./useEditorStore";
+import { AdminPanel } from "./AdminPanel";
+import { SpawnedObjects } from "./SpawnedObjects";
 
 // ─── Skill hit payload ────────────────────────────────────────────────────────
 // Player resolves who got hit (via Rapier shape cast or geometry) then calls
@@ -178,6 +180,9 @@ function SceneContent({
 
       {/* Magic projectile VFX — lives outside Physics since projectiles fly freely */}
       <MagicSystem onProjectileHit={onMagicHit} />
+
+      {/* Admin-spawned objects (FBX props placed via Admin Panel Build tool) */}
+      <SpawnedObjects />
 
       {/* ── Post-processing pipeline ───────────────────────────────────────────
            Bloom         — spell glow, torches, emissive surfaces
@@ -461,6 +466,7 @@ export default function Game({ onGameOver }: GameProps) {
 
       <HUD />
       <SpellRadial />
+      <AdminPanel />
     </div>
   );
 }

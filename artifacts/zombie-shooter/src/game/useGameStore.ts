@@ -170,6 +170,13 @@ interface GameStore {
   meleeBlocking:    boolean;
   setMeleeBlocking: (v: boolean) => void;
 
+  // ── God Mode + Admin Panel ─────────────────────────────────────────────────
+  godMode:           boolean;
+  adminPanelOpen:    boolean;
+  toggleGodMode:     () => void;
+  toggleAdminPanel:  () => void;
+  setGodMode:        (v: boolean) => void;
+
   // Skill cooldowns (keyed by skill id)
   skillCooldowns:     Record<string, number>;
   setSkillCooldown:   (id: string, cd: number) => void;
@@ -215,7 +222,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set((s) => ({ magicProjectiles: s.magicProjectiles.filter((p) => p.id !== id) })),
 
   takeDamage: (amount) => {
-    if (get().isInvincible) return;
+    if (get().isInvincible || get().godMode) return;
     set((s) => ({ health: Math.max(0, s.health - amount) }));
   },
 
@@ -296,6 +303,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   meleeBlocking:    false,
   setMeleeBlocking: (v) => set({ meleeBlocking: v }),
+
+  godMode:          false,
+  adminPanelOpen:   false,
+  toggleGodMode:    () => set((s) => ({ godMode: !s.godMode })),
+  toggleAdminPanel: () => set((s) => ({ adminPanelOpen: !s.adminPanelOpen })),
+  setGodMode:       (v) => set({ godMode: v }),
 
   setSkillCooldown: (id, cd) => set((s) => ({
     skillCooldowns: { ...s.skillCooldowns, [id]: cd },
