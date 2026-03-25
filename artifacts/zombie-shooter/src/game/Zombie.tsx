@@ -5,6 +5,7 @@ import { getTerrainHeight } from "./terrain";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { RigidBody, BallCollider } from "@react-three/rapier";
 import * as THREE from "three";
+import { getPath, isNavReady } from "./NavGrid";
 
 useGLTF.preload("/models/mutant.gltf");
 
@@ -75,6 +76,12 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
   const deadTimerRef    = useRef(0);
   const prevHealthRef   = useRef(data.health);
   const tmpDir          = useRef(new THREE.Vector3());
+
+  // ── A* navigation ──────────────────────────────────────────────────────────
+  // waypointsRef: current A* path as [x,z] pairs, consumed front-to-back
+  const waypointsRef = useRef<[number, number][]>([]);
+  // pathTimerRef: time until next path request (seconds)
+  const pathTimerRef = useRef<number>(0);
 
   // ── Sync Rapier sensor userData after mount ──────────────────────────────
   useEffect(() => {
@@ -185,8 +192,47 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
         transitionTo("run");
       }
       if (st === "run") {
-        tmpDir.current.normalize().multiplyScalar(data.speed * delta);
-        pos.add(tmpDir.current);
+        // ── A* path following ──────────────────────────────────────────────
+        pathTimerRef.current -= delta;
+
+        // Request a fresh path every 1.5 s (or immediately if path is empty)
+        if (pathTimerRef.current <= 0 || waypointsRef.current.length === 0) {
+          pathTimerRef.current = 1.5;
+          if (isNavReady()) {
+            const fresh = getPath(pos.x, pos.z, pp.x, pp.z);
+            if (fresh.length > 0) {
+              // Skip the first waypoint (it's the zombie's own cell)
+              waypointsRef.current = fresh.slice(1);
+            }
+          }
+        }
+
+        // Pop waypoints the zombie has already reached (within 2 m)
+        while (waypointsRef.current.length > 0) {
+          const [wx, wz] = waypointsRef.current[0];
+          const dx = wx - pos.x, dz = wz - pos.z;
+          if (Math.sqrt(dx * dx + dz * dz) < 2.0) {
+            waypointsRef.current.shift();
+          } else {
+            break;
+          }
+        }
+
+        // Steer toward the next waypoint, or fall back to straight-line
+        let steerX: number, steerZ: number;
+        if (waypointsRef.current.length > 0) {
+          const [wx, wz] = waypointsRef.current[0];
+          steerX = wx - pos.x;
+          steerZ = wz - pos.z;
+        } else {
+          // Fallback: direct line to player
+          steerX = tmpDir.current.x;
+          steerZ = tmpDir.current.z;
+        }
+
+        const len = Math.sqrt(steerX * steerX + steerZ * steerZ) || 1;
+        pos.x += (steerX / len) * data.speed * delta;
+        pos.z += (steerZ / len) * data.speed * delta;
         data.position.copy(pos);
       }
     }

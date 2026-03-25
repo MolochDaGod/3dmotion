@@ -9,6 +9,8 @@ import {
   getTerrainHeight, buildTerrainHeightArray,
   TERRAIN_SIZE, TERRAIN_SEGS,
 } from "./terrain";
+import { CG_WORLD } from "./CollisionLayers";
+import type { NavObstacle } from "./NavGrid";
 
 // ─── Ruin layout ───────────────────────────────────────────────────────────────
 type RuinEntry = [number, number, number, number, number];
@@ -72,7 +74,7 @@ function RuinProp({ modelNum, position, rotY, scale }: {
   }, [fbx, texture]);
 
   return (
-    <RigidBody type="fixed" colliders="trimesh" position={position} rotation={[0, rotY, 0]}>
+    <RigidBody type="fixed" colliders="trimesh" position={position} rotation={[0, rotY, 0]} collisionGroups={CG_WORLD}>
       <primitive object={obj} scale={scale} />
     </RigidBody>
   );
@@ -134,6 +136,7 @@ function Ground() {
             Array.from(heights),
             { x: TERRAIN_SIZE, y: 1, z: TERRAIN_SIZE },
           ]}
+          collisionGroups={CG_WORLD}
         />
 
         {/* Lush green grass surface */}
@@ -157,15 +160,15 @@ function Ground() {
 
       {/* Safety-net floor */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[80, 0.5, 80]} position={[0, -25, 0]} />
+        <CuboidCollider args={[80, 0.5, 80]} position={[0, -25, 0]} collisionGroups={CG_WORLD} />
       </RigidBody>
 
       {/* Boundary walls (invisible) */}
       <RigidBody type="fixed" colliders={false} friction={0.2}>
-        <CuboidCollider args={[62, 12, 0.5]} position={[  0, 4, -62]} />
-        <CuboidCollider args={[62, 12, 0.5]} position={[  0, 4,  62]} />
-        <CuboidCollider args={[0.5, 12, 62]} position={[-62, 4,   0]} />
-        <CuboidCollider args={[0.5, 12, 62]} position={[ 62, 4,   0]} />
+        <CuboidCollider args={[62, 12, 0.5]} position={[  0, 4, -62]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[62, 12, 0.5]} position={[  0, 4,  62]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 12, 62]} position={[-62, 4,   0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 12, 62]} position={[ 62, 4,   0]} collisionGroups={CG_WORLD} />
       </RigidBody>
     </>
   );
@@ -259,7 +262,7 @@ function BoulderCluster({ x, z, rotY, sx, sy, sz }: {
 }) {
   const y = getTerrainHeight(x, z);
   return (
-    <RigidBody type="fixed" colliders="trimesh" position={[x, y, z]} rotation={[0, rotY, 0]}>
+    <RigidBody type="fixed" colliders="trimesh" position={[x, y, z]} rotation={[0, rotY, 0]} collisionGroups={CG_WORLD}>
       {/* Main boulder */}
       <mesh castShadow receiveShadow
         position={[0, sy * 0.42, 0]}
@@ -289,6 +292,17 @@ function BoulderCluster({ x, z, rotY, sx, sy, sz }: {
     </RigidBody>
   );
 }
+
+// ─── NavGrid obstacle data (exported for NavGrid.initNavGrid) ─────────────────
+// Provides {x, z, radius} for every solid obstacle so A* can avoid them.
+export const NAV_OBSTACLES: NavObstacle[] = [
+  // Boulders — radius ≈ max horizontal scale
+  ...BOULDER_PLACEMENTS.map(([x, z, , sx, , sz]) => ({
+    x, z, radius: Math.max(sx, sz) * 1.1,
+  })),
+  // Ruins — fixed 3 m footprint
+  ...RUIN_PLACEMENTS.map(([, x, z]) => ({ x, z, radius: 3.0 })),
+];
 
 // ─── Outdoor Scene (public export) ───────────────────────────────────────────
 export function Graveyard() {

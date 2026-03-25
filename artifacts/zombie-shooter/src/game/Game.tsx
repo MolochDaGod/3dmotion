@@ -9,7 +9,8 @@ import { getTerrainHeight } from "./terrain";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
-import { Graveyard } from "./Graveyard";
+import { Graveyard, NAV_OBSTACLES } from "./Graveyard";
+import { initNavGrid } from "./NavGrid";
 import { HUD } from "./HUD";
 import { MagicSystem } from "./MagicProjectile";
 import { SpellRadial } from "./SpellRadial";
@@ -204,6 +205,11 @@ export default function Game({ onGameOver }: GameProps) {
 
   useEffect(() => { killCountRef.current = kills; }, [kills]);
   useEffect(() => { waveRef.current = wave; }, [wave]);
+
+  // ── Build A* navigation grid once at scene startup ──────────────────────
+  useEffect(() => {
+    initNavGrid(NAV_OBSTACLES);
+  }, []);
 
   // ── Bullet shoot ────────────────────────────────────────────────────────────
   const handleShoot = useCallback((position: THREE.Vector3, direction: THREE.Vector3) => {
