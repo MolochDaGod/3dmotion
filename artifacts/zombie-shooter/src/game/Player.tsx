@@ -581,6 +581,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   // ── Skill system refs ─────────────────────────────────────────────────────
   const effectsRef         = useRef<SkillEffectsHandle>(null!);
   const skillCooldownsRef  = useRef<Record<string, number>>({});
+  // Skills currently mid-animation (not yet on cooldown)
+  const activeSkillsRef    = useRef<Set<string>>(new Set());
   // Always-fresh skill executor — updated every render like fireDamageRef
   const executeSkillRef    = useRef<((slotIdx: number) => void) | null>(null);
 
@@ -681,15 +683,27 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     const skill: SkillDef = skills[slotIdx];
     if (!skill) return;
 
-    // ── Cooldown check (local ref — no store read) ───────────────────────
+    // ── Cooldown / active check (local ref — no store read) ─────────────
     if ((skillCooldownsRef.current[skill.id] ?? 0) > 0) return;
+    if (activeSkillsRef.current.has(skill.id)) return;
 
     // ── Mana check ───────────────────────────────────────────────────────
     if (skill.manaCost > 0 && !useMana(skill.manaCost)) return;
 
-    // ── Set cooldown immediately ─────────────────────────────────────────
-    skillCooldownsRef.current[skill.id] = skill.cooldown;
-    setSkillCooldown(skill.id, skill.cooldown); // sync to store for HUD
+    // ── Mark skill as active (cooldown starts after animation ends) ──────
+    activeSkillsRef.current.add(skill.id);
+
+    // ── Resolve animation duration so we know when to start the cooldown ─
+    const animKey    = skill.animation as AnimKey;
+    const action     = actionsRef.current[animKey];
+    const clipSec    = action ? action.getClip().duration : 0.6;
+    const animMs     = Math.max(200, (clipSec / skill.timeScale) * 1000);
+
+    setTimeout(() => {
+      activeSkillsRef.current.delete(skill.id);
+      skillCooldownsRef.current[skill.id] = skill.cooldown;
+      setSkillCooldown(skill.id, skill.cooldown);
+    }, animMs);
 
     // ── Buff skill (Rally — no hit, just heal) ───────────────────────────
     if (skill.effect === "buff") {
@@ -708,7 +722,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     }
 
     // ── Play animation ───────────────────────────────────────────────────
-    const animKey = skill.animation as AnimKey;
     if (!blockingOnce.current) {
       _rawPlay(animKey, FADE_ATK_START, skill.timeScale);
       if (BLOCKING_ONCE.has(animKey)) blockingOnce.current = true;
