@@ -1,0 +1,6 @@
+publish.yml
+vite.config.ts
+tsconfig*.json
+*.log
+node_modules
+.env*
