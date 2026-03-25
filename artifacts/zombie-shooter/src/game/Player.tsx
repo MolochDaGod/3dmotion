@@ -10,7 +10,7 @@ import type { SkillHitPayload } from "./Game";
 import {
   CHARACTER, ANIM_PISTOL, ANIM_RIFLE, ANIM_MELEE,
   ANIM_STAFF, ANIM_BOW, ANIM_SHIELD_SWORD,
-  WEAPON_PROPS, WEAPON_TEXTURES, COLLIDE_PLAYER,
+  WEAPON_PROPS, WEAPON_TEXTURES,
 } from "./assets/manifest";
 
 // ─── Capsule ──────────────────────────────────────────────────────────────────
@@ -1682,11 +1682,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
     if (rb && ctrl) {
       velY.current += -22 * delta;
+      if (velY.current < -30) velY.current = -30;
       move.y = velY.current * delta;
 
       const collider = rb.collider(0);
       if (collider) {
-        ctrl.computeColliderMovement(collider, { x: move.x, y: move.y, z: move.z });
+        ctrl.computeColliderMovement(collider, { x: move.x, y: move.y, z: move.z }, undefined, 0xFFFFFFFF);
         const resolved   = ctrl.computedMovement();
         const isGrounded = ctrl.computedGrounded();
 
@@ -1819,7 +1820,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         colliders={false}
         enabledRotations={[false, false, false]}
       >
-        <CapsuleCollider args={[CAPSULE_HH, CAPSULE_R]} collisionGroups={COLLIDE_PLAYER} />
+        <CapsuleCollider args={[CAPSULE_HH, CAPSULE_R]} />
       </RigidBody>
 
       <group ref={rootRef}>

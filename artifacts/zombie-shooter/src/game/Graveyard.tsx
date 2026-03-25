@@ -4,7 +4,7 @@ import { useTexture } from "@react-three/drei";
 import { RigidBody, CuboidCollider } from "@react-three/rapier";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import * as THREE from "three";
-import { GRAVEYARD, COLLIDE_TERRAIN } from "./assets/manifest";
+import { GRAVEYARD } from "./assets/manifest";
 
 // ─── Ruin layout ───────────────────────────────────────────────────────────────
 // [modelNum(1-21), x, z, rotY, scale]
@@ -101,7 +101,6 @@ function Ground() {
         <CuboidCollider
           args={[60, 3, 60]}
           position={[0, -3, 0]}
-          collisionGroups={COLLIDE_TERRAIN}
         />
 
         {/* ── Visible terrain slab — 6m thick so it looks like solid earth ── */}
@@ -128,10 +127,10 @@ function Ground() {
 
       {/* ── Boundary walls (invisible colliders) ── */}
       <RigidBody type="fixed" colliders={false} friction={0.2}>
-        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8, -60]} collisionGroups={COLLIDE_TERRAIN} />
-        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8,  60]} collisionGroups={COLLIDE_TERRAIN} />
-        <CuboidCollider args={[0.5, 8, 60]} position={[-60, 8,   0]} collisionGroups={COLLIDE_TERRAIN} />
-        <CuboidCollider args={[0.5, 8, 60]} position={[ 60, 8,   0]} collisionGroups={COLLIDE_TERRAIN} />
+        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8, -60]} />
+        <CuboidCollider args={[60, 8, 0.5]} position={[  0, 8,  60]} />
+        <CuboidCollider args={[0.5, 8, 60]} position={[-60, 8,   0]} />
+        <CuboidCollider args={[0.5, 8, 60]} position={[ 60, 8,   0]} />
       </RigidBody>
     </>
   );
