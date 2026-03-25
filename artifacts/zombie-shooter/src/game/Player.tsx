@@ -1636,15 +1636,20 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       cam.updateProjectionMatrix();
     }
 
-    // ── Body lean (strafe) + yaw — applied together as a quaternion so the
-    //    lean is always around the character's own forward axis, not world Z. ──
+    // ── Yaw on rootRef (camera parent) — lean kept on leanGroupRef only ───────
+    // rootRef gets ONLY the yaw so the follow-camera never drifts sideways.
+    // The body-lean quaternion is applied to the child leanGroupRef so only
+    // the character mesh tilts; camera distance/direction remains perfectly rigid.
     const strafe = !sprint && grounded.current && !rolling.current;
     const targetLean = (left && !right && strafe) ?  0.07
                      : (right && !left && strafe) ? -0.07 : 0;
     leanRef.current += (targetLean - leanRef.current) * Math.min(1, 10 * delta);
     _yawQ.setFromAxisAngle(_UP_AXIS, yaw.current);
     _leanQ.setFromAxisAngle(_FWD_BODY, leanRef.current);
-    rootRef.current.quaternion.copy(_yawQ).multiply(_leanQ);
+    rootRef.current.quaternion.copy(_yawQ);        // camera parent: yaw only
+    if (leanGroupRef.current) {
+      leanGroupRef.current.quaternion.copy(_leanQ); // body mesh: lean only
+    }
 
     if (modelGroupRef.current) modelGroupRef.current.visible = (mode !== "fps");
 
