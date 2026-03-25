@@ -5,6 +5,30 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { VitePWA } from "vite-plugin-pwa";
 
+// ── Vite plugin: inject Rapier WASM preload after hashes are resolved ─────────
+// Rapier WASM gets a content-hash filename (e.g. rapier_wasm-bg-XXXXXXXX.wasm)
+// that is only known after the bundle is assembled. This plugin runs a post-
+// transform on index.html to inject the preload link with the resolved URL so
+// the browser can start fetching the physics WASM before the JS parses.
+function injectWasmPreload(base: string) {
+  return {
+    name: "inject-wasm-preload",
+    transformIndexHtml: {
+      order: "post" as const,
+      handler(html: string, ctx: { bundle?: Record<string, unknown> }) {
+        if (!ctx.bundle) return html;
+        const wasmEntry = Object.keys(ctx.bundle).find(
+          (f) => f.toLowerCase().includes("rapier") && f.endsWith(".wasm"),
+        );
+        if (!wasmEntry) return html;
+        const wasmUrl = `${base}${wasmEntry}`;
+        const tag = `    <link rel="preload" href="${wasmUrl}" as="fetch" type="application/wasm" crossorigin="anonymous" />`;
+        return html.replace("</head>", `${tag}\n  </head>`);
+      },
+    },
+  };
+}
+
 const rawPort = process.env.PORT;
 
 if (!rawPort) {
@@ -33,6 +57,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    injectWasmPreload(basePath),
     VitePWA({
       registerType: "autoUpdate",
       devOptions: { enabled: false },

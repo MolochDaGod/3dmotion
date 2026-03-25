@@ -982,6 +982,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
     // ── Lazy pack loader — called from useFrame on weapon switch ────────────
     const packQueues: Record<string, typeof PISTOL_QUEUE> = {
+      melee:  MELEE_QUEUE as typeof PISTOL_QUEUE,
       rifle:  RIFLE_QUEUE  as typeof PISTOL_QUEUE,
       staff:  STAFF_QUEUE  as typeof PISTOL_QUEUE,
       bow:    BOW_QUEUE    as typeof PISTOL_QUEUE,
