@@ -115,6 +115,8 @@ function ConceptArtStep() {
   const [imagePrompt, setImagePrompt] = useState("");
   const [model, setModel] = useState<"nano-banana" | "nano-banana-pro">("nano-banana");
   const [multiView, setMultiView] = useState(true);
+  const [poseMode, setPoseMode] = useState<"t-pose" | "a-pose" | "">("t-pose");
+  const [aspectRatio, setAspectRatio] = useState<"1:1" | "16:9" | "9:16" | "4:3" | "3:4">("1:1");
 
   const createTask = useMeshyCreateTextToImage();
   const taskQuery = useMeshyGetTextToImage(textToImageTaskId);
@@ -137,7 +139,8 @@ function ConceptArtStep() {
       prompt: effectivePrompt,
       ai_model: model,
       generate_multi_view: multiView,
-      pose_mode: multiView ? "t-pose" : undefined,
+      pose_mode: multiView ? "t-pose" : (poseMode || undefined),
+      aspect_ratio: multiView ? undefined : aspectRatio,
     }, {
       onSuccess: (data) => {
         setTextToImageTaskId(data.result);
@@ -200,6 +203,37 @@ function ConceptArtStep() {
           </label>
         </div>
       </div>
+
+      {!multiView && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Pose Mode</Label>
+            <select
+              value={poseMode}
+              onChange={(e) => setPoseMode(e.target.value as typeof poseMode)}
+              className="w-full bg-black/40 border border-panel-border p-2 text-sm text-foreground focus:border-primary/50 outline-none"
+            >
+              <option value="t-pose">T-Pose</option>
+              <option value="a-pose">A-Pose</option>
+              <option value="">None</option>
+            </select>
+          </div>
+          <div>
+            <Label>Aspect Ratio</Label>
+            <select
+              value={aspectRatio}
+              onChange={(e) => setAspectRatio(e.target.value as typeof aspectRatio)}
+              className="w-full bg-black/40 border border-panel-border p-2 text-sm text-foreground focus:border-primary/50 outline-none"
+            >
+              <option value="1:1">1:1 Square</option>
+              <option value="16:9">16:9 Landscape</option>
+              <option value="9:16">9:16 Portrait</option>
+              <option value="4:3">4:3</option>
+              <option value="3:4">3:4</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       <Button
         className="w-full !bg-accent/10 !text-accent border-accent/50 hover:!bg-accent/20"
@@ -393,8 +427,11 @@ function RetextureStep() {
   const isRefineDone = refineQuery.data?.status === "SUCCEEDED";
 
   const [textStylePrompt, setTextStylePrompt] = useState("");
+  const [imageStyleUrl, setImageStyleUrl] = useState("");
   const [useConceptImage, setUseConceptImage] = useState(true);
   const [enablePbr, setEnablePbr] = useState(false);
+  const [retextureAiModel, setRetextureAiModel] = useState<"meshy-5" | "meshy-6" | "latest">("latest");
+  const [retextureFormats, setRetextureFormats] = useState<string[]>(["glb", "fbx"]);
 
   const createRetexture = useMeshyCreateRetexture();
   const taskQuery = useMeshyGetRetexture(retextureTaskId);
@@ -406,17 +443,27 @@ function RetextureStep() {
 
   const handleRetexture = () => {
     if (!refineTaskId) return;
-    const imageStyleUrl = useConceptImage && conceptImageUrl ? conceptImageUrl : undefined;
+    const resolvedImageUrl =
+      useConceptImage && conceptImageUrl ? conceptImageUrl :
+      imageStyleUrl || undefined;
     createRetexture.mutate({
       input_task_id: refineTaskId,
-      text_style_prompt: imageStyleUrl ? undefined : textStylePrompt,
-      image_style_url: imageStyleUrl,
+      text_style_prompt: resolvedImageUrl ? undefined : (textStylePrompt || undefined),
+      image_style_url: resolvedImageUrl,
+      ai_model: retextureAiModel,
       enable_pbr: enablePbr,
       enable_original_uv: true,
       remove_lighting: true,
+      target_formats: retextureFormats as any,
     }, {
       onSuccess: (data) => setRetextureTaskId(data.result),
     });
+  };
+
+  const toggleRetextureFormat = (fmt: string) => {
+    setRetextureFormats((prev) =>
+      prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt],
+    );
   };
 
   return (
@@ -452,16 +499,59 @@ function RetextureStep() {
       )}
 
       {(!conceptImageUrl || !useConceptImage) && (
-        <div>
-          <Label>Style Prompt</Label>
-          <Textarea
-            value={textStylePrompt}
-            onChange={(e) => setTextStylePrompt(e.target.value)}
-            placeholder="e.g. cyberpunk neon armor, dark metal plating, glowing circuitry..."
-            className="h-20"
-          />
+        <div className="space-y-3">
+          <div>
+            <Label>Style Prompt</Label>
+            <Textarea
+              value={textStylePrompt}
+              onChange={(e) => setTextStylePrompt(e.target.value)}
+              placeholder="e.g. cyberpunk neon armor, dark metal plating, glowing circuitry..."
+              className="h-20"
+            />
+          </div>
+          <div>
+            <Label>Image Style URL (optional)</Label>
+            <Input
+              type="url"
+              value={imageStyleUrl}
+              onChange={(e) => setImageStyleUrl(e.target.value)}
+              placeholder="https://... (overrides text prompt)"
+              className="w-full"
+            />
+          </div>
         </div>
       )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>AI Model</Label>
+          <select
+            value={retextureAiModel}
+            onChange={(e) => setRetextureAiModel(e.target.value as typeof retextureAiModel)}
+            className="w-full bg-black/40 border border-panel-border p-2 text-sm text-foreground focus:border-primary/50 outline-none"
+          >
+            <option value="latest">Latest</option>
+            <option value="meshy-6">Meshy 6</option>
+            <option value="meshy-5">Meshy 5</option>
+          </select>
+        </div>
+        <div>
+          <Label>Output Formats</Label>
+          <div className="flex gap-3 pt-1 flex-wrap">
+            {(["glb", "fbx", "obj", "usdz"] as const).map((fmt) => (
+              <label key={fmt} className="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={retextureFormats.includes(fmt)}
+                  onChange={() => toggleRetextureFormat(fmt)}
+                  className="accent-primary"
+                />
+                <span className="text-xs font-mono uppercase">{fmt}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <label className="flex items-center gap-2 cursor-pointer">
         <input
@@ -481,7 +571,8 @@ function RetextureStep() {
           !isRefineDone ||
           status === "IN_PROGRESS" ||
           status === "PENDING" ||
-          ((!conceptImageUrl || !useConceptImage) && !textStylePrompt)
+          retextureFormats.length === 0 ||
+          ((!conceptImageUrl || !useConceptImage) && !textStylePrompt && !imageStyleUrl)
         }
       >
         <Paintbrush className="w-4 h-4" /> Apply Retexture
@@ -519,6 +610,9 @@ function RemeshStep() {
 
   const [topology, setTopology] = useState<"quad" | "triangle">("quad");
   const [targetPolycount, setTargetPolycount] = useState(30000);
+  const [resizeHeight, setResizeHeight] = useState(0);
+  const [autoSize, setAutoSize] = useState(false);
+  const [remeshFormats, setRemeshFormats] = useState<string[]>(["glb", "fbx"]);
 
   const createRemesh = useMeshyCreateRemesh();
   const taskQuery = useMeshyGetRemesh(remeshTaskId);
@@ -527,13 +621,21 @@ function RemeshStep() {
   const progress = taskQuery.data?.progress;
   const modelUrls = taskQuery.data?.result?.model_urls ?? {};
 
+  const toggleRemeshFormat = (fmt: string) => {
+    setRemeshFormats((prev) =>
+      prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt],
+    );
+  };
+
   const handleRemesh = () => {
     if (!sourceTaskId) return;
     createRemesh.mutate({
       input_task_id: sourceTaskId,
       topology,
       target_polycount: targetPolycount,
-      target_formats: ["glb", "fbx"],
+      target_formats: remeshFormats as any,
+      resize_height: resizeHeight > 0 ? resizeHeight : undefined,
+      auto_size: autoSize || undefined,
     }, {
       onSuccess: (data) => {
         setRemeshTaskId(data.result);
@@ -591,12 +693,54 @@ function RemeshStep() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Resize Height (m, 0 = off)</Label>
+          <Input
+            type="number" step="0.1" min="0"
+            value={resizeHeight}
+            onChange={(e) => setResizeHeight(parseFloat(e.target.value) || 0)}
+            className="w-full"
+            disabled={autoSize}
+          />
+        </div>
+        <div>
+          <Label>Output Formats</Label>
+          <div className="flex gap-2 pt-1 flex-wrap">
+            {(["glb", "fbx", "obj", "blend"] as const).map((fmt) => (
+              <label key={fmt} className="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={remeshFormats.includes(fmt)}
+                  onChange={() => toggleRemeshFormat(fmt)}
+                  className="accent-primary"
+                />
+                <span className="text-xs font-mono uppercase">{fmt}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={autoSize}
+          onChange={(e) => {
+            setAutoSize(e.target.checked);
+            if (e.target.checked) setResizeHeight(0);
+          }}
+          className="accent-primary"
+        />
+        <span className="text-sm text-foreground/80">Auto-size (AI estimates real-world height)</span>
+      </label>
+
       <Button
         variant="secondary"
         className="w-full"
         onClick={handleRemesh}
         isLoading={createRemesh.isPending || status === "IN_PROGRESS" || status === "PENDING"}
-        disabled={!isActive || status === "IN_PROGRESS" || status === "PENDING"}
+        disabled={!isActive || status === "IN_PROGRESS" || status === "PENDING" || remeshFormats.length === 0}
       >
         <Scissors className="w-4 h-4" /> Remesh Model
       </Button>
