@@ -60,7 +60,10 @@ export function LoadingScreen({ progress }: { progress: number }) {
 
   // Attempt autoplay (browsers may block if not muted — video is muted)
   useEffect(() => {
-    videoRef.current?.play().catch(() => {});
+    const v = videoRef.current;
+    if (!v) return;
+    v.playbackRate = 0.2;
+    v.play().catch(() => {});
   }, []);
 
   const pct = Math.round(progress);
