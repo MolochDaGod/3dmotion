@@ -193,7 +193,7 @@ function buildPortals(
     // Point light
     const lightEntity = new pc.Entity(`portalLight_${i}`);
     lightEntity.addComponent("light", {
-      type: pc.LIGHTTYPE_OMNI,
+      type: 'omni',
       color: new pc.Color(tc[0], tc[1], tc[2]),
       intensity: 3.5,
       range: 8,
@@ -387,6 +387,9 @@ export default function PlayCanvasGame() {
   const [mana, setMana] = useState(100);
 
   // Refs shared with game loop
+  const envRootRef = useRef<pc.Entity | null>(null);
+  const portalEntitiesRef = useRef<Array<{ entity: pc.Entity; light: pc.Entity; targetId: string }>>([]);
+
   const stateRef = useRef({
     sceneId: "lost_portal",
     weaponId: "sword" as WeaponId,
@@ -441,8 +444,9 @@ export default function PlayCanvasGame() {
 
     let alive = true;
     let app: pc.Application;
-    const envRootRef: { current: pc.Entity | null } = { current: null };
-    const portalEntities: Array<{ entity: pc.Entity; light: pc.Entity; targetId: string }> = [];
+    // Use component-level refs so handleEnterPortal shares the same objects
+    portalEntitiesRef.current.length = 0;
+    const portalEntities = portalEntitiesRef.current;
     let charParts: ReturnType<typeof buildCharacter> | null = null;
     let weaponEntity: pc.Entity | null = null;
     let cameraEntity: pc.Entity | null = null;
@@ -523,7 +527,7 @@ export default function PlayCanvasGame() {
       // Directional light
       dirLightEntity = new pc.Entity("sun");
       dirLightEntity.addComponent("light", {
-        type: pc.LIGHTTYPE_DIRECTIONAL,
+        type: 'directional',
         color: new pc.Color(...SCENES.lost_portal.lightColor),
         intensity: 1.8,
         castShadows: true,
@@ -728,10 +732,8 @@ export default function PlayCanvasGame() {
     setPortalUI({ open: false, targetId: "" });
     const app = appRef.current;
     if (!app) return;
-    // Rebuild environment for new scene (character stays)
-    const envRootRef: { current: pc.Entity | null } = { current: null };
-    const portals: Array<{ entity: pc.Entity; light: pc.Entity; targetId: string }> = [];
-    rebuildScene(app, targetId, envRootRef, portals);
+    // Rebuild environment using shared refs so the game loop sees new portals
+    rebuildScene(app, targetId, envRootRef, portalEntitiesRef.current);
 
     // Update lights
     const scene = SCENES[targetId];
