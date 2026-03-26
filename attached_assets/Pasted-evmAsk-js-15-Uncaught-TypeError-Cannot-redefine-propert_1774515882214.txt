@@ -1,0 +1,659 @@
+evmAsk.js:15 Uncaught TypeError: Cannot redefine property: ethereum
+    at Object.defineProperty (<anonymous>)
+    at r.inject (evmAsk.js:15:5093)
+    at window.addEventListener.once (evmAsk.js:15:9013)
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The Content-Security-Policy directive 'default-src' contains 'report-uri' as a source expression. Did you want to add it as a directive and forget a semicolon?
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+The source list for Content Security Policy directive 'default-src' contains a source with an invalid path: '/api/4509669501698048/security/?sentry_key=7eb3d90eb4660416caf507087367e67e'. The query component, including the '?', will be ignored.
+content.js:1971 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+content.js:6998 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ content.js:6998
+Grudge-Studio-Game:1 Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+chrome-extension://b…koljpa/evmAsk.js:15 Uncaught 
+ Failed to initialize current tab: 
+initializeCurrentTab @ chrome-extension://h…ets/content.js:1971
+ Failed to initialize current tab: 
+initializeCurrentTab @ chrome-extension://h…ets/content.js:6998
+ Failed to initialize current tab: 
+initializeCurrentTab @ content.js:1971
+ Failed to initialize current tab: 
+initializeCurrentTab @ content.js:6998
+evmAsk.js:15 Uncaught TypeError: Cannot redefine property: ethereum
+    at Object.defineProperty (<anonymous>)
+    at r.inject (evmAsk.js:15:5093)
+    at window.addEventListener.once (evmAsk.js:15:9013)
+content.js:1971 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+content.js:6998 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ content.js:6998
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…c/hero-scroll.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game#a…croll-effects.mp4:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+1a3914e1f632dcaa.js:sourcemap:2 WebSocket is already in CLOSING or CLOSED state.
+send @ 1a3914e1f632dcaa.js:sourcemap:2
+Grudge-Studio-Game:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+index-By62nmkK.js:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+index-By62nmkK.js:1 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at index-By62nmkK.js:1:1964
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+ Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+ Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ content.js:6998
+ Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ chrome-extension://h…ets/content.js:1971
+ Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ chrome-extension://h…ets/content.js:6998
+ Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ chrome-extension://h…ets/content.js:1971
+ Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ chrome-extension://h…ets/content.js:6998
+ Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+ Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ content.js:6998
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+all-frames.js:15 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at y (all-frames.js:15:15619)
+all-frames.js:15 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+content.js:1971 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+content.js:6998 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ content.js:6998
+all-frames.js:15 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at y (all-frames.js:15:15619)
+content.js:1971 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+content.js:6998 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ content.js:6998
+all-frames.js:15 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at y (all-frames.js:15:15619)
+all-frames.js:15 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at y (all-frames.js:15:15619)
+chrome-extension://d…kb/all-frames.js:15 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at y (all-frames.js:15:15619)
+content.js:1971 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+content.js:6998 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ content.js:6998
+all-frames.js:15 Uncaught (in promise) Error: Could not establish connection. Receiving end does not exist.
+    at y (all-frames.js:15:15619)
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
