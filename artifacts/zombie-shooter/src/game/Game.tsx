@@ -8,11 +8,11 @@ import { Sky } from "@react-three/drei";
 import { Perf } from "r3f-perf";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
-import { getTerrainHeight } from "./terrain";
+import { getIslandHeight } from "./terrain";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
-import { Graveyard, NAV_OBSTACLES } from "./Graveyard";
+import { PirateIsland, NAV_OBSTACLES } from "./PirateIsland";
 import { NavWorkerProvider } from "./NavWorkerContext";
 import { useCharacterStore } from "./useCharacterStore";
 import { HUD } from "./HUD";
@@ -50,18 +50,21 @@ const MELEE_RANGE       = 2.6;
 const MELEE_DAMAGE      = 80;
 const MELEE_ARC_DOT     = 0.35;
 
+// Zombies spawn at the island's shoreline (~22–26 m radius) and walk inland
 const SPAWN_POSITIONS: [number, number, number][] = [
-  [45, 0, 0], [-45, 0, 0], [0, 0, 45], [0, 0, -45],
-  [45, 0, 45], [-45, 0, 45], [45, 0, -45], [-45, 0, -45],
-  [30, 0, 45], [-30, 0, 45], [30, 0, -45], [-30, 0, -45],
+  [ 24, 0,  0], [-24, 0,  0], [ 0, 0,  24], [  0, 0, -24],
+  [ 17, 0, 17], [-17, 0, 17], [17, 0, -17], [-17, 0, -17],
+  [ 22, 0, 10], [-22, 0, 10], [22, 0, -10], [-22, 0, -10],
 ];
 
 function spawnZombie(wave: number): ZombieData {
   const pos = SPAWN_POSITIONS[Math.floor(Math.random() * SPAWN_POSITIONS.length)];
-  const jitter = () => (Math.random() - 0.5) * 6;
+  const jitter = () => (Math.random() - 0.5) * 4;
+  const spawnX = pos[0] + jitter();
+  const spawnZ = pos[2] + jitter();
   return {
     id: `zombie-${++zombieIdCounter}`,
-    position: new THREE.Vector3(pos[0] + jitter(), getTerrainHeight(pos[0], pos[2]), pos[2] + jitter()),
+    position: new THREE.Vector3(spawnX, getIslandHeight(spawnX, spawnZ) + 0.1, spawnZ),
     health: 50 + wave * 10,
     maxHealth: 50 + wave * 10,
     speed: 1.5 + wave * 0.3,
@@ -113,44 +116,44 @@ function SceneContent({
       {/* ── Performance overlay (F2 or toggle from editor panel) ── */}
       {ed.showPerf && <Perf position="top-left" />}
 
-      {/* ── Daytime atmosphere ── */}
-      <fog attach="fog" args={["#c9dff0", ed.fogNear, ed.fogFar]} />
-      <color attach="background" args={["#87ceeb"]} />
+      {/* ── Ocean island atmosphere ── */}
+      <fog attach="fog" args={["#b8dde8", ed.fogNear, ed.fogFar]} />
+      <color attach="background" args={["#6db3cc"]} />
 
-      {/* Procedural sky — sun high in south-east */}
+      {/* Procedural sky — sun low in the east-southeast (morning over the sea) */}
       <Sky
         distance={4500}
-        sunPosition={[100, 35, -80]}
-        inclination={0.52}
-        azimuth={0.18}
-        turbidity={7}
-        rayleigh={1.2}
-        mieCoefficient={0.004}
-        mieDirectionalG={0.82}
+        sunPosition={[60, 18, -55]}
+        inclination={0.56}
+        azimuth={0.14}
+        turbidity={9}
+        rayleigh={1.9}
+        mieCoefficient={0.006}
+        mieDirectionalG={0.88}
       />
 
-      {/* ── Sunlight — intensities driven by editor store ── */}
-      <ambientLight intensity={ed.ambientIntensity} color="#ffe8d0" />
+      {/* ── Sunlight — warm golden morning angle ── */}
+      <ambientLight intensity={ed.ambientIntensity} color="#ffd8a0" />
       <directionalLight
-        position={[60, 90, -50]}
+        position={[50, 65, -80]}
         intensity={ed.sunIntensity}
-        color="#fff5e0"
+        color="#ffe8c0"
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-far={220}
-        shadow-camera-left={-90}
-        shadow-camera-right={90}
-        shadow-camera-top={90}
-        shadow-camera-bottom={-90}
+        shadow-camera-left={-60}
+        shadow-camera-right={60}
+        shadow-camera-top={60}
+        shadow-camera-bottom={-60}
       />
-      {/* Cool sky-blue fill from the opposite (north) side */}
-      <directionalLight position={[-40, 30, 50]} intensity={0.35} color="#c0d8f5" />
+      {/* Ocean-bounce fill — cool blue from the water below */}
+      <directionalLight position={[-30, 15, 50]} intensity={0.28} color="#90c8e0" />
 
-      {/* ── All physics bodies — player, graveyard, AND zombie sensors ── */}
+      {/* ── All physics bodies — island, player, AND zombie sensors ── */}
       {/* NavWorkerProvider creates ONE shared A* Web Worker for all zombies. */}
       <NavWorkerProvider obstacles={NAV_OBSTACLES}>
         <Physics gravity={[0, -22, 0]} timeStep="vary">
-          <Graveyard />
+          <PirateIsland />
           {/* key={activeId} forces a clean remount when the character changes. */}
           <Player
             key={activeId}

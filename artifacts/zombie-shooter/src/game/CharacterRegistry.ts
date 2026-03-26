@@ -31,12 +31,15 @@ export interface CharacterDef {
 
 export const CHARACTER_REGISTRY: CharacterDef[] = [
   {
+    // Racalvin the Pirate King — Meshy AI Corsair King mesh
+    // Model exported from Meshy in centimetres (default).
+    // 60 in = 152.4 cm → scale 0.01 → 1.524 Three.js metres ✓
     id: "corsair-king",
-    name: "Corsair King",
+    name: "Racalvin the Pirate King",
     mesh: "/models/character/corsair-king.fbx",
     scale: 0.01,
-    capsuleHH: 0.5,
-    capsuleR: 0.35,
+    capsuleHH: 0.50,
+    capsuleR:  0.35,
     color: "#e8b84b",
   },
 

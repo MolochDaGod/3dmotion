@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { RigidBody, CapsuleCollider, useRapier } from "@react-three/rapier";
 import { CG_PLAYER } from "./CollisionLayers";
-import { getTerrainHeight } from "./terrain";
+import { getIslandHeight } from "./terrain";
 import { useGameStore, WeaponMode, WEAPON_CYCLE, SPELLS } from "./useGameStore";
 import { useCharacterStore } from "./useCharacterStore";
 import { WEAPON_SKILLS, type SkillDef } from "./SkillSystem";
@@ -1962,7 +1962,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       <RigidBody
         ref={playerRBRef}
         type="kinematicPosition"
-        position={[0, getTerrainHeight(0, 0) + CAPSULE_CY, 0]}
+        position={[0, getIslandHeight(0, 0) + CAPSULE_CY, 0]}
         colliders={false}
         enabledRotations={[false, false, false]}
       >
