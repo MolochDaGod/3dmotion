@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/playcanvas/"
+title = "PlayCanvas — WebGPU & WebGL2 Demo"
+version = "1.0.0"
+id = "artifacts/playcanvas-demo"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/playcanvas/" ]
+localPort = 26157
+
+[services.development]
+run = "pnpm --filter @workspace/playcanvas-demo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/playcanvas-demo", "run", "build" ]
+publicDir = "artifacts/playcanvas-demo/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26157"
+BASE_PATH = "/playcanvas/"
