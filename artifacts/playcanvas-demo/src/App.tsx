@@ -1,5 +1,5 @@
-import PlayCanvasScene from "@/pages/PlayCanvasScene";
+import PlayCanvasGame from "@/pages/PlayCanvasGame";
 
 export default function App() {
-  return <PlayCanvasScene />;
+  return <PlayCanvasGame />;
 }
