@@ -1,0 +1,93 @@
+Best prompt to paste
+text
+I’m building a third-person game with Three.js + Rapier. My character can move faster than the camera catches up, and I get rubber-banding / jitter / laggy follow behavior.
+
+I want you to act like a senior gameplay/engine programmer and audit my third-person controller + follow camera setup.
+
+Your job:
+1. Find the exact cause of the rubber-banding, jitter, or camera lag.
+2. Check whether the issue comes from:
+   - physics timestep vs render timestep mismatch
+   - camera updating before physics/body sync
+   - mesh position and rigidbody position being updated separately
+   - direct position/translation setting on a dynamic rigidbody
+   - bad lerp/damping math
+   - stale transforms / wrong delta usage
+   - camera-relative movement math being incorrect
+   - parent/child transform issues
+   - rotation yaw/pitch math errors
+   - wrong use of setTranslation, setLinvel, impulses, or kinematic APIs
+3. Rewrite the code using best practices for a modern third-person action camera.
+4. Keep movement responsive, camera smooth, and prevent visible lag between player and camera.
+5. Explain what was wrong and why.
+
+Technical requirements:
+- Three.js for rendering
+- Rapier for physics
+- Third-person action game
+- Camera should smoothly follow behind player
+- Player movement should be camera-relative
+- Movement should feel tight, not floaty
+- Avoid frame-rate-dependent behavior
+- Use proper delta-based smoothing
+- Use rigidbody as the source of truth for position
+- Do not move mesh and rigidbody separately
+- If dynamic body is wrong for this setup, say whether kinematic is better and why
+
+What I need back:
+1. A diagnosis of the problem
+2. A corrected version of my movement + camera code
+3. Notes on best practices for third-person follow cameras in Three.js + Rapier
+4. Any math issues in my direction, offset, interpolation, or lookAt logic
+5. Suggested values for camera distance, height, damping, and player speed
+
+Important:
+- Be specific.
+- Do not give generic advice.
+- Point to the exact lines/patterns causing desync.
+- If multiple systems are fighting each other, identify each one.
+- Prefer a practical production-ready fix.
+
+Here is my code:
+[PASTE movement code]
+[PASTE rigidbody setup]
+[PASTE camera follow code]
+[PASTE useFrame / update loop / physics step]
+What code you should include
+Paste these parts with the prompt:
+
+player movement code
+Rapier rigidbody setup
+camera follow code
+render/update loop
+physics step code
+input-to-movement direction math
+rotation/yaw code
+If you leave out the update loop order, the AI may miss the actual bug.
+
+Even better version
+If you want the AI to be extra surgical, add this block:
+
+text
+Also inspect for these specific mistakes:
+- reading rigidbody.translation() before physics step finishes
+- camera using mesh.position while movement uses rigidbody.translation()
+- smoothing camera with fixed lerp values instead of delta-scaled damping
+- using setTranslation every frame on a dynamic body
+- character visual model offset from collider/body center
+- orbit/action camera fighting manual lookAt
+- applying camera offset in world space instead of player-local rotated space
+- mixing interpolation and direct snapping
+Shorter prompt if you want fast results
+text
+Audit my Three.js + Rapier third-person controller and follow camera. I have rubber-banding where the character outruns the camera. Find whether it’s caused by physics/render loop mismatch, rigidbody-vs-mesh desync, bad camera lerp math, wrong movement API usage, or update order. Then rewrite the movement and camera code using best practices for a responsive third-person action camera.
+Best practice wording to force better output
+Use phrases like:
+
+“rigidbody is the source of truth”
+“camera update must happen after physics sync”
+“use delta-based damping, not frame-based lerp”
+“do not move mesh and body separately”
+“camera-relative movement using yaw only”
+“production-ready third-person action camera”
+Those phrases usually make the AI look at the right systems.

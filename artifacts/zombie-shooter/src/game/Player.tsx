@@ -465,10 +465,19 @@ const ANIM_WALK_REF = 1.5;    // Mixamo/similar walk clips authored at ~1.5 m/s
 const ANIM_RUN_REF  = 4.0;    // run clips authored at ~4.0 m/s
 
 // ─── Module-level math helpers (avoids per-frame allocation) ─────────────────
+// Scratch vectors reused every frame — never hold references across frames.
 const _UP_AXIS      = new THREE.Vector3(0, 1, 0);
 const _FWD_BODY     = new THREE.Vector3(0, 0, -1);  // body-frame forward (rootRef local -Z)
 const _yawQ         = new THREE.Quaternion();
 const _leanQ        = new THREE.Quaternion();
+// Movement scratch vectors (hot path — allocated once, set each frame)
+const _fwdVec       = new THREE.Vector3();   // camera-relative forward
+const _rgtVec       = new THREE.Vector3();   // camera-relative right
+const _moveVec      = new THREE.Vector3();   // desired movement this frame
+// God-mode scratch
+const _flyDir       = new THREE.Vector3();
+const _flyFwd       = new THREE.Vector3();
+const _flyRgt       = new THREE.Vector3();
 
 // ─── Queue slot type ──────────────────────────────────────────────────────────
 type QueueSlot = {
@@ -1606,7 +1615,11 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
   useFrame((_, delta) => {
     if (!rootRef.current) return;
-    if (health <= 0 && !deadFired.current) { deadFired.current = true; onDead(); return; }
+
+    // ── Single store snapshot per frame — avoids repeated getState() calls ──
+    const gs = useGameStore.getState();
+
+    if (gs.health <= 0 && !deadFired.current) { deadFired.current = true; onDead(); return; }
 
     // ── Timers ─────────────────────────────────────────────────────────────
     if (shootCooldown.current > 0) shootCooldown.current -= delta;
@@ -1621,7 +1634,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     }
 
     // Staff mana regen
-    if (useGameStore.getState().weaponMode === "staff") {
+    if (gs.weaponMode === "staff") {
       regenMana(MANA_REGEN_RATE * delta);
     }
 
@@ -1635,7 +1648,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     }
 
     mixerRef.current?.update(delta);
-    rollCamZ.current *= Math.max(0, 1 - 14 * delta);
 
     // ── Input state (hoisted — used by bob, lean, camera, and locomotion) ──
     const fwd    = !!(keys.current["KeyW"] || keys.current["ArrowUp"]);
@@ -1648,7 +1660,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     // tps    = user-configured over-shoulder (shoulderX/Y/Z)
     // action = tight cinematic combat cam: closer, lower, tighter FOV feel
     // fps    = first-person at eye level
-    const { mode, shoulderX, shoulderY, shoulderZ } = useGameStore.getState().camera;
+    const { mode, shoulderX, shoulderY, shoulderZ } = gs.camera;
     const camX = mode === "fps"    ? 0
                : mode === "action" ? 0.28
                : shoulderX;
@@ -1676,14 +1688,20 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     }
 
     // ── FOV zoom — smooth lerp for melee block (1.5×) and bow aim ────────────
+    // Uses exponential decay (1 - e^(-k·dt)) for true frame-rate independence —
+    // a fixed lerp factor (delta * k) undershoots at low fps and overshoots at high fps.
     {
-      const baseFov  = useGameStore.getState().camera.fov;
-      const isZoomed = meleeBlocking.current || ssBlocking.current;
+      const baseFov   = gs.camera.fov;
+      const isZoomed  = meleeBlocking.current || ssBlocking.current;
       const targetFov = isZoomed ? baseFov / 1.5 : baseFov;
-      const cam = camera as THREE.PerspectiveCamera;
-      cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov, Math.min(1, delta * 10));
+      const cam       = camera as THREE.PerspectiveCamera;
+      const t         = 1 - Math.exp(-10 * delta);   // frame-rate-independent decay
+      cam.fov         = THREE.MathUtils.lerp(cam.fov, targetFov, t);
       cam.updateProjectionMatrix();
     }
+
+    // ── Roll cam-Z decay — exponential, frame-rate-independent ───────────────
+    rollCamZ.current *= Math.exp(-14 * delta);
 
     // ── Yaw on rootRef (camera parent) — lean kept on leanGroupRef only ───────
     // rootRef gets ONLY the yaw so the follow-camera never drifts sideways.
@@ -1692,7 +1710,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     const strafe = !sprint && grounded.current && !rolling.current;
     const targetLean = (left && !right && strafe) ?  0.07
                      : (right && !left && strafe) ? -0.07 : 0;
-    leanRef.current += (targetLean - leanRef.current) * Math.min(1, 10 * delta);
+    // Exponential decay — same reasoning as FOV zoom above
+    leanRef.current += (targetLean - leanRef.current) * (1 - Math.exp(-10 * delta));
     _yawQ.setFromAxisAngle(_UP_AXIS, yaw.current);
     _leanQ.setFromAxisAngle(_FWD_BODY, leanRef.current);
     rootRef.current.quaternion.copy(_yawQ);        // camera parent: yaw only
@@ -1703,7 +1722,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     if (modelGroupRef.current) modelGroupRef.current.visible = (mode !== "fps");
 
     // ── Weapon model + hand-bone tracking ──────────────────────────────────
-    const wm        = useGameStore.getState().weaponMode;
+    const wm        = gs.weaponMode;
     // Lazy-load the weapon animation pack the first time that weapon is equipped
     if (wm !== prevWeaponModeRef.current) {
       prevWeaponModeRef.current = wm;
@@ -1752,44 +1771,47 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       trackWeapon(shieldPropGroupRef.current, shieldPropObj, isSSWm, shieldQAdj.current, leftHand);
 
     // ── GOD MODE: noclip free-fly (T-pose) ─────────────────────────────────
-    const godModeActive = useGameStore.getState().godMode;
+    const godModeActive = gs.godMode;
     // Freeze the animation mixer in T-pose (timeScale=0) when god mode is on
     if (mixerRef.current) mixerRef.current.timeScale = godModeActive ? 0 : 1;
 
     if (godModeActive && playerRBRef.current) {
       const gSpeed = (keys.current["ShiftLeft"] || keys.current["ShiftRight"]) ? 30 : 12;
-      const fwdV = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
-      const rgtV = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
-      const flyDir = new THREE.Vector3();
-      if (fwd)   flyDir.add(fwdV);
-      if (bwd)   flyDir.sub(fwdV);
-      if (left)  flyDir.sub(rgtV);
-      if (right) flyDir.add(rgtV);
-      if (flyDir.lengthSq() > 0) flyDir.normalize().multiplyScalar(gSpeed * delta);
-      if (keys.current["Space"])                                           flyDir.y += gSpeed * delta;
-      if (keys.current["ControlLeft"] || keys.current["ControlRight"])    flyDir.y -= gSpeed * delta;
+      // Reuse module-level scratch vectors — no heap allocation
+      _flyFwd.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+      _flyRgt.set( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
+      _flyDir.set(0, 0, 0);
+      if (fwd)   _flyDir.add(_flyFwd);
+      if (bwd)   _flyDir.sub(_flyFwd);
+      if (left)  _flyDir.sub(_flyRgt);
+      if (right) _flyDir.add(_flyRgt);
+      if (_flyDir.lengthSq() > 0) _flyDir.normalize().multiplyScalar(gSpeed * delta);
+      if (keys.current["Space"])                                           _flyDir.y += gSpeed * delta;
+      if (keys.current["ControlLeft"] || keys.current["ControlRight"])    _flyDir.y -= gSpeed * delta;
       const pos  = playerRBRef.current.translation();
-      const next = { x: pos.x + flyDir.x, y: pos.y + flyDir.y, z: pos.z + flyDir.z };
+      const next = { x: pos.x + _flyDir.x, y: pos.y + _flyDir.y, z: pos.z + _flyDir.z };
       playerRBRef.current.setNextKinematicTranslation(next);
       rootRef.current.position.set(next.x, next.y - CAPSULE_CY, next.z);
       playerPosRef.current.copy(rootRef.current.position);
       return; // skip normal physics + locomotion state machine
     }
 
-    // ── Movement input ──────────────────────────────────────────────────────
-    const fwdVec = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
-    const rgtVec = new THREE.Vector3( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
+    // ── Movement input — reuse module-level scratch vectors (zero heap alloc) ──
+    // _fwdVec / _rgtVec: camera-relative axes derived from yaw only (no pitch),
+    // so movement stays on the ground plane regardless of where the player is looking.
+    _fwdVec.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+    _rgtVec.set( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
 
-    const move = new THREE.Vector3();
+    _moveVec.set(0, 0, 0);
     if (rolling.current && rollTimer.current > 0) {
-      move.copy(rollDir.current).multiplyScalar(ROLL_SPEED * delta);
+      _moveVec.copy(rollDir.current).multiplyScalar(ROLL_SPEED * delta);
     } else if (!crouching.current && !crouchPending.current) {
-      if (fwd)   move.add(fwdVec);
-      if (bwd)   move.sub(fwdVec);
-      if (left)  move.sub(rgtVec);
-      if (right) move.add(rgtVec);
-      if (move.lengthSq() > 0)
-        move.normalize().multiplyScalar((sprint ? RUN_SPEED : WALK_SPEED) * delta);
+      if (fwd)   _moveVec.add(_fwdVec);
+      if (bwd)   _moveVec.sub(_fwdVec);
+      if (left)  _moveVec.sub(_rgtVec);
+      if (right) _moveVec.add(_rgtVec);
+      if (_moveVec.lengthSq() > 0)
+        _moveVec.normalize().multiplyScalar((sprint ? RUN_SPEED : WALK_SPEED) * delta);
     }
 
     if (keys.current["Space"] && grounded.current && !crouching.current && !rolling.current) {
@@ -1804,11 +1826,11 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     if (rb && ctrl) {
       velY.current += -22 * delta;
       if (velY.current < -30) velY.current = -30;
-      move.y = velY.current * delta;
+      _moveVec.y = velY.current * delta;
 
       const collider = rb.collider(0);
       if (collider) {
-        ctrl.computeColliderMovement(collider, { x: move.x, y: move.y, z: move.z }, undefined, CG_PLAYER);
+        ctrl.computeColliderMovement(collider, { x: _moveVec.x, y: _moveVec.y, z: _moveVec.z }, undefined, CG_PLAYER);
         const resolved   = ctrl.computedMovement();
         const isGrounded = ctrl.computedGrounded();
 
@@ -1818,10 +1840,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
             grounded.current = true;
             // Land animation (only if not mid-attack)
             if (!blockingOnce.current) {
-              const cwm      = useGameStore.getState().weaponMode;
-              const landAnim = cwm === "staff"  ? "staffIdle"
-                : (cwm === "sword" || cwm === "axe") ? "meleeIdle"
-                : cwm === "rifle" ? "rifleIdle" : "pistolLand";
+              // wm is already snapshotted from gs.weaponMode earlier this frame
+              const landAnim = wm === "staff"  ? "staffIdle"
+                : (wm === "sword" || wm === "axe") ? "meleeIdle"
+                : wm === "rifle" ? "rifleIdle" : "pistolLand";
               transitionTo(landAnim, 0.08);
               setTimeout(() => {
                 if (grounded.current && !blockingOnce.current) {
@@ -1840,7 +1862,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         playerPosRef.current.copy(rootRef.current.position);
       }
     } else {
-      rootRef.current.position.addScaledVector(new THREE.Vector3(move.x, 0, move.z), 1);
+      // Fallback: no Rapier rigidbody yet — apply horizontal movement directly
+      rootRef.current.position.x += _moveVec.x;
+      rootRef.current.position.z += _moveVec.z;
       velY.current += -22 * delta;
       rootRef.current.position.y += velY.current * delta;
       if (rootRef.current.position.y <= 0) {
