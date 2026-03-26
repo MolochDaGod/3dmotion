@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Emp1q3ZLnXhLYH9LQmAJ5"
+uri = "file://downloads/grudge-pipeline.zip"
+type = "unspecified"
+title = "Grudge Pipeline — Production Package (3.3 MB)"
