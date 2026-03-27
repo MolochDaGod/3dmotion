@@ -4,10 +4,15 @@ import { create } from "zustand";
 // All live-tweakable game settings.  Leva controls write here; game reads here.
 // Using .getState() inside useFrame is intentional — avoids per-zombie subscribe.
 
+export type SceneId = "pirate-island" | "graveyard";
+
 export interface EditorSettings {
   // UI
   editorVisible: boolean;
   showPerf:      boolean;
+
+  // Scene selector
+  activeScene: SceneId;
 
   // Post-FX
   bloomIntensity:    number;
@@ -41,6 +46,8 @@ export interface EditorSettings {
 export const useEditorStore = create<EditorSettings>((set) => ({
   editorVisible: false,
   showPerf:      false,
+
+  activeScene: "pirate-island",
 
   bloomIntensity:    0.50,
   bloomThreshold:    0.75,

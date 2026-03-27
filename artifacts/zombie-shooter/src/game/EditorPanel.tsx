@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useControls, folder } from "leva";
-import { useEditorStore } from "./useEditorStore";
+import { useEditorStore, SceneId } from "./useEditorStore";
 
 // ─── EditorPanel ──────────────────────────────────────────────────────────────
 // Always mounted (so Leva controls always exist in its store).
@@ -9,6 +9,22 @@ import { useEditorStore } from "./useEditorStore";
 
 export function EditorPanel() {
   const patch = useEditorStore((s) => s.patch);
+
+  // ── Scene selector ────────────────────────────────────────────────────────
+  const sceneCtrl = useControls(
+    "🗺️  Scene Select",
+    {
+      activeScene: {
+        value: "pirate-island",
+        options: {
+          "🏝️  Pirate Island": "pirate-island",
+          "⚰️  Graveyard":     "graveyard",
+        },
+        label: "Active scene",
+      },
+    },
+    { collapsed: false }
+  );
 
   // ── Post-FX ───────────────────────────────────────────────────────────────
   const postFX = useControls(
@@ -61,6 +77,7 @@ export function EditorPanel() {
   );
 
   // ── Sync all Leva values → Zustand store ──────────────────────────────────
+  useEffect(() => { patch({ activeScene: sceneCtrl.activeScene as SceneId }); }, [sceneCtrl.activeScene, patch]);
   useEffect(() => { patch(postFX);   }, [postFX,   patch]);
   useEffect(() => { patch(scene);    }, [scene,    patch]);
   useEffect(() => { patch(gameplay); }, [gameplay, patch]);

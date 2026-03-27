@@ -8,11 +8,12 @@ import { Sky } from "@react-three/drei";
 import { Perf } from "r3f-perf";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
-import { getIslandHeight } from "./terrain";
+import { getIslandHeight, getTerrainHeight } from "./terrain";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
-import { PirateIsland, NAV_OBSTACLES } from "./PirateIsland";
+import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES } from "./PirateIsland";
+import { Graveyard,   NAV_OBSTACLES as GRAVEYARD_NAV_OBSTACLES } from "./Graveyard";
 import { NavWorkerProvider } from "./NavWorkerContext";
 import { useCharacterStore } from "./useCharacterStore";
 import { HUD } from "./HUD";
@@ -51,20 +52,30 @@ const MELEE_DAMAGE      = 80;
 const MELEE_ARC_DOT     = 0.35;
 
 // Zombies spawn at the island's shoreline (~22–26 m radius) and walk inland
-const SPAWN_POSITIONS: [number, number, number][] = [
+const ISLAND_SPAWN: [number, number, number][] = [
   [ 24, 0,  0], [-24, 0,  0], [ 0, 0,  24], [  0, 0, -24],
   [ 17, 0, 17], [-17, 0, 17], [17, 0, -17], [-17, 0, -17],
   [ 22, 0, 10], [-22, 0, 10], [22, 0, -10], [-22, 0, -10],
 ];
+// Graveyard: flat centre, spawns ring at ~20–28 m radius
+const GRAVEYARD_SPAWN: [number, number, number][] = [
+  [ 26, 0,  0], [-26, 0,  0], [ 0, 0,  26], [  0, 0, -26],
+  [ 20, 0, 20], [-20, 0, 20], [20, 0, -20], [-20, 0, -20],
+  [ 24, 0, 12], [-24, 0, 12], [24, 0, -12], [-24, 0, -12],
+];
 
 function spawnZombie(wave: number): ZombieData {
-  const pos = SPAWN_POSITIONS[Math.floor(Math.random() * SPAWN_POSITIONS.length)];
+  const { activeScene } = useEditorStore.getState();
+  const isIsland = activeScene !== "graveyard";
+  const pool = isIsland ? ISLAND_SPAWN : GRAVEYARD_SPAWN;
+  const getH = isIsland ? getIslandHeight : getTerrainHeight;
+  const pos = pool[Math.floor(Math.random() * pool.length)];
   const jitter = () => (Math.random() - 0.5) * 4;
   const spawnX = pos[0] + jitter();
   const spawnZ = pos[2] + jitter();
   return {
     id: `zombie-${++zombieIdCounter}`,
-    position: new THREE.Vector3(spawnX, getIslandHeight(spawnX, spawnZ) + 0.1, spawnZ),
+    position: new THREE.Vector3(spawnX, getH(spawnX, spawnZ) + 0.1, spawnZ),
     health: 50 + wave * 10,
     maxHealth: 50 + wave * 10,
     speed: 1.5 + wave * 0.3,
@@ -105,6 +116,9 @@ function SceneContent({
   const ed = useEditorStore();
   const { activeId } = useCharacterStore();
 
+  const isGraveyard  = ed.activeScene === "graveyard";
+  const navObstacles = isGraveyard ? GRAVEYARD_NAV_OBSTACLES : ISLAND_NAV_OBSTACLES;
+
   // ChromaticAberration expects a THREE.Vector2 — rebuild only when strength changes
   const caOffset = useMemo(
     () => new THREE.Vector2(ed.chromaticStrength, ed.chromaticStrength),
@@ -116,47 +130,49 @@ function SceneContent({
       {/* ── Performance overlay (F2 or toggle from editor panel) ── */}
       {ed.showPerf && <Perf position="top-left" />}
 
-      {/* ── Ocean island atmosphere ── */}
-      <fog attach="fog" args={["#b8dde8", ed.fogNear, ed.fogFar]} />
-      <color attach="background" args={["#6db3cc"]} />
+      {/* ── Scene atmosphere — switches with activeScene ── */}
+      {isGraveyard ? (
+        <>
+          <fog attach="fog" args={["#1a1c22", ed.fogNear * 0.55, ed.fogFar * 0.55]} />
+          <color attach="background" args={["#0d0e12"]} />
+          {/* Overcast midnight — pale moonlight */}
+          <Sky distance={4500} sunPosition={[0, -1, 0]} turbidity={18} rayleigh={0.1}
+               mieCoefficient={0.001} mieDirectionalG={0.9} />
+          <ambientLight intensity={ed.ambientIntensity * 0.35} color="#b0c8e0" />
+          <directionalLight position={[-20, 60, 30]} intensity={ed.sunIntensity * 0.4}
+            color="#c8d8f0" castShadow shadow-mapSize={[2048, 2048]}
+            shadow-camera-far={220} shadow-camera-left={-60} shadow-camera-right={60}
+            shadow-camera-top={60} shadow-camera-bottom={-60} />
+          {/* Eerie green ground-fill */}
+          <directionalLight position={[0, -5, 0]} intensity={0.12} color="#40602a" />
+        </>
+      ) : (
+        <>
+          <fog attach="fog" args={["#b8dde8", ed.fogNear, ed.fogFar]} />
+          <color attach="background" args={["#6db3cc"]} />
+          {/* Procedural sky — sun low in the east-southeast (morning over the sea) */}
+          <Sky distance={4500} sunPosition={[60, 18, -55]} inclination={0.56}
+               azimuth={0.14} turbidity={9} rayleigh={1.9}
+               mieCoefficient={0.006} mieDirectionalG={0.88} />
+          {/* Warm golden morning angle */}
+          <ambientLight intensity={ed.ambientIntensity} color="#ffd8a0" />
+          <directionalLight position={[50, 65, -80]} intensity={ed.sunIntensity}
+            color="#ffe8c0" castShadow shadow-mapSize={[2048, 2048]}
+            shadow-camera-far={220} shadow-camera-left={-60} shadow-camera-right={60}
+            shadow-camera-top={60} shadow-camera-bottom={-60} />
+          {/* Ocean-bounce fill — cool blue from the water below */}
+          <directionalLight position={[-30, 15, 50]} intensity={0.28} color="#90c8e0" />
+        </>
+      )}
 
-      {/* Procedural sky — sun low in the east-southeast (morning over the sea) */}
-      <Sky
-        distance={4500}
-        sunPosition={[60, 18, -55]}
-        inclination={0.56}
-        azimuth={0.14}
-        turbidity={9}
-        rayleigh={1.9}
-        mieCoefficient={0.006}
-        mieDirectionalG={0.88}
-      />
-
-      {/* ── Sunlight — warm golden morning angle ── */}
-      <ambientLight intensity={ed.ambientIntensity} color="#ffd8a0" />
-      <directionalLight
-        position={[50, 65, -80]}
-        intensity={ed.sunIntensity}
-        color="#ffe8c0"
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-far={220}
-        shadow-camera-left={-60}
-        shadow-camera-right={60}
-        shadow-camera-top={60}
-        shadow-camera-bottom={-60}
-      />
-      {/* Ocean-bounce fill — cool blue from the water below */}
-      <directionalLight position={[-30, 15, 50]} intensity={0.28} color="#90c8e0" />
-
-      {/* ── All physics bodies — island, player, AND zombie sensors ── */}
-      {/* NavWorkerProvider creates ONE shared A* Web Worker for all zombies. */}
-      <NavWorkerProvider obstacles={NAV_OBSTACLES}>
+      {/* ── All physics bodies — terrain, player, AND zombie sensors ── */}
+      {/* key forces full remount of nav worker + physics when scene changes */}
+      <NavWorkerProvider key={ed.activeScene} obstacles={navObstacles}>
         <Physics gravity={[0, -22, 0]} timeStep="vary">
-          <PirateIsland />
-          {/* key={activeId} forces a clean remount when the character changes. */}
+          {isGraveyard ? <Graveyard /> : <PirateIsland />}
+          {/* key remounts when character OR scene changes — resets spawn pos */}
           <Player
-            key={activeId}
+            key={`${activeId}-${ed.activeScene}`}
             onShoot={onShoot}
             onMelee={onMelee}
             onSkillHit={onSkillHit}
