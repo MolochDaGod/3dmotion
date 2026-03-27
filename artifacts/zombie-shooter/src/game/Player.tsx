@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RigidBody, CapsuleCollider, useRapier } from "@react-three/rapier";
 import { CG_PLAYER } from "./CollisionLayers";
 import { getIslandHeight } from "./terrain";
@@ -480,7 +481,8 @@ const _leanQ        = new THREE.Quaternion();
 // Movement scratch vectors (hot path — allocated once, set each frame)
 const _fwdVec       = new THREE.Vector3();   // camera-relative forward
 const _rgtVec       = new THREE.Vector3();   // camera-relative right
-const _moveVec      = new THREE.Vector3();   // desired movement this frame
+const _moveVec      = new THREE.Vector3();   // resolved movement applied to physics this frame
+const _targetVel    = new THREE.Vector3();   // desired velocity (m/s) from input — smoothed toward
 // God-mode scratch
 const _flyDir       = new THREE.Vector3();
 const _flyFwd       = new THREE.Vector3();
@@ -546,6 +548,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const rollTimer    = useRef(0);
   const rollDir      = useRef(new THREE.Vector3(0, 0, -1));
   const rollCooldown = useRef(0);
+
+  // Velocity smoothing — eliminates rubber-band jitter on start/stop/direction change.
+  // Stores the current smoothed horizontal velocity (m/s); updated via exponential decay.
+  const smoothVelRef = useRef(new THREE.Vector3(0, 0, 0));
 
   // ── Procedural animation refs ─────────────────────────────────────────────
   const leanRef          = useRef(0);    // current body lean angle (radians)
@@ -935,7 +941,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   // All other packs (rifle/staff/bow/shield) lazy-load on first weapon equip.
   useEffect(() => {
     let cancelled = false;
-    const loader  = new FBXLoader();
+    const loader     = new FBXLoader();
+    const gltfLoader = new GLTFLoader();
     let mixer: THREE.AnimationMixer | null = null;
 
     function registerClip(key: AnimKey, fbx: THREE.Group) {
@@ -954,6 +961,34 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       }
     }
 
+    // ── Shared model-setup after any mesh format is loaded ───────────────────
+    function setupModel(modelGroup: THREE.Group) {
+      if (cancelled || !modelGroup) return;
+      modelGroup.scale.setScalar(charDef.scale);
+      modelGroup.traverse((c) => {
+        if ((c as THREE.Mesh).isMesh) {
+          c.castShadow    = true;
+          c.receiveShadow = true;
+        }
+      });
+      mixer = new THREE.AnimationMixer(modelGroup);
+      mixerRef.current = mixer;
+
+      // When a BLOCKING_ONCE animation finishes, call the always-fresh handler.
+      // It either starts the queued animation or fades back to locomotion.
+      mixer.addEventListener("finished", (e: any) => {
+        const name = e.action.getClip().name as AnimKey;
+        if (BLOCKING_ONCE.has(name)) {
+          onBlockingDoneRef.current?.(name);
+        } else if (ONCE_ANIMS.has(name)) {
+          // Non-blocking ONCE anim (staffIdle2, rifleTurnL/R) — restore idle
+          onNonBlockingDoneRef.current?.(name);
+        }
+      });
+
+      setModelObj(modelGroup);
+    }
+
     function loadSeq(
       queue: typeof PISTOL_QUEUE,
       i: number,
@@ -963,44 +998,40 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       const { key, file } = queue[i];
       // For the base-mesh slot, honour the active CharacterDef.
       const loadFile = key === "__model__" ? charDef.mesh : file;
-      loader.load(
-        loadFile,
-        (fbx) => {
-          if (cancelled) return;
-          if (key === "__model__") {
-            fbx.scale.setScalar(charDef.scale);
-            fbx.traverse((c) => {
-              if ((c as THREE.Mesh).isMesh) {
-                c.castShadow    = true;
-                c.receiveShadow = true;
-              }
-            });
-            mixer = new THREE.AnimationMixer(fbx);
-            mixerRef.current = mixer;
 
-            // ── Animation queue: finished event ──────────────────────────
-            // When a BLOCKING_ONCE animation finishes, the always-fresh
-            // onBlockingDoneRef.current is called. It either starts the
-            // queued animation or fades back to locomotion.
-            mixer.addEventListener("finished", (e: any) => {
-              const name = e.action.getClip().name as AnimKey;
-              if (BLOCKING_ONCE.has(name)) {
-                onBlockingDoneRef.current?.(name);
-              } else if (ONCE_ANIMS.has(name)) {
-                // Non-blocking ONCE anim (staffIdle2, rifleTurnL/R) — restore idle
-                onNonBlockingDoneRef.current?.(name);
-              }
-            });
+      // GLB / GLTF character meshes use GLTFLoader; all animation clips use FBXLoader.
+      const isGltfMesh =
+        key === "__model__" &&
+        (charDef.format === "glb" || charDef.format === "gltf");
 
-            setModelObj(fbx);
-          } else {
-            registerClip(key as AnimKey, fbx);
-          }
-          loadSeq(queue, i + 1, done);
-        },
-        undefined,
-        () => { if (!cancelled) loadSeq(queue, i + 1, done); },
-      );
+      if (isGltfMesh) {
+        gltfLoader.load(
+          loadFile,
+          (gltf) => {
+            if (cancelled) return;
+            // gltf.scene is the root THREE.Group (equivalent to the FBX group)
+            setupModel(gltf.scene as THREE.Group);
+            loadSeq(queue, i + 1, done);
+          },
+          undefined,
+          () => { if (!cancelled) loadSeq(queue, i + 1, done); },
+        );
+      } else {
+        loader.load(
+          loadFile,
+          (fbx) => {
+            if (cancelled) return;
+            if (key === "__model__") {
+              setupModel(fbx);
+            } else {
+              registerClip(key as AnimKey, fbx);
+            }
+            loadSeq(queue, i + 1, done);
+          },
+          undefined,
+          () => { if (!cancelled) loadSeq(queue, i + 1, done); },
+        );
+      }
     }
 
     // ── Lazy pack loader — called from useFrame on weapon switch ────────────
@@ -1855,17 +1886,31 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     _fwdVec.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
     _rgtVec.set( Math.cos(yaw.current), 0, -Math.sin(yaw.current));
 
-    _moveVec.set(0, 0, 0);
+    // ── Desired velocity from input (m/s, no delta yet) ──────────────────────
     if (rolling.current && rollTimer.current > 0) {
-      _moveVec.copy(rollDir.current).multiplyScalar(ROLL_SPEED * delta);
+      // Roll: bypass smoothing for an instant snap — keeps dodge feeling crisp
+      _targetVel.copy(rollDir.current).multiplyScalar(ROLL_SPEED);
     } else if (!crouching.current && !crouchPending.current) {
-      if (fwd)   _moveVec.add(_fwdVec);
-      if (bwd)   _moveVec.sub(_fwdVec);
-      if (left)  _moveVec.sub(_rgtVec);
-      if (right) _moveVec.add(_rgtVec);
-      if (_moveVec.lengthSq() > 0)
-        _moveVec.normalize().multiplyScalar((sprint ? RUN_SPEED : WALK_SPEED) * delta);
+      _targetVel.set(0, 0, 0);
+      if (fwd)   _targetVel.add(_fwdVec);
+      if (bwd)   _targetVel.sub(_fwdVec);
+      if (left)  _targetVel.sub(_rgtVec);
+      if (right) _targetVel.add(_rgtVec);
+      if (_targetVel.lengthSq() > 0)
+        _targetVel.normalize().multiplyScalar(sprint ? RUN_SPEED : WALK_SPEED);
+    } else {
+      // Crouching or mid-transition — ramp velocity to zero smoothly
+      _targetVel.set(0, 0, 0);
     }
+
+    // Exponential-decay smoothing (k=14 → ~95 % settled in ≈ 0.21 s at 60 fps).
+    // Removes the rubber-band snap that occurs on instant start / stop / direction
+    // reversal, giving the character organic acceleration and deceleration.
+    const velDecay = 1 - Math.exp(-14 * delta);
+    smoothVelRef.current.lerp(_targetVel, velDecay);
+
+    // Apply time step to produce the per-frame displacement sent to Rapier
+    _moveVec.copy(smoothVelRef.current).multiplyScalar(delta);
 
     if (keys.current["Space"] && grounded.current && !crouching.current && !rolling.current) {
       velY.current     = JUMP_FORCE;

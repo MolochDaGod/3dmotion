@@ -156,10 +156,12 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 - Attack damage driven by `ed.zombieAttackDamage` (editor slider)
 
 **Character Swap System:**
-- `src/game/CharacterRegistry.ts` — `CharacterDef` interface + static registry array. Each def: `id`, `name`, `mesh` (FBX path or https:// CDN URL), `scale`, `capsuleHH/R`, `color`, `source?` ("meshy" for AI-generated). All Mixamo animation packs are shared automatically.
+- `src/game/CharacterRegistry.ts` — `CharacterDef` interface + static registry array. Each def: `id`, `name`, `mesh`, `format?` ("fbx"|"glb"|"gltf"), `scale`, `capsuleHH/R`, `color`, `footIK?`, `source?` ("meshy"). Player.tsx picks the correct loader automatically based on `format`. All Mixamo animation packs are shared automatically.
 - `src/game/useCharacterStore.ts` — Zustand store: `activeId`, `def`, `aiChars`, `allChars` (static + AI merged), `cycleNext()`, `setActive(id)`, `fetchAiChars()` (non-blocking API fetch on CharacterScreen mount).
-- `Player.tsx` reads `useCharacterStore.getState().def` at mount-time; uses `def.mesh` and `def.scale`. `def.mesh` can be a local path or an absolute CDN URL — Three.js FBXLoader handles both.
+- `Player.tsx` reads `useCharacterStore.getState().def` at mount-time; uses `def.mesh`, `def.scale`, and `def.format`. Uses **FBXLoader** for `.fbx` and **GLTFLoader** for `.glb`/`.gltf`. Animation clips are always FBX (Mixamo packs); only the base mesh switches loader.
 - `Game.tsx` passes `key={activeId}` to `<Player>` — React cleanly remounts the entire player when character changes.
+- **Registered characters (6 total):** Racalvin the Pirate King (FBX), Adventurer (GLB), Base Fighter (GLB), Wizard (GLB), Anne (GLB), Iron Guard (GLTF). Mesh files in `public/models/character/`.
+- **Velocity smoothing (rubber-band fix):** `smoothVelRef` accumulates the player's horizontal velocity and exponentially decays toward the input target each frame (`k=14`, ~95% settled in 0.21 s). Module-level `_targetVel` scratch vector stores the desired m/s from key input; `_moveVec` is then `smoothVel * delta`. Eliminates snap/jitter on start, stop, and direction reversal. Roll bypasses smoothing for instant-response dodges.
 - **Meshy→Game Live Bridge**: Complete pipeline from Grudge Pipeline → API → DB → Game:
   1. Grudge Pipeline rigging step succeeds → "SEND TO GAME" panel appears in SkeletonPanel with name/scale/color inputs
   2. POST `/api/characters` persists the Meshy CDN FBX URL to `ai_characters` DB table
