@@ -121,14 +121,16 @@ type MeleeKey =
   | "meleeRunFwd" | "meleeRunBwd"
   | "meleeAttack1" | "meleeAttack2" | "meleeAttack3"
   | "meleeCombo1"  | "meleeCombo2"  | "meleeCombo3"
-  | "meleeJump" | "meleeCrouch" | "meleeBlock";
+  | "meleeJump" | "meleeCrouch" | "meleeBlock"
+  | "meleeStandFromCrouch";
 
 type StaffKey =
   | "staffIdle" | "staffIdle2"
   | "staffWalkFwd" | "staffWalkBwd"
   | "staffRunFwd" | "staffRunBwd"
   | "staffCast1" | "staffCast2"
-  | "staffJump" | "staffHitLarge" | "staffHitSmall";
+  | "staffJump" | "staffHitLarge" | "staffHitSmall"
+  | "staffDeath";
 
 type BowKey =
   | "bowIdle" | "bowWalkFwd" | "bowWalkBwd"
@@ -212,9 +214,10 @@ const MELEE_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "meleeCombo1",  file: ANIM_MELEE.combo1 },
   { key: "meleeCombo2",  file: ANIM_MELEE.combo2 },
   { key: "meleeCombo3",  file: ANIM_MELEE.combo3 },
-  { key: "meleeJump",    file: ANIM_MELEE.jump },
-  { key: "meleeCrouch",  file: ANIM_MELEE.crouch },
-  { key: "meleeBlock",   file: ANIM_MELEE.block },
+  { key: "meleeJump",           file: ANIM_MELEE.jump },
+  { key: "meleeCrouch",         file: ANIM_MELEE.crouch },
+  { key: "meleeBlock",          file: ANIM_MELEE.block },
+  { key: "meleeStandFromCrouch",file: ANIM_MELEE.standFromCrouch },
 ];
 
 const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -229,6 +232,7 @@ const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "staffJump",     file: ANIM_STAFF.jump },
   { key: "staffHitLarge", file: ANIM_STAFF.hitLarge },
   { key: "staffHitSmall", file: ANIM_STAFF.hitSmall },
+  { key: "staffDeath",    file: ANIM_STAFF.death },
 ];
 
 const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -289,8 +293,11 @@ const ONCE_ANIMS = new Set<AnimKey>([
   "staffCast1","staffCast2",
   "staffHitLarge","staffHitSmall",
   "staffIdle2",        // idle variety — plays once then returns to staffIdle
+  "staffDeath",        // death animation — plays once, then onDead() fires
   "rifleTurnL","rifleTurnR", // non-blocking in-place turn animations
-  "bowDraw","bowFire",
+  "bowDraw","bowFire","bowBlock",
+  // melee transitions
+  "meleeStandFromCrouch",  // crouch → stand get-up animation
   // sword + shield actions
   "ssAttack1","ssAttack2","ssAttack3","ssAttack4",
   "ssBlock","ssBlockHit","ssDrawSword",
@@ -304,7 +311,7 @@ const BLOCKING_ONCE = new Set<AnimKey>([
   "meleeCombo1","meleeCombo2","meleeCombo3",
   "staffCast1","staffCast2",
   "rifleFire",
-  "bowDraw","bowFire",
+  "bowDraw","bowFire","bowBlock",
   "ssAttack1","ssAttack2","ssAttack3","ssAttack4",
   "ssBlock","ssBlockHit",
   "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
@@ -529,6 +536,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const locked = useRef(false);
 
   const deadFired     = useRef(false);
+  const dyingRef      = useRef(false);  // true while death animation is playing
   const shootCooldown = useRef(0);
 
   const crouching     = useRef(false);
@@ -1326,7 +1334,13 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     crouching.current     = false;
     const wm = useGameStore.getState().weaponMode;
     const isMeleeOrShield = wm === "sword" || wm === "axe" || wm === "shield";
-    transitionTo(isMeleeOrShield ? "meleeIdle" : "pistolCrouchUp", 0.1);
+    // Melee/shield uses a dedicated stand-from-crouch animation if it's loaded;
+    // fall back to meleeIdle if the FBX hasn't finished loading yet.
+    const standKey: AnimKey = (isMeleeOrShield && actionsRef.current["meleeStandFromCrouch"])
+      ? "meleeStandFromCrouch"
+      : isMeleeOrShield ? "meleeIdle"
+      : "pistolCrouchUp";
+    transitionTo(standKey, 0.1);
     setTimeout(() => {
       transitionTo(isMeleeOrShield ? "meleeIdle" : "pistolIdle", 0.15);
       crouchPending.current = null;
@@ -1410,8 +1424,14 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         meleeBlocking.current = true;
         setMeleeBlocking(true);
       } else if (isBow) {
-        // RMB bow = hold to aim (toggle aim state)
-        bowAiming.current = true;
+        // RMB bow: moving = quick parry deflect; stationary = enter aim mode
+        const moving = keys.current["KeyW"] || keys.current["KeyA"]
+                    || keys.current["KeyS"] || keys.current["KeyD"];
+        if (moving) {
+          requestBlockingAnim({ key: "bowBlock", fade: FADE_ATK_START });
+        } else {
+          bowAiming.current = true;
+        }
       } else {
         // RMB ranged = quick melee butt
         if (blockingOnce.current) return;
@@ -1622,7 +1642,26 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     // ── Single store snapshot per frame — avoids repeated getState() calls ──
     const gs = useGameStore.getState();
 
-    if (gs.health <= 0 && !deadFired.current) { deadFired.current = true; onDead(); return; }
+    // ── Death system: play death animation before handing off to game-over ───
+    // We must NOT return immediately here — the mixer still needs to update so
+    // the death clip plays. dyingRef gates setup to one frame only.
+    if (gs.health <= 0) {
+      if (!dyingRef.current && !deadFired.current) {
+        dyingRef.current     = true;
+        blockingOnce.current = true;   // freeze locomotion layer
+        animQueue.current    = null;   // discard any queued action
+        const deathWm = gs.weaponMode;
+        // Play a weapon-specific death clip when available
+        const deathKey: AnimKey | null =
+          (deathWm === "staff" && actionsRef.current["staffDeath"]) ? "staffDeath" : null;
+        if (deathKey) _rawPlay(deathKey, 0.15);
+        // Let the animation run for 1.4 s then trigger game-over
+        setTimeout(() => { deadFired.current = true; onDead(); }, 1400);
+      }
+      // Keep the mixer ticking so the death animation plays through
+      mixerRef.current?.update(delta);
+      return;
+    }
 
     // ── Timers ─────────────────────────────────────────────────────────────
     if (shootCooldown.current > 0) shootCooldown.current -= delta;
@@ -1844,9 +1883,15 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
             // Land animation (only if not mid-attack)
             if (!blockingOnce.current) {
               // wm is already snapshotted from gs.weaponMode earlier this frame
-              const landAnim = wm === "staff"  ? "staffIdle"
+              // Each weapon pack has its own landing target; bow and shield have
+              // no dedicated pistolLand equivalent so they snap to their idle pose.
+              const landAnim: AnimKey =
+                  wm === "staff"   ? "staffIdle"
                 : (wm === "sword" || wm === "axe") ? "meleeIdle"
-                : wm === "rifle" ? "rifleIdle" : "pistolLand";
+                : wm === "rifle"  ? "rifleIdle"
+                : wm === "bow"    ? "bowIdle"
+                : wm === "shield" ? "ssIdle"
+                : "pistolLand";
               transitionTo(landAnim, 0.08);
               setTimeout(() => {
                 if (grounded.current && !blockingOnce.current) {
