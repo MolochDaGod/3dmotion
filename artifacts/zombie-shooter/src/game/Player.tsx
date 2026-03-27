@@ -800,29 +800,40 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
               shapePos = { x: ppos.x, y: ppos.y + 1.0, z: ppos.z };
             }
 
-            // intersectionsWithShape — callback returns true to continue search
+            // intersectionsWithShape — ONLY collect raw handles inside the callback.
+            // Calling any other Rapier API (parent(), translation(), etc.) from inside
+            // a Rapier callback causes a WASM "recursive use / unsafe aliasing" panic
+            // because Rust's borrow checker doesn't allow re-entrant access.
+            // All real work is done AFTER the callback returns.
+            const hitHandles: number[] = [];
             (world as any).intersectionsWithShape(
               shapePos, rotId, shape,
               (collider: any) => {
-                const rb = collider.parent?.();
-                const ud = rb?.userData as { zombieId?: string } | undefined;
-                if (ud?.zombieId) {
-                  // Arc filter for non-360° skills
-                  if (skill.arcDeg < 360) {
-                    const rbT = rb.translation?.();
-                    if (rbT) {
-                      const toZ = new THREE.Vector3(rbT.x - ppos.x, 0, rbT.z - ppos.z);
-                      if (toZ.lengthSq() > 0.001) {
-                        const dot = fwd.dot(toZ.normalize());
-                        if (dot < Math.cos((skill.arcDeg / 2) * (Math.PI / 180))) return true;
-                      }
-                    }
-                  }
-                  ids.push(ud.zombieId);
-                }
+                if (collider?.handle !== undefined) hitHandles.push(collider.handle);
                 return true; // keep searching
               }
             );
+
+            // Process results now that Rapier's borrow is fully released
+            for (const handle of hitHandles) {
+              const col = (world as any).getCollider(handle);
+              if (!col) continue;
+              const rb = col.parent?.();
+              const ud = rb?.userData as { zombieId?: string } | undefined;
+              if (!ud?.zombieId) continue;
+              // Arc filter for non-360° skills
+              if (skill.arcDeg < 360) {
+                const rbT = rb.translation?.();
+                if (rbT) {
+                  const toZ = new THREE.Vector3(rbT.x - ppos.x, 0, rbT.z - ppos.z);
+                  if (toZ.lengthSq() > 0.001) {
+                    const dot = fwd.dot(toZ.normalize());
+                    if (dot < Math.cos((skill.arcDeg / 2) * (Math.PI / 180))) continue;
+                  }
+                }
+              }
+              ids.push(ud.zombieId);
+            }
           } catch (err) {
             // Rapier API mismatch — fall back to radius-only geometry check
             // (Game.tsx will re-check via the zombieIds path, which is empty, so no dmg)
