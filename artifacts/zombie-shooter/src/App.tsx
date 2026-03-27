@@ -32,7 +32,12 @@ function App() {
     setScore(0);
     document.body.requestPointerLock().catch(() => {/* browser may reject if lock was just released */});
   };
-  const handleGameOver = (finalScore: number) => { setGameOver(true); setScore(finalScore); setGameStarted(false); };
+  const handleGameOver = (finalScore: number) => {
+    document.exitPointerLock();
+    setGameOver(true);
+    setScore(finalScore);
+    setGameStarted(false);
+  };
 
   return (
     <>

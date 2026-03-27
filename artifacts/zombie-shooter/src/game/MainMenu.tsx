@@ -500,6 +500,11 @@ export function MainMenu({
 }) {
   const [screen, setScreen] = useState<Screen>("home");
 
+  // Always release pointer lock when the menu is visible so the cursor is free.
+  useEffect(() => {
+    document.exitPointerLock();
+  }, []);
+
   if (screen === "viewer") return <ModelViewer onBack={() => setScreen("home")} />;
 
   if (screen === "characters") return <CharacterScreen onBack={() => setScreen("home")} onStart={onStart} />;
