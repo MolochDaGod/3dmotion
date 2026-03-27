@@ -249,6 +249,13 @@ export default function Game({ onGameOver }: GameProps) {
   const handleLoadProgress = useCallback((p: number) => setLoadProgress(p), []);
   const handleLoaded       = useCallback(() => setIsLoaded(true), []);
 
+  // Hard timeout — if useProgress never completes (asset error / context issues),
+  // force the overlay away after 18 s so the player can still play.
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoaded(true), 18_000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Remove overlay from DOM after fade-out finishes (600 ms transition)
   useEffect(() => {
     if (!isLoaded) return;
