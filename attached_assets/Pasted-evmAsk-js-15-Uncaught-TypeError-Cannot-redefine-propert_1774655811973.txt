@@ -1,0 +1,375 @@
+evmAsk.js:15 Uncaught TypeError: Cannot redefine property: ethereum
+    at Object.defineProperty (<anonymous>)
+    at r.inject (evmAsk.js:15:5093)
+    at window.addEventListener.once (evmAsk.js:15:9013)
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+The source list for the Content Security Policy directive 'default-src' contains an invalid source: ''unsafe-dynamic''. It will be ignored.
+content.js:1971 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+content.js:6998 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ content.js:6998
+chrome-extension://b…koljpa/evmAsk.js:15 Uncaught 
+ Failed to initialize current tab: 
+initializeCurrentTab @ content.js:1971
+ Failed to initialize current tab: 
+initializeCurrentTab @ content.js:6998
+evmAsk.js:15 Uncaught TypeError: Cannot redefine property: ethereum
+    at Object.defineProperty (<anonymous>)
+    at r.inject (evmAsk.js:15:5093)
+    at window.addEventListener.once (evmAsk.js:15:9013)
+content.js:1971 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+ Failed to initialize current tab: 
+initializeCurrentTab @ content.js:6998
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+/repls:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Unchecked runtime.lastError: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+/repls:1 Uncaught (in promise) 
+/repls:1 Uncaught (in promise) 
+/repls:1 Uncaught (in promise) 
+/repls:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+ Failed to initialize current tab: 
+initializeCurrentTab @ chrome-extension://h…ets/content.js:1971
+ Failed to initialize current tab: 
+initializeCurrentTab @ chrome-extension://h…ets/content.js:6998
+ Failed to initialize current tab: 
+initializeCurrentTab @ chrome-extension://h…ets/content.js:1971
+ Failed to initialize current tab: 
+initializeCurrentTab @ chrome-extension://h…ets/content.js:6998
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+grudge-pipeline/:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+grudge-pipeline/:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+content.js:1971 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:6:64856
+    at new Promise (<anonymous>)
+    at Ei (content.js:6:64828)
+    at _R.initializeCurrentTab (content.js:1971:18770)
+    at new _R (content.js:1971:18654)
+    at content.js:1971:20491
+    at content.js:4888:14616
+initializeCurrentTab @ content.js:1971
+content.js:6998 Failed to initialize current tab: TypeError: Cannot read properties of undefined (reading 'query')
+    at content.js:4964:64533
+    at new Promise (<anonymous>)
+    at sn (content.js:4964:64505)
+    at qf.initializeCurrentTab (content.js:6998:18770)
+    at new qf (content.js:6998:18654)
+    at content.js:6998:20491
+    at content.js:9619:164
+initializeCurrentTab @ content.js:6998
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+m.stripe.network/inn…_[version]=acacia:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+js.stripe.com/v3/con…ipeController4741:1 Uncaught (in promise) 
+anchor?ar=2&k=6LfyLY…jQ0Mw..&hl=en&v=…:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+about:blank:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+Motion:1 Uncaught (in promise) Error: A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+workspace_iframe.htm…2Fgrudge-pipeline:1 Uncaught (in promise) 
+grudge-pipeline/:1 Uncaught (in promise) 
