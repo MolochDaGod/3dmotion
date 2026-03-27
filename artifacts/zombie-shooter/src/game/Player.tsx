@@ -1598,6 +1598,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     document.addEventListener("keyup",             handleKeyUp);
     document.addEventListener("pointerlockchange", handlePLC);
     document.addEventListener("contextmenu",       handleCtxMenu);
+    // Sync immediately in case pointer lock was granted before this effect ran
+    locked.current = document.pointerLockElement === document.body;
+    setPaused(!locked.current);
     return () => {
       document.removeEventListener("mousemove",         handleMouseMove);
       document.removeEventListener("mousedown",         handleMouseDown);

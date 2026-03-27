@@ -26,7 +26,12 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleEditor, togglePerf]);
 
-  const handleStart    = () => { setGameStarted(true); setGameOver(false); setScore(0); };
+  const handleStart    = () => {
+    setGameStarted(true);
+    setGameOver(false);
+    setScore(0);
+    document.body.requestPointerLock();
+  };
   const handleGameOver = (finalScore: number) => { setGameOver(true); setScore(finalScore); setGameStarted(false); };
 
   return (
