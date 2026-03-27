@@ -657,6 +657,7 @@ export function ModelViewer({ onBack }: { onBack: () => void }) {
             shadows
             camera={{ fov:50, position:[2.5,1.8,2.5], near:0.01, far:100 }}
             gl={{ antialias:true }}
+            dpr={[1, 2]}
             style={{ background:"#060e08" }}
           >
             <color attach="background" args={["#060e08"]} />

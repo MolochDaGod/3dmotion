@@ -140,7 +140,7 @@ function SceneContent({
                mieCoefficient={0.001} mieDirectionalG={0.9} />
           <ambientLight intensity={ed.ambientIntensity * 0.35} color="#b0c8e0" />
           <directionalLight position={[-20, 60, 30]} intensity={ed.sunIntensity * 0.4}
-            color="#c8d8f0" castShadow shadow-mapSize={[2048, 2048]}
+            color="#c8d8f0" castShadow shadow-mapSize={[4096, 4096]}
             shadow-camera-far={220} shadow-camera-left={-60} shadow-camera-right={60}
             shadow-camera-top={60} shadow-camera-bottom={-60} />
           {/* Eerie green ground-fill */}
@@ -157,7 +157,7 @@ function SceneContent({
           {/* Warm golden morning angle */}
           <ambientLight intensity={ed.ambientIntensity} color="#ffd8a0" />
           <directionalLight position={[50, 65, -80]} intensity={ed.sunIntensity}
-            color="#ffe8c0" castShadow shadow-mapSize={[2048, 2048]}
+            color="#ffe8c0" castShadow shadow-mapSize={[4096, 4096]}
             shadow-camera-far={220} shadow-camera-left={-60} shadow-camera-right={60}
             shadow-camera-top={60} shadow-camera-bottom={-60} />
           {/* Ocean-bounce fill — cool blue from the water below */}
@@ -456,6 +456,7 @@ export default function Game({ onGameOver }: GameProps) {
         shadows={{ type: THREE_TYPES.PCFShadowMap }}
         camera={{ fov: 70, near: 0.05, far: 500 }}
         gl={{ antialias: true }}
+        dpr={[1, 2]}
         style={{ width: "100%", height: "100%" }}
       >
         <SceneContent
