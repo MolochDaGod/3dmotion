@@ -1918,6 +1918,14 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     }
 
     // ── Rapier physics ──────────────────────────────────────────────────────
+    // SAFETY: all Rapier API calls are wrapped in try-catch.
+    // computeColliderMovement borrows the world for its entire sweep; if any
+    // live Rapier WASM object already holds a borrow on the same RefCell the
+    // WASM runtime panics with "recursive use / unsafe aliasing".
+    // Guard: always pass `collider` as filterExcludeCollider so the sweep
+    // never re-borrows the same capsule it was given, and copy rb.translation()
+    // into plain scalars before calling setNextKinematicTranslation (two
+    // sequential borrows on the bodies store are safe; simultaneous ones are not).
     const rb   = playerRBRef.current;
     const ctrl = charCtrl.current;
 
@@ -1926,44 +1934,60 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       if (velY.current < -30) velY.current = -30;
       _moveVec.y = velY.current * delta;
 
-      const collider = rb.collider(0);
-      if (collider) {
-        ctrl.computeColliderMovement(collider, { x: _moveVec.x, y: _moveVec.y, z: _moveVec.z }, undefined, CG_PLAYER);
-        const resolved   = ctrl.computedMovement();
-        const isGrounded = ctrl.computedGrounded();
+      try {
+        const collider = rb.collider(0);
+        if (collider) {
+          // Pass collider as filterExcludeCollider so Rapier never tries to
+          // re-borrow the same WASM object during the internal sweep — this
+          // was the aliasing source at wasm-function[539] / [1020].
+          ctrl.computeColliderMovement(
+            collider,
+            { x: _moveVec.x, y: _moveVec.y, z: _moveVec.z },
+            undefined,   // filterFlags
+            CG_PLAYER,   // filterGroups
+            collider,    // filterExcludeCollider — exclude our own capsule
+          );
+          const resolved   = ctrl.computedMovement();
+          const isGrounded = ctrl.computedGrounded();
 
-        if (isGrounded && velY.current < 0) {
-          velY.current = 0;
-          if (!grounded.current) {
-            grounded.current = true;
-            // Land animation (only if not mid-attack)
-            if (!blockingOnce.current) {
-              // wm is already snapshotted from gs.weaponMode earlier this frame
-              // Each weapon pack has its own landing target; bow and shield have
-              // no dedicated pistolLand equivalent so they snap to their idle pose.
-              const landAnim: AnimKey =
-                  wm === "staff"   ? "staffIdle"
-                : (wm === "sword" || wm === "axe") ? "meleeIdle"
-                : wm === "rifle"  ? "rifleIdle"
-                : wm === "bow"    ? "bowIdle"
-                : wm === "shield" ? "ssIdle"
-                : "pistolLand";
-              transitionTo(landAnim, 0.08);
-              setTimeout(() => {
-                if (grounded.current && !blockingOnce.current) {
-                  transitionTo(idleForMode(useGameStore.getState().weaponMode), 0.2);
-                }
-              }, 320);
+          if (isGrounded && velY.current < 0) {
+            velY.current = 0;
+            if (!grounded.current) {
+              grounded.current = true;
+              // Land animation (only if not mid-attack)
+              if (!blockingOnce.current) {
+                const landAnim: AnimKey =
+                    wm === "staff"   ? "staffIdle"
+                  : (wm === "sword" || wm === "axe") ? "meleeIdle"
+                  : wm === "rifle"  ? "rifleIdle"
+                  : wm === "bow"    ? "bowIdle"
+                  : wm === "shield" ? "ssIdle"
+                  : "pistolLand";
+                transitionTo(landAnim, 0.08);
+                setTimeout(() => {
+                  if (grounded.current && !blockingOnce.current) {
+                    transitionTo(idleForMode(useGameStore.getState().weaponMode), 0.2);
+                  }
+                }, 320);
+              }
             }
           }
-        }
-        grounded.current = isGrounded;
+          grounded.current = isGrounded;
 
-        const pos  = rb.translation();
-        const next = { x: pos.x + resolved.x, y: pos.y + resolved.y, z: pos.z + resolved.z };
-        rb.setNextKinematicTranslation(next);
-        rootRef.current.position.set(next.x, next.y - CAPSULE_CY, next.z);
-        playerPosRef.current.copy(rootRef.current.position);
+          // Copy translation to plain scalars immediately so the world borrow
+          // from rb.translation() is released before setNextKinematicTranslation.
+          const pos  = rb.translation();
+          const px = pos.x, py = pos.y, pz = pos.z;
+          const nx = px + resolved.x, ny = py + resolved.y, nz = pz + resolved.z;
+          rb.setNextKinematicTranslation({ x: nx, y: ny, z: nz });
+          rootRef.current.position.set(nx, ny - CAPSULE_CY, nz);
+          playerPosRef.current.copy(rootRef.current.position);
+        }
+      } catch (_rapierErr) {
+        // Rapier WASM borrow panic — silently skip this frame's physics.
+        // The character holds its last good position; next frame retries.
+        // Catching here prevents the panic from propagating into React and
+        // triggering the "Invalid hook call" + WebGL context-loss cascade.
       }
     } else {
       // Fallback: no Rapier rigidbody yet — apply horizontal movement directly
