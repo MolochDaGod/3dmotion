@@ -85,6 +85,46 @@ const BOW_ROT    = new THREE.Euler(Math.PI / 2, Math.PI, 0);
 // tilt back (-π/4 on X) so it faces forward and slightly rotate on Y.
 const SHIELD_ROT = new THREE.Euler(-Math.PI / 4, Math.PI / 2, 0);
 
+// ─── Weapon-fit pipeline — read override values saved by ModelViewer ──────────
+// ModelViewer writes to localStorage under "weapon_fit_{key}" when the user
+// clicks "Save to Game".  We read here on each Player mount so character-
+// switching picks up any changes made in the viewer without a full page reload.
+function readFitQAdj(key: string, fallback: THREE.Euler): THREE.Quaternion {
+  try {
+    const raw = localStorage.getItem(`weapon_fit_${key}`);
+    if (raw) {
+      const d = JSON.parse(raw) as { rotation: [number, number, number] };
+      if (Array.isArray(d.rotation) && d.rotation.length === 3) {
+        return new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(d.rotation[0], d.rotation[1], d.rotation[2])
+        );
+      }
+    }
+  } catch { /* corrupt or missing */ }
+  return new THREE.Quaternion().setFromEuler(fallback);
+}
+function readFitScale(key: string, fallback: number): number {
+  try {
+    const raw = localStorage.getItem(`weapon_fit_${key}`);
+    if (raw) {
+      const d = JSON.parse(raw) as { scale: [number, number, number] };
+      if (Array.isArray(d.scale) && d.scale.length === 3) return d.scale[0];
+    }
+  } catch { /* corrupt */ }
+  return fallback;
+}
+function readFitPos(key: string): THREE.Vector3 | null {
+  try {
+    const raw = localStorage.getItem(`weapon_fit_${key}`);
+    if (raw) {
+      const d = JSON.parse(raw) as { position: [number, number, number] };
+      if (Array.isArray(d.position) && d.position.length === 3)
+        return new THREE.Vector3(...d.position);
+    }
+  } catch { /* corrupt */ }
+  return null;
+}
+
 // ─── Staff mana costs ─────────────────────────────────────────────────────────
 const STAFF_CAST1_COST = 20;
 const STAFF_CAST2_COST = 40;
@@ -602,13 +642,15 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   // ── Hand-bone tracking ────────────────────────────────────────────────────
   const handBoneRef      = useRef<THREE.Bone | null>(null);    // right hand
   const leftHandBoneRef  = useRef<THREE.Bone | null>(null);    // left hand (bow)
-  const swordQAdj        = useRef(new THREE.Quaternion().setFromEuler(SWORD_ROT));
-  const axeQAdj          = useRef(new THREE.Quaternion().setFromEuler(AXE_ROT));
-  const caneQAdj         = useRef(new THREE.Quaternion().setFromEuler(STAFF_ROT));
-  const pistolPropQAdj   = useRef(new THREE.Quaternion().setFromEuler(PISTOL_ROT));
-  const riflePropQAdj    = useRef(new THREE.Quaternion().setFromEuler(RIFLE_ROT));
-  const bowQAdj          = useRef(new THREE.Quaternion().setFromEuler(BOW_ROT));
-  const shieldQAdj       = useRef(new THREE.Quaternion().setFromEuler(SHIELD_ROT));
+  // Weapon rotation adjustments — seeded from localStorage if the user has saved
+  // a custom fit in the ModelViewer, otherwise fall back to the hardcoded constants.
+  const swordQAdj        = useRef(readFitQAdj("sword",  SWORD_ROT));
+  const axeQAdj          = useRef(readFitQAdj("axe",    AXE_ROT));
+  const caneQAdj         = useRef(readFitQAdj("staff1", STAFF_ROT));
+  const pistolPropQAdj   = useRef(readFitQAdj("pistol", PISTOL_ROT));
+  const riflePropQAdj    = useRef(readFitQAdj("rifle",  RIFLE_ROT));
+  const bowQAdj          = useRef(readFitQAdj("bow",    BOW_ROT));
+  const shieldQAdj       = useRef(readFitQAdj("shield", SHIELD_ROT));
 
   // ── Model state ───────────────────────────────────────────────────────────
   const [modelObj,      setModelObj]      = useState<THREE.Group | null>(null);
@@ -1098,7 +1140,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.sword, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(0.01);
+      fbx.scale.setScalar(readFitScale("sword", 0.01));
+      const sp = readFitPos("sword"); if (sp) fbx.position.copy(sp);
       fbx.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
       fbx.visible = false;
       setSwordObj(fbx);
@@ -1110,7 +1153,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.axe, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(0.01);
+      fbx.scale.setScalar(readFitScale("axe", 0.01));
+      const ap = readFitPos("axe"); if (ap) fbx.position.copy(ap);
       fbx.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
       fbx.visible = false;
       setAxeObj(fbx);
@@ -1122,10 +1166,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.staff1, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(0.012);
+      fbx.scale.setScalar(readFitScale("staff1", 0.012));
       // Shift mesh so the grip (≈1/3 up the shaft) sits at the bone origin.
       // At scale 0.012 a ~120cm staff ≈ 1.44 world units; offset ≈ -0.48.
-      fbx.position.set(0, -0.5, 0);
+      // localStorage override replaces default if saved via ModelViewer.
+      const sfp = readFitPos("staff1");
+      fbx.position.set(sfp ? sfp.x : 0, sfp ? sfp.y : -0.5, sfp ? sfp.z : 0);
       const texLoader = new THREE.TextureLoader();
       texLoader.load(texPath(WEAPON_TEXTURES.staff), (tex) => {
         tex.flipY = false;
@@ -1150,7 +1196,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.pistol, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(0.012);
+      fbx.scale.setScalar(readFitScale("pistol", 0.012));
+      const pp = readFitPos("pistol"); if (pp) fbx.position.copy(pp);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow = true;
@@ -1169,7 +1216,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.rifle, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(0.013);
+      fbx.scale.setScalar(readFitScale("rifle", 0.013));
+      const rp = readFitPos("rifle"); if (rp) fbx.position.copy(rp);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow = true;
@@ -1189,7 +1237,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.bow, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(0.015);
+      fbx.scale.setScalar(readFitScale("bow", 0.015));
+      const bp = readFitPos("bow"); if (bp) fbx.position.copy(bp);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow = true;
@@ -1205,7 +1254,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     // Shield prop — left hand, metallic face
     new FBXLoader().load(WEAPON_PROPS.shield, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(0.012);
+      fbx.scale.setScalar(readFitScale("shield", 0.012));
+      const shp = readFitPos("shield"); if (shp) fbx.position.copy(shp);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow    = true;

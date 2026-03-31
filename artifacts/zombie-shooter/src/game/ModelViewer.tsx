@@ -21,6 +21,43 @@ const VIEWER_ANIMS: { label: string; path: string }[] = [
   { label: "Block",          path: ANIM_MELEE.block },
 ];
 
+// ─── Per-weapon game scale (mirrors Player.tsx constants) ─────────────────────
+// Meshy / Unity FBX files export in centimetres; 0.01 → metres.
+// Guns and staffs are slightly larger relative to the rig, hence 0.012–0.015.
+export const WEAPON_GAME_SCALE: Record<string, number> = {
+  sword: 0.01, axe: 0.01, axe2: 0.01,
+  pistol: 0.012, rifle: 0.013,
+  bow: 0.015, shield: 0.012,
+  staff1: 0.012, staff5: 0.012, staff10: 0.012,
+};
+
+// ─── Per-weapon game-defaults (pre-seeded from Player.tsx hard-coded constants) ─
+// position = FBX local offset so grip sits at bone origin (e.g. staff shifted down)
+// rotation = qAdj Euler [x, y, z] in radians (the Quaternion applied after bone pose)
+// scale    = uniform scale applied to the FBX model  (same as WEAPON_GAME_SCALE above)
+export const WEAPON_GAME_DEFAULTS: Record<string, WeaponOffset> = {
+  sword:   { position:[  0,    0, 0], rotation:[             0,          0, -Math.PI/2],    scale:[0.01,  0.01,  0.01]  },
+  axe:     { position:[  0,    0, 0], rotation:[             0,          0, -Math.PI/2],    scale:[0.01,  0.01,  0.01]  },
+  axe2:    { position:[  0,    0, 0], rotation:[             0,          0, -Math.PI/2],    scale:[0.01,  0.01,  0.01]  },
+  staff1:  { position:[  0, -0.5, 0], rotation:[-Math.PI*0.35,          0,  Math.PI/2],    scale:[0.012, 0.012, 0.012] },
+  staff5:  { position:[  0, -0.5, 0], rotation:[-Math.PI*0.35,          0,  Math.PI/2],    scale:[0.012, 0.012, 0.012] },
+  staff10: { position:[  0, -0.5, 0], rotation:[-Math.PI*0.35,          0,  Math.PI/2],    scale:[0.012, 0.012, 0.012] },
+  pistol:  { position:[  0,    0, 0], rotation:[    Math.PI/2,          0,           0],   scale:[0.012, 0.012, 0.012] },
+  rifle:   { position:[  0,    0, 0], rotation:[    Math.PI/2,          0,           0],   scale:[0.013, 0.013, 0.013] },
+  bow:     { position:[  0,    0, 0], rotation:[    Math.PI/2,   Math.PI,           0],    scale:[0.015, 0.015, 0.015] },
+  shield:  { position:[  0,    0, 0], rotation:[  -Math.PI/4,  Math.PI/2,           0],   scale:[0.012, 0.012, 0.012] },
+};
+
+const LS_KEY = (wk: string) => `weapon_fit_${wk}`;
+
+function loadFitOffset(wk: string): WeaponOffset {
+  try {
+    const raw = localStorage.getItem(LS_KEY(wk));
+    if (raw) return JSON.parse(raw) as WeaponOffset;
+  } catch { /* corrupt */ }
+  return WEAPON_GAME_DEFAULTS[wk] ?? { position:[0,0,0], rotation:[0,0,0], scale:[1,1,1] };
+}
+
 // ─── Weapon catalogue ─────────────────────────────────────────────────────────
 const WEAPON_LIST: { label: string; key: keyof typeof WEAPON_PROPS; texKey?: keyof typeof WEAPON_TEXTURES }[] = [
   { label: "Sword",    key: "sword",   texKey: "sword"  },
@@ -206,7 +243,7 @@ export interface WeaponOffset {
 
 function WeaponFitScene({
   charPath, animPath, weaponPath, weaponTexPath, targetBone,
-  transformMode, orbitRef, onBoneList, onOffsetChange, showGrid,
+  transformMode, orbitRef, onBoneList, onOffsetChange, showGrid, initialOffset,
 }: {
   charPath:      string;
   animPath:      string;
@@ -218,6 +255,7 @@ function WeaponFitScene({
   onBoneList:    (bones: string[]) => void;
   onOffsetChange:(o: WeaponOffset) => void;
   showGrid:      boolean;
+  initialOffset: WeaponOffset;
 }) {
   const charGroupRef   = useRef<THREE.Group>(null);
   const mixerRef       = useRef<THREE.AnimationMixer | null>(null);
@@ -268,7 +306,9 @@ function WeaponFitScene({
   useEffect(() => {
     const loader = new FBXLoader();
     loader.load(weaponPath, (fbx) => {
-      fbx.scale.setScalar(1);
+      // FBX files export in cm — do NOT scale the mesh itself.
+      // Scale is placed on the pivot (initialOffset.scale) so it matches the
+      // game exactly and TransformControls shows the true game-world dimensions.
 
       // apply texture if available
       if (weaponTexPath) {
@@ -346,10 +386,18 @@ function WeaponFitScene({
   useFrame((_, dt) => {
     mixerRef.current?.update(dt);
 
-    // Attach / keep pivot under bone each frame (bone world matrix updates post-animation)
+    // First-time attachment: parent pivot to bone and apply initialOffset.
+    // This must happen here (not in a useEffect) because bone world matrices
+    // are only valid after the first animation update above.
     if (handBone && weaponPivotRef.current && !pivotAttached.current) {
       handBone.add(weaponPivotRef.current);
       pivotAttached.current = true;
+      const pivot = weaponPivotRef.current;
+      // Apply game-correct initial transform — position, rotation, and scale
+      // are all seeded from the game defaults (or from saved localStorage data).
+      pivot.position.set(initialOffset.position[0], initialOffset.position[1], initialOffset.position[2]);
+      pivot.rotation.set(initialOffset.rotation[0], initialOffset.rotation[1], initialOffset.rotation[2]);
+      pivot.scale.set(initialOffset.scale[0], initialOffset.scale[1], initialOffset.scale[2]);
     }
   });
 
@@ -401,16 +449,25 @@ export function ModelViewer({ onBack }: { onBack: () => void }) {
   const [targetBone,     setTargetBone]    = useState("mixamorigRightHand");
   const [boneFilter,     setBoneFilter]    = useState("hand");
   const [transformMode,  setTransformMode] = useState<"translate"|"rotate"|"scale">("translate");
-  const [offset,         setOffset]        = useState<WeaponOffset>({
-    position: [0,0,0], rotation: [0,0,0], scale: [1,1,1],
-  });
-  const [copied, setCopied] = useState(false);
+  const [resetKey,       setResetKey]      = useState(0);
+  const [saved,          setSaved]         = useState(false);
+  const [copied,         setCopied]        = useState(false);
 
   const activeDef    = chars[charIdx];
   const meshPath     = activeUrl || activeDef.mesh;
   const weaponEntry  = WEAPON_LIST[weaponIdx];
+  const weaponKey    = String(weaponEntry.key);
   const weaponPath   = WEAPON_PROPS[weaponEntry.key];
   const weaponTexPath= weaponEntry.texKey ? WEAPON_TEXTURES[weaponEntry.texKey] : null;
+
+  // Initialise offset from localStorage (or game defaults) whenever weapon changes.
+  // resetKey forces a scene remount (and re-seed) when the user clicks Reset.
+  const [offset, setOffset] = useState<WeaponOffset>(() => loadFitOffset(weaponKey));
+  useEffect(() => {
+    setOffset(loadFitOffset(weaponKey));
+    setSaved(localStorage.getItem(LS_KEY(weaponKey)) !== null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weaponKey, resetKey]);
 
   const filteredBones = boneList.filter((b) =>
     boneFilter.trim() === "" || b.toLowerCase().includes(boneFilter.toLowerCase())
@@ -429,13 +486,24 @@ export function ModelViewer({ onBack }: { onBack: () => void }) {
     });
   }, [offset, targetBone]);
 
+  // Reset to game defaults — removes any saved localStorage override.
   const resetOffset = useCallback(() => {
-    setOffset({ position:[0,0,0], rotation:[0,0,0], scale:[1,1,1] });
-  }, []);
+    localStorage.removeItem(LS_KEY(weaponKey));
+    setSaved(false);
+    setResetKey((k) => k + 1); // force scene remount → re-seeds to game defaults
+  }, [weaponKey]);
+
+  // Save current pivot transform to localStorage so the game reads it on next mount.
+  const saveToGame = useCallback(() => {
+    try {
+      localStorage.setItem(LS_KEY(weaponKey), JSON.stringify(offset));
+      setSaved(true);
+    } catch { /* storage full */ }
+  }, [weaponKey, offset]);
 
   // ── scene remount keys ───────────────────────────────────────────────────
   const charSceneKey   = `${meshPath}-${animIdx}`;
-  const weaponSceneKey = `${meshPath}-${weaponPath}-${animIdx}`;
+  const weaponSceneKey = `${meshPath}-${weaponPath}-${animIdx}-${resetKey}`;
 
   return (
     <div style={{ position:"fixed", inset:0, display:"flex", flexDirection:"column", background:"#030705", fontFamily:mono }}>
@@ -499,10 +567,18 @@ export function ModelViewer({ onBack }: { onBack: () => void }) {
               </button>
             ))}
             <button onClick={resetOffset} style={{ padding:"4px 10px", fontFamily:mono, fontSize:10, cursor:"pointer", borderRadius:2, background:"transparent", border:"1px solid #222", color:"#556655", letterSpacing:1 }}>
-              ↺ RESET
+              ↺ GAME DEFAULTS
+            </button>
+            <button onClick={saveToGame} style={{
+              padding:"4px 12px", fontFamily:mono, fontSize:10, cursor:"pointer", borderRadius:2,
+              background: saved ? "rgba(60,200,60,0.18)" : "rgba(40,120,180,0.18)",
+              border: `1px solid ${saved ? "#2a7a2a" : "#225588"}`,
+              color: saved ? "#5aaa5a" : "#5599cc", letterSpacing:1,
+            }}>
+              {saved ? "✓ SAVED TO GAME" : "▶ SAVE TO GAME"}
             </button>
             <button onClick={handleCopy} style={{
-              padding:"4px 14px", fontFamily:mono, fontSize:10, cursor:"pointer", borderRadius:2,
+              padding:"4px 12px", fontFamily:mono, fontSize:10, cursor:"pointer", borderRadius:2,
               background: copied ? "rgba(60,200,60,0.3)" : "rgba(180,30,30,0.2)",
               border: `1px solid ${copied ? "#2a7a2a" : "#882222"}`,
               color: copied ? "#5aaa5a" : "#ee6666", letterSpacing:1,
@@ -695,6 +771,7 @@ export function ModelViewer({ onBack }: { onBack: () => void }) {
                   onBoneList={setBoneList}
                   onOffsetChange={setOffset}
                   showGrid={showGrid}
+                  initialOffset={offset}
                 />
               )}
             </Suspense>
@@ -740,12 +817,14 @@ export function ModelViewer({ onBack }: { onBack: () => void }) {
           {/* Weapon-fit instructions */}
           {mode === "weapon" && (
             <div style={{ position:"absolute", top:12, right:12, background:"rgba(4,8,6,0.85)", border:"1px solid #1a2a1a", padding:"10px 14px", fontFamily:mono, fontSize:9, color:"#3a6a3a", lineHeight:1.8, letterSpacing:1, pointerEvents:"none" }}>
-              <div style={{ color:"#cc3333", marginBottom:4, letterSpacing:2 }}>WEAPON FIT MODE</div>
-              <div>1. Pick weapon in sidebar</div>
+              <div style={{ color:"#cc3333", marginBottom:4, letterSpacing:2 }}>WEAPON FIT PIPELINE</div>
+              <div>1. Pick weapon — seeded to game defaults</div>
               <div>2. Filter &amp; select the hand bone</div>
               <div>3. Use gizmo to align weapon grip</div>
               <div>4. Switch MOVE → ROTATE to orient</div>
-              <div>5. Click ⎘ COPY JSON for offset data</div>
+              <div style={{ color:"#5599cc" }}>5. ▶ SAVE TO GAME — writes to browser storage</div>
+              <div style={{ color:"#5599cc" }}>6. Switch character → game loads new fit</div>
+              <div style={{ color:"#556655", marginTop:4 }}>↺ GAME DEFAULTS — revert to built-in values</div>
             </div>
           )}
         </div>
