@@ -1,19 +1,21 @@
 /**
  * PirateIsland — Racalvin the Pirate King's starting island.
  *
- * Scene elements (all procedural, no external assets required):
- *   • Sandy island terrain — Rapier HeightfieldCollider + visual mesh
+ * Scene elements:
+ *   • GLB terrain mesh (terrain_island.glb) — visual surface
+ *   • HeightfieldCollider   — fast physics, drives zombie + player grounding
  *   • Animated ocean surface surrounding the island
  *   • 10 palm trees scattered around the beach ring
  *   • Wooden dock on the eastern shore
  *   • Invisible ocean boundary walls (prevent walking to infinity)
  *
  * Coordinate system: 1 Three.js unit = 1 metre.
- * Island radius: 26 m. Island peak: ~2.1 m above ocean (y = 0).
+ * Island radius: 26 m.  FBX source was in cm → scale 0.00015 → 120 m wide.
  */
 
 import { Suspense, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
 import { RigidBody, CuboidCollider, HeightfieldCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import {
@@ -25,7 +27,17 @@ import {
 import { CG_WORLD } from "./CollisionLayers";
 import type { NavObstacle } from "./NavGrid";
 
-// ─── Palm tree layout ──────────────────────────────────────────────────────────
+// ── Scale + offset for the converted GLB (FBX was authored in cm) ─────────────
+// FBX bounding box (cm units): X [-390005, 409991], Z [-410004, 389961]
+// Width ≈ 800 000 cm → scale = 120 m / 800 000 = 0.000150 (matches TERRAIN_SIZE)
+// Centre offsets after scaling: X ≈ +1.5 m, Z ≈ -1.5 m  →  negate for position.
+const GLB_SCALE    = 0.000150;
+const GLB_OFFSET_X = -((409991 + (-390005)) / 2) * GLB_SCALE;  //  ≈ -1.5
+const GLB_OFFSET_Z = -((389961 + (-410004)) / 2) * GLB_SCALE;  //  ≈  1.5
+// Y: terrain ground is near FBX Y = 0; position 0 puts the surface at game y ≈ 0.
+const GLB_OFFSET_Y = 0;
+
+// ─── Nav obstacles (A* avoidance) ─────────────────────────────────────────────
 interface PalmConfig { x: number; z: number; h: number; ry: number }
 
 const PALM_PLACEMENTS: PalmConfig[] = [
@@ -41,10 +53,9 @@ const PALM_PLACEMENTS: PalmConfig[] = [
   { x: -10, z:  20,  h: 6.0, ry:  2.50 },
 ];
 
-// ─── Nav obstacles (A* avoidance) ────────────────────────────────────────────
 export const NAV_OBSTACLES: NavObstacle[] = [
   ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 1.4 })),
-  { x: 25, z: 0, radius: 5.0 }, // dock footprint
+  { x: 25, z: 0, radius: 5.0 },
 ];
 
 // ─── Palm tree ─────────────────────────────────────────────────────────────────
@@ -56,7 +67,6 @@ function PalmTree({ x, z, h = 6.5, ry = 0 }: { x: number; z: number; h?: number;
 
   return (
     <group position={[x, groundY, z]} rotation-y={ry}>
-      {/* Trunk — with physics so zombies / player can bump against it */}
       <RigidBody type="fixed" colliders="hull" collisionGroups={CG_WORLD}>
         <mesh castShadow position={[0, trunkH / 2, 0]}>
           <cylinderGeometry args={[0.11, 0.23, trunkH, 8]} />
@@ -64,7 +74,6 @@ function PalmTree({ x, z, h = 6.5, ry = 0 }: { x: number; z: number; h?: number;
         </mesh>
       </RigidBody>
 
-      {/* Leaf crown — no physics, purely visual */}
       {LEAF_ANGLES.map((deg, i) => (
         <mesh
           key={i}
@@ -89,14 +98,13 @@ function PalmTree({ x, z, h = 6.5, ry = 0 }: { x: number; z: number; h?: number;
 const PLANK_COUNT   = 10;
 const DOCK_START_X  = 21.5;
 const PLANK_SPACING = 0.90;
-const OCEAN_Y       = -0.35; // y of ocean surface plane
+const OCEAN_Y       = -0.35;
 
 function Dock() {
   const planks = useMemo(() => {
     return Array.from({ length: PLANK_COUNT }, (_, i) => {
       const px       = DOCK_START_X + i * PLANK_SPACING;
       const terrainY = Math.max(OCEAN_Y + 0.08, getIslandHeight(px, 0));
-      // Lerp dock height: beach end → water level
       const t  = i / (PLANK_COUNT - 1);
       const py = terrainY * (1 - t) + (OCEAN_Y + 0.08) * t;
       return { px, py };
@@ -113,7 +121,6 @@ function Dock() {
   return (
     <RigidBody type="fixed" colliders="cuboid" collisionGroups={CG_WORLD}>
       <group>
-        {/* Planks */}
         {planks.map(({ px, py }, i) => (
           <mesh key={i} position={[px, py, 0]} castShadow receiveShadow>
             <boxGeometry args={[0.78, 0.12, 2.6]} />
@@ -121,7 +128,6 @@ function Dock() {
           </mesh>
         ))}
 
-        {/* Side railing posts */}
         {posts.map(({ px }, i) => {
           const terrainY = Math.max(OCEAN_Y + 0.08, getIslandHeight(px, 0));
           const t  = (px - DOCK_START_X) / ((PLANK_COUNT - 1) * PLANK_SPACING);
@@ -140,7 +146,6 @@ function Dock() {
           );
         })}
 
-        {/* Horizontal railing beams */}
         <mesh position={[DOCK_START_X + (PLANK_COUNT / 2) * PLANK_SPACING, 0.55 + OCEAN_Y, -1.25]}>
           <boxGeometry args={[PLANK_COUNT * PLANK_SPACING, 0.06, 0.06]} />
           <meshStandardMaterial color="#6b4a1a" roughness={1} />
@@ -150,7 +155,6 @@ function Dock() {
           <meshStandardMaterial color="#6b4a1a" roughness={1} />
         </mesh>
 
-        {/* Mooring posts at the far end */}
         {[-1.0, 1.0].map((side, i) => (
           <mesh
             key={i}
@@ -166,52 +170,60 @@ function Dock() {
   );
 }
 
+// ─── GLB terrain visual ────────────────────────────────────────────────────────
+function TerrainModel() {
+  const { scene } = useGLTF("/models/terrain_island.glb") as any;
+
+  // Clone once so the scene can be used independently of the cached GLTF
+  const clone = useMemo(() => {
+    const c = scene.clone(true);
+    // Apply MeshStandardMaterial to all meshes so they receive lighting
+    c.traverse((obj: THREE.Object3D) => {
+      if (!(obj as THREE.Mesh).isMesh) return;
+      const mesh = obj as THREE.Mesh;
+      mesh.castShadow    = true;
+      mesh.receiveShadow = true;
+      // If the original material is not PBR-compatible, replace it
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      mesh.material = mats.map((m: THREE.Material) => {
+        if (m instanceof THREE.MeshStandardMaterial) {
+          m.roughness  = Math.max(m.roughness,  0.6);
+          m.metalness  = Math.min(m.metalness,  0.1);
+          return m;
+        }
+        // Fallback: convert to MeshStandardMaterial with a sandy palette
+        return new THREE.MeshStandardMaterial({
+          color:     (m as any).color ?? new THREE.Color("#c8a96e"),
+          roughness: 0.88,
+          metalness: 0.02,
+        });
+      }) as any;
+    });
+    return c;
+  }, [scene]);
+
+  return (
+    <group
+      position={[GLB_OFFSET_X, GLB_OFFSET_Y, GLB_OFFSET_Z]}
+      scale={[GLB_SCALE, GLB_SCALE, GLB_SCALE]}
+    >
+      <primitive object={clone} />
+    </group>
+  );
+}
+
 // ─── Island terrain ────────────────────────────────────────────────────────────
 function IslandGround() {
-  const { heights, terrainGeo, skirtGeo } = useMemo(() => {
-    const heights   = buildIslandHeightArray();
-    const V         = TERRAIN_SEGS + 1; // 64
-    const positions = new Float32Array(V * V * 3);
-    const half      = TERRAIN_SIZE / 2;
-    const step      = TERRAIN_SIZE / TERRAIN_SEGS;
-
-    for (let row = 0; row <= TERRAIN_SEGS; row++) {
-      for (let col = 0; col <= TERRAIN_SEGS; col++) {
-        const i = row * V + col;
-        positions[i * 3]     = -half + col * step;   // X
-        positions[i * 3 + 1] = heights[i];            // Y
-        positions[i * 3 + 2] = -half + row * step;   // Z
-      }
-    }
-
-    const indices: number[] = [];
-    for (let row = 0; row < TERRAIN_SEGS; row++) {
-      for (let col = 0; col < TERRAIN_SEGS; col++) {
-        const tl = row * V + col;
-        const tr = tl + 1;
-        const bl = tl + V;
-        const br = bl + 1;
-        indices.push(tl, bl, tr, tr, bl, br);
-      }
-    }
-
-    const terrainGeo = new THREE.BufferGeometry();
-    terrainGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    terrainGeo.setIndex(indices);
-    terrainGeo.computeVertexNormals();
-
+  const { heights, skirtGeo } = useMemo(() => {
+    const heights  = buildIslandHeightArray();
     const skirtGeo = new THREE.BoxGeometry(TERRAIN_SIZE, 12, TERRAIN_SIZE);
-
-    return { heights, terrainGeo, skirtGeo };
+    return { heights, skirtGeo };
   }, []);
 
   return (
     <>
+      {/* Physics collision — unchanged so zombie A* and spawn positions stay valid */}
       <RigidBody type="fixed" colliders={false} friction={0.88} restitution={0.05}>
-        {/*
-          HeightfieldCollider — same vertex layout as the visual mesh.
-          scale.y=1 means the height values are used 1:1 (no extra vertical scaling).
-        */}
         <HeightfieldCollider
           args={[
             TERRAIN_SEGS,
@@ -221,24 +233,19 @@ function IslandGround() {
           ]}
           collisionGroups={CG_WORLD}
         />
-
-        {/* Sandy island surface — warm tan */}
-        <mesh geometry={terrainGeo} receiveShadow>
-          <meshStandardMaterial color="#d4b483" roughness={0.94} metalness={0} />
-        </mesh>
-
-        {/* Skirt — visible earth below the surface (hides cliff edges) */}
-        <mesh geometry={skirtGeo} position={[0, -7.5, 0]}>
-          <meshStandardMaterial color="#b8955a" roughness={1} metalness={0} />
-        </mesh>
       </RigidBody>
+
+      {/* Earth skirt — hides any gap between the GLB terrain and the ocean */}
+      <mesh geometry={skirtGeo} position={[0, -7.5, 0]}>
+        <meshStandardMaterial color="#b8955a" roughness={1} metalness={0} />
+      </mesh>
 
       {/* Safety net far below — catches anything that falls through */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[80, 0.5, 80]} position={[0, -25, 0]} collisionGroups={CG_WORLD} />
       </RigidBody>
 
-      {/* Invisible ocean boundary walls — keeps the player on the island */}
+      {/* Invisible ocean boundary walls */}
       <RigidBody type="fixed" colliders={false} friction={0.05} restitution={0}>
         <CuboidCollider args={[34, 10, 0.5]} position={[  0, 2, -34]} collisionGroups={CG_WORLD} />
         <CuboidCollider args={[34, 10, 0.5]} position={[  0, 2,  34]} collisionGroups={CG_WORLD} />
@@ -256,44 +263,19 @@ function Ocean() {
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    // Gentle roughness pulse — simulates light diffusion on rippling water
-    if (matRef.current) {
-      matRef.current.roughness = 0.07 + Math.sin(t * 0.35) * 0.03;
-    }
-    // Very subtle bob of the whole plane (±1 cm) to suggest wave swell
-    if (meshRef.current) {
-      meshRef.current.position.y = OCEAN_Y + Math.sin(t * 0.28) * 0.01;
-    }
+    if (matRef.current) matRef.current.roughness = 0.07 + Math.sin(t * 0.35) * 0.03;
+    if (meshRef.current) meshRef.current.position.y = OCEAN_Y + Math.sin(t * 0.28) * 0.01;
   });
 
   return (
     <>
-      {/* Deep ocean */}
-      <mesh
-        ref={meshRef}
-        rotation-x={-Math.PI / 2}
-        position={[0, OCEAN_Y, 0]}
-        receiveShadow
-      >
+      <mesh ref={meshRef} rotation-x={-Math.PI / 2} position={[0, OCEAN_Y, 0]} receiveShadow>
         <planeGeometry args={[240, 240, 1, 1]} />
-        <meshStandardMaterial
-          ref={matRef}
-          color="#005f73"
-          metalness={0.28}
-          roughness={0.08}
-        />
+        <meshStandardMaterial ref={matRef} color="#005f73" metalness={0.28} roughness={0.08} />
       </mesh>
-
-      {/* Shallow beach-fringe — lighter turquoise strip near the island */}
       <mesh rotation-x={-Math.PI / 2} position={[0, OCEAN_Y + 0.01, 0]}>
         <ringGeometry args={[22, 32, 64]} />
-        <meshStandardMaterial
-          color="#0a8f9e"
-          transparent
-          opacity={0.55}
-          metalness={0.1}
-          roughness={0.15}
-        />
+        <meshStandardMaterial color="#0a8f9e" transparent opacity={0.55} metalness={0.1} roughness={0.15} />
       </mesh>
     </>
   );
@@ -303,10 +285,15 @@ function Ocean() {
 export function PirateIsland() {
   return (
     <group>
-      {/* Terrain + boundary physics */}
+      {/* Physics terrain + boundary walls */}
       <IslandGround />
 
-      {/* Ocean visual (outside Physics — no collision needed) */}
+      {/* GLB terrain visual — loaded from converted FBX */}
+      <Suspense fallback={null}>
+        <TerrainModel />
+      </Suspense>
+
+      {/* Ocean */}
       <Ocean />
 
       {/* Palm trees */}
@@ -323,3 +310,5 @@ export function PirateIsland() {
     </group>
   );
 }
+
+useGLTF.preload("/models/terrain_island.glb");
