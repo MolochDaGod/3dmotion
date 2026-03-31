@@ -3,7 +3,6 @@ import { useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations, useTexture } from "@react-three/drei";
 import { getIslandHeight } from "./terrain";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
-import { RigidBody, BallCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { useNavWorker } from "./NavWorkerContext";
 import { useEditorStore } from "./useEditorStore";
@@ -44,8 +43,6 @@ const ONCE_ANIMS = new Set([
 
 export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieProps) {
   const groupRef = useRef<THREE.Group>(null!);
-  // Rapier kinematic sensor body — used for weapon shape-cast hit detection
-  const rbRef    = useRef<any>(null);
 
   const { scene, animations } = useGLTF("/models/mutant.gltf");
   const texture = useTexture("/models/mutant.jpg");
@@ -97,12 +94,6 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
   // pathTimerRef: time until next path request (seconds)
   const pathTimerRef = useRef<number>(0);
 
-  // ── Sync Rapier sensor userData after mount ──────────────────────────────
-  useEffect(() => {
-    if (rbRef.current) {
-      rbRef.current.userData = { zombieId: data.id };
-    }
-  }, [data.id]);
 
   function fadeToAction(name: string, fadeIn = 0.18, timeScale = 1.0) {
     const action = actions[name];
@@ -215,7 +206,6 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
       data.position.copy(pos);
       pos.y = getIslandHeight(pos.x, pos.z);
       data.position.y = pos.y;
-      rbRef.current?.setNextKinematicTranslation({ x: pos.x, y: pos.y + 1.0, z: pos.z });
       return;
     }
 
@@ -294,28 +284,12 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
     pos.y = getIslandHeight(pos.x, pos.z);
     data.position.y = pos.y;
 
-    // ── Sync Rapier kinematic sensor to zombie world position ──────────────
-    // The sensor sits at chest height (y+1) so weapon sweeps at that level hit it.
-    rbRef.current?.setNextKinematicTranslation({ x: pos.x, y: pos.y + 1.0, z: pos.z });
   });
 
   const healthPct = Math.max(0, data.health / data.maxHealth);
 
   return (
     <>
-      {/* ── Rapier kinematic sensor — used only for skill hit detection ── */}
-      {!data.isDead && (
-        <RigidBody
-          ref={rbRef}
-          type="kinematicPosition"
-          colliders={false}
-          position={[data.position.x, data.position.y + 1.0, data.position.z]}
-          userData={{ zombieId: data.id }}
-        >
-          <BallCollider args={[1.2]} sensor />
-        </RigidBody>
-      )}
-
       {/* ── Animated zombie mesh ─────────────────────────────────────────── */}
       <group ref={groupRef}>
         <primitive object={clone} />
