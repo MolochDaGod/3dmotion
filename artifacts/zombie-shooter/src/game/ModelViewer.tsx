@@ -732,7 +732,7 @@ export function ModelViewer({ onBack }: { onBack: () => void }) {
           <Canvas
             shadows
             camera={{ fov:50, position:[2.5,1.8,2.5], near:0.01, far:100 }}
-            gl={{ antialias:true }}
+            gl={{ antialias:true, powerPreference: "high-performance" }}
             dpr={[1, 2]}
             style={{ background:"#060e08" }}
           >

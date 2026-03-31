@@ -678,6 +678,23 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   // Always-fresh skill executor — updated every render like fireDamageRef
   const executeSkillRef    = useRef<((slotIdx: number) => void) | null>(null);
 
+  // ── Pending skill-hit queue ───────────────────────────────────────────────
+  // Rapier shape-cast calls (world.intersectionsWithShape) MUST NOT run inside
+  // setTimeout callbacks — those can fire mid-physics-step and trigger the Rust
+  // borrow-checker panic ("recursive use of an object detected").
+  // Instead we push descriptor objects here and drain them from useFrame, which
+  // R3F guarantees runs at a safe point relative to the Rapier step.
+  interface PendingHit {
+    fireAt:       number;   // performance.now() timestamp in ms
+    hitShape:     string;   // "ray" | "capsule" | "sphere"
+    damage:       number;
+    range:        number;
+    arcDeg:       number;
+    effectColor:  string;
+    effectRadius: number;
+  }
+  const pendingHitsRef = useRef<PendingHit[]>([]);
+
   const { camera, scene } = useThree();
   const { world, rapier } = useRapier() as any;
   const charCtrl          = useRef<any>(null);
@@ -829,109 +846,25 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     }
 
     // ── Schedule damage tick(s) ──────────────────────────────────────────
+    // IMPORTANT: Do NOT call any Rapier world API from setTimeout — those
+    // callbacks can fire mid-physics-step and cause the WASM borrow-checker
+    // panic ("recursive use of an object detected").
+    // Instead, push a descriptor into pendingHitsRef and let useFrame drain
+    // it at a guaranteed-safe point relative to the physics step.
     const hitCount = Math.max(1, skill.hitCount);
     const interval = hitCount > 1 ? Math.max(80, Math.floor(skill.dmgDelayMs / hitCount)) : 0;
 
     for (let h = 0; h < hitCount; h++) {
       const delay = skill.dmgDelayMs + h * interval;
-      setTimeout(() => {
-        const ppos = playerPosRef.current;
-        const fwd  = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
-
-        if (skill.hitShape === "ray") {
-          // Ranged — pass origin+dir to Game for ray geometry check
-          const origin = ppos.clone().add(new THREE.Vector3(0, 1.1, 0));
-          onSkillHit({ origin, dir: fwd, damage: skill.damage, range: skill.range, arcDeg: skill.arcDeg });
-
-        } else {
-          // Shape-based — use Rapier intersectionsWithShape
-          const ids: string[] = [];
-          const rotId = { x: 0, y: 0, z: 0, w: 1 };
-          let shapePos: { x: number; y: number; z: number } = { x: ppos.x, y: ppos.y + 1.0, z: ppos.z };
-
-          try {
-            let shape: any;
-            if (skill.hitShape === "capsule") {
-              const halfH = Math.max(0.4, skill.range * 0.45);
-              shape    = new rapier.Capsule(halfH, 0.9);
-              shapePos = { x: ppos.x + fwd.x * skill.range * 0.5, y: ppos.y + 1.0, z: ppos.z + fwd.z * skill.range * 0.5 };
-            } else {
-              // sphere
-              shape    = new rapier.Ball(skill.range);
-              shapePos = { x: ppos.x, y: ppos.y + 1.0, z: ppos.z };
-            }
-
-            // intersectionsWithShape — ONLY collect raw handles inside the callback.
-            // Calling any other Rapier API (parent(), translation(), etc.) from inside
-            // a Rapier callback causes a WASM "recursive use / unsafe aliasing" panic
-            // because Rust's borrow checker doesn't allow re-entrant access.
-            // All real work is done AFTER the callback returns.
-            const hitHandles: number[] = [];
-            (world as any).intersectionsWithShape(
-              shapePos, rotId, shape,
-              (collider: any) => {
-                if (collider?.handle !== undefined) hitHandles.push(collider.handle);
-                return true; // keep searching
-              }
-            );
-
-            // Process results now that Rapier's borrow is fully released
-            for (const handle of hitHandles) {
-              const col = (world as any).getCollider(handle);
-              if (!col) continue;
-              const rb = col.parent?.();
-              const ud = rb?.userData as { zombieId?: string } | undefined;
-              if (!ud?.zombieId) continue;
-              // Arc filter for non-360° skills
-              if (skill.arcDeg < 360) {
-                const rbT = rb.translation?.();
-                if (rbT) {
-                  const toZ = new THREE.Vector3(rbT.x - ppos.x, 0, rbT.z - ppos.z);
-                  if (toZ.lengthSq() > 0.001) {
-                    const dot = fwd.dot(toZ.normalize());
-                    if (dot < Math.cos((skill.arcDeg / 2) * (Math.PI / 180))) continue;
-                  }
-                }
-              }
-              ids.push(ud.zombieId);
-            }
-          } catch (err) {
-            // Rapier API mismatch — fall back to radius-only geometry check
-            // (Game.tsx will re-check via the zombieIds path, which is empty, so no dmg)
-            console.warn("[skill] Rapier shape cast failed, falling back:", err);
-          }
-
-          if (ids.length > 0) {
-            onSkillHit({ zombieIds: ids, damage: skill.damage, range: skill.range, arcDeg: skill.arcDeg });
-          }
-
-          // Spawn ground-plane effect
-          const ep = shapePos ?? { x: ppos.x, y: 0, z: ppos.z };
-          if (skill.hitShape === "sphere" || skill.arcDeg >= 180) {
-            effectsRef.current?.spawnBurst(
-              new THREE.Vector3(ep.x, 0.08, ep.z),
-              skill.effectColor, skill.effectRadius,
-            );
-            effectsRef.current?.spawnSpark(
-              new THREE.Vector3(ep.x, 0.1, ep.z),
-              skill.effectColor, skill.effectRadius * 0.6, 6,
-            );
-          } else {
-            effectsRef.current?.spawnRing(
-              new THREE.Vector3(ep.x, 0.08, ep.z),
-              skill.effectColor, skill.effectRadius,
-            );
-          }
-        }
-
-        // Ray-skill ground flash (always)
-        if (skill.hitShape === "ray") {
-          effectsRef.current?.spawnBurst(
-            new THREE.Vector3(ppos.x, 0.08, ppos.z),
-            skill.effectColor, 1.2 + skill.effectRadius * 0.2, 0.3,
-          );
-        }
-      }, delay);
+      pendingHitsRef.current.push({
+        fireAt:       performance.now() + delay,
+        hitShape:     skill.hitShape,
+        damage:       skill.damage,
+        range:        skill.range,
+        arcDeg:       skill.arcDeg,
+        effectColor:  skill.effectColor,
+        effectRadius: skill.effectRadius,
+      });
     }
   };
 
@@ -1802,6 +1735,98 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         rolling.current = false;
         if (setInvincible) setInvincible(false);
       }
+    }
+
+    // ── Drain pending skill hits ────────────────────────────────────────────
+    // All Rapier world queries (intersectionsWithShape) happen HERE, inside
+    // useFrame, which R3F guarantees fires at a safe point relative to the
+    // physics step — never re-entrant, never mid-step.
+    if (pendingHitsRef.current.length > 0) {
+      const now = performance.now();
+      const remaining: typeof pendingHitsRef.current = [];
+      for (const hit of pendingHitsRef.current) {
+        if (hit.fireAt > now) { remaining.push(hit); continue; }
+
+        const ppos = playerPosRef.current;
+        const hitFwd = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
+
+        if (hit.hitShape === "ray") {
+          // Ranged — pass origin+dir to Game for ray geometry check (no Rapier)
+          const origin = ppos.clone().add(new THREE.Vector3(0, 1.1, 0));
+          onSkillHit({ origin, dir: hitFwd, damage: hit.damage, range: hit.range, arcDeg: hit.arcDeg });
+          effectsRef.current?.spawnBurst(
+            new THREE.Vector3(ppos.x, 0.08, ppos.z),
+            hit.effectColor, 1.2 + hit.effectRadius * 0.2, 0.3,
+          );
+        } else {
+          // Shape-based — safe to call Rapier here (useFrame = post-step safe point)
+          const ids: string[] = [];
+          const rotId = { x: 0, y: 0, z: 0, w: 1 };
+          let shapePos = { x: ppos.x, y: ppos.y + 1.0, z: ppos.z };
+          try {
+            let shape: any;
+            if (hit.hitShape === "capsule") {
+              const halfH = Math.max(0.4, hit.range * 0.45);
+              shape    = new rapier.Capsule(halfH, 0.9);
+              shapePos = { x: ppos.x + hitFwd.x * hit.range * 0.5, y: ppos.y + 1.0, z: ppos.z + hitFwd.z * hit.range * 0.5 };
+            } else {
+              shape = new rapier.Ball(hit.range);
+            }
+
+            // Collect only raw handles inside the callback — re-entrant Rapier
+            // API calls from within the callback still cause panics.
+            const hitHandles: number[] = [];
+            (world as any).intersectionsWithShape(
+              shapePos, rotId, shape,
+              (collider: any) => { if (collider?.handle !== undefined) hitHandles.push(collider.handle); return true; },
+            );
+
+            // Process results after Rapier's borrow is fully released
+            for (const handle of hitHandles) {
+              const col = (world as any).getCollider(handle);
+              if (!col) continue;
+              const rb = col.parent?.();
+              const ud = rb?.userData as { zombieId?: string } | undefined;
+              if (!ud?.zombieId) continue;
+              if (hit.arcDeg < 360) {
+                const rbT = rb.translation?.();
+                if (rbT) {
+                  const toZ = new THREE.Vector3(rbT.x - ppos.x, 0, rbT.z - ppos.z);
+                  if (toZ.lengthSq() > 0.001) {
+                    const dot = hitFwd.dot(toZ.normalize());
+                    if (dot < Math.cos((hit.arcDeg / 2) * (Math.PI / 180))) continue;
+                  }
+                }
+              }
+              ids.push(ud.zombieId);
+            }
+          } catch (err) {
+            console.warn("[skill] Rapier shape cast failed:", err);
+          }
+
+          if (ids.length > 0) {
+            onSkillHit({ zombieIds: ids, damage: hit.damage, range: hit.range, arcDeg: hit.arcDeg });
+          }
+
+          // Spawn ground-plane effect
+          if (hit.hitShape === "sphere" || hit.arcDeg >= 180) {
+            effectsRef.current?.spawnBurst(
+              new THREE.Vector3(shapePos.x, 0.08, shapePos.z),
+              hit.effectColor, hit.effectRadius,
+            );
+            effectsRef.current?.spawnSpark(
+              new THREE.Vector3(shapePos.x, 0.1, shapePos.z),
+              hit.effectColor, hit.effectRadius * 0.6, 6,
+            );
+          } else {
+            effectsRef.current?.spawnRing(
+              new THREE.Vector3(shapePos.x, 0.08, shapePos.z),
+              hit.effectColor, hit.effectRadius,
+            );
+          }
+        }
+      }
+      pendingHitsRef.current = remaining;
     }
 
     mixerRef.current?.update(delta);

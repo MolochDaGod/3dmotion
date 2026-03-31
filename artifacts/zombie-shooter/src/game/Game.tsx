@@ -455,9 +455,14 @@ export default function Game({ onGameOver }: GameProps) {
       <Canvas
         shadows={{ type: THREE_TYPES.PCFShadowMap }}
         camera={{ fov: 70, near: 0.05, far: 500 }}
-        gl={{ antialias: true }}
+        gl={{ antialias: true, powerPreference: "high-performance" }}
         dpr={[1, 2]}
         style={{ width: "100%", height: "100%" }}
+        onCreated={({ gl }) => {
+          if (!gl.capabilities.isWebGL2) {
+            console.warn("[Canvas] WebGL2 not available — falling back to WebGL1");
+          }
+        }}
       >
         <SceneContent
           zombies={zombies}
