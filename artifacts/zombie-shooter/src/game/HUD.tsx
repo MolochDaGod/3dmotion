@@ -423,7 +423,7 @@ export function HUD() {
   const healthPct   = (health / maxHealth) * 100;
   const healthColor = healthPct > 60 ? "#4caf50" : healthPct > 30 ? "#ff9800" : "#f44336";
   const manaPct     = (mana / maxMana) * 100;
-  const isFPS       = camera.mode === "fps";
+  const isRTS       = camera.mode === "rts";
 
   return (
     <>
@@ -465,7 +465,7 @@ export function HUD() {
             color:         "rgba(255,255,255,0.55)",
             letterSpacing: 2,
           }}>
-            Click anywhere or press <strong style={{ color: "#fff" }}>P</strong> to resume
+            Click to play &nbsp;·&nbsp; <strong style={{ color: "#fff" }}>ESC</strong> to pause in-game
           </div>
         </div>
       )}
@@ -473,7 +473,7 @@ export function HUD() {
       <div className="fixed inset-0 pointer-events-none select-none">
 
         {/* Crosshair — hidden when paused */}
-        {!isPaused && <Crosshair fps={isFPS} staff={isStaffMode} blocking={meleeBlocking} />}
+        {!isPaused && <Crosshair fps={false} staff={isStaffMode} blocking={meleeBlocking} />}
 
         {/* Camera mode badge */}
         <div style={{
@@ -483,7 +483,7 @@ export function HUD() {
           textTransform: "uppercase",
           fontFamily: "monospace",
         }}>
-          {camera.mode === "fps" ? "FPS" : camera.mode === "action" ? "ACTION CAM" : "TPS"} · P to cycle · F3 settings
+          {camera.mode === "rts" ? "RTS CAM" : camera.mode === "action" ? "ACTION CAM" : "TPS"} · P to cycle · F3 settings
         </div>
 
         {/* Health + Mana — bottom left */}
@@ -802,12 +802,12 @@ export function HUD() {
           WASD move &nbsp;·&nbsp; Shift sprint &nbsp;·&nbsp; Space jump
           &nbsp;·&nbsp; <span className="text-white/40">Alt</span> crouch
           &nbsp;·&nbsp; <span className="text-white/40">Ctrl</span> roll
-          &nbsp;·&nbsp; <span className="text-white/40">Q</span> cycle weapon
-          &nbsp;·&nbsp; <span className="text-white/40">R</span> spell select
-          &nbsp;·&nbsp; <span className="text-white/40">F</span> cast spell
-          &nbsp;·&nbsp; <span className="text-white/40">C</span> character
-          &nbsp;·&nbsp; <span className="text-white/40">F1</span> god mode
-          &nbsp;·&nbsp; <span className="text-white/40">F9</span> admin
+          &nbsp;·&nbsp; <span className="text-white/40">Q</span> swap weapon
+          &nbsp;·&nbsp; <span className="text-white/40">1–4·R</span> skills
+          &nbsp;·&nbsp; <span className="text-white/40">E</span> interact
+          &nbsp;·&nbsp; LMB attack &nbsp;·&nbsp; RMB heavy
+          &nbsp;·&nbsp; <span className="text-white/40">P</span> camera
+          &nbsp;·&nbsp; <span className="text-white/40">ESC</span> pause
         </div>
 
         {/* ── God Mode Banner ─────────────────────────────────────────────── */}
@@ -816,7 +816,7 @@ export function HUD() {
         {/* Warnings */}
         {ammo === 0 && !isReloading && !isMeleeMode && !isStaffMode && !isBowMode && (
           <div className="absolute bottom-28 left-1/2 -translate-x-1/2 text-red-400 font-bold text-base animate-bounce">
-            EMPTY — R to reload
+            EMPTY — ammo depleted
           </div>
         )}
 

@@ -272,7 +272,7 @@ export function CharacterPanel() {
           fontSize: 10, color: "rgba(255,255,255,0.18)",
           textAlign: "center", letterSpacing: 1,
         }}>
-          WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll
+          WASD · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q swap · 1–4·R skills · E interact · ESC pause
         </div>
       </div>
     </div>

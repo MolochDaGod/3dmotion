@@ -176,7 +176,7 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 - `Game.tsx` wraps `<Physics>` with `<NavWorkerProvider obstacles={NAV_OBSTACLES}>` so the grid is initialised once from `Graveyard.NAV_OBSTACLES`.
 - Main thread no longer calls `initNavGrid` or `getPath` — A* never blocks the render loop.
 
-**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q cycle weapon · R reload/spell-select · F cast spell · C character panel · P camera mode · N next character · ` editor panel · F2 perf overlay
+**Key bindings:** WASD move · Shift sprint · Space jump · Alt crouch · Ctrl roll · Q swap weapon · 1/2/3/4/R skills · E interact · LMB attack · RMB heavy hit (melee) / butt-strike (ranged) · P cycle camera (TPS→Action→RTS) · ESC pause · C character panel · F cast spell · F1 god mode · F2 TPS↔RTS · F3 camera settings · F9 admin
 
 **Key files:** ANNIHILATE_LEARNINGS.md — architecture reference from studied game repo
 

@@ -31,7 +31,9 @@ const JUMP_FORCE    = 9;
 const PITCH_MIN        = -Math.PI / 2.5;
 const PITCH_MAX_TPS    =  Math.PI / 8;
 const PITCH_MAX_ACTION =  Math.PI / 5;   // action cam — slight downward look freedom
-const PITCH_MAX_FPS    =  Math.PI / 2 - 0.05;
+const RTS_PITCH        = -Math.PI / 3;   // ~-60 deg fixed downward angle for RTS camera
+const RTS_CAM_Y        = 14.0;           // units above player
+const RTS_CAM_Z        = 8.5;            // units behind player
 const EYE_HEIGHT    = 1.42;   // eye level ≈ 93% of 1.524 m (was 1.70, matched old oversized capsule)
 const ROLL_SPEED     = 14;
 const ROLL_DURATION  = 0.45;
@@ -1462,11 +1464,11 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!locked.current) return;
     const { sensitivity, mode } = useGameStore.getState().camera;
+    // RTS camera has a fixed angle — mouse look is disabled
+    if (mode === "rts") return;
     yaw.current   -= e.movementX * sensitivity;
     pitch.current -= e.movementY * sensitivity;
-    const pMax = mode === "fps" ? PITCH_MAX_FPS
-               : mode === "action" ? PITCH_MAX_ACTION
-               : PITCH_MAX_TPS;
+    const pMax = mode === "action" ? PITCH_MAX_ACTION : PITCH_MAX_TPS;
     pitch.current = Math.max(PITCH_MIN, Math.min(pMax, pitch.current));
   }, []);
 
@@ -1528,9 +1530,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         ssBlocking.current = true;
         transitionTo("ssBlockIdle", 0.12);
       } else if (isMelee) {
-        // RMB held = hold block pose + zoom in
-        meleeBlocking.current = true;
-        setMeleeBlocking(true);
+        // RMB melee = heavy hit (power strike — plays the hardest combo animation once)
+        if (blockingOnce.current) return;
+        requestBlockingAnim({ key: "meleeCombo3", fade: FADE_ATK_START, dmgMs: 520 });
       } else if (isBow) {
         // RMB bow: moving = quick parry deflect; stationary = enter aim mode
         const moving = keys.current["KeyW"] || keys.current["KeyA"]
@@ -1557,20 +1559,24 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (e.button === 2) {
-      bowAiming.current     = false;
-      ssBlocking.current    = false;
-      if (meleeBlocking.current) {
-        meleeBlocking.current = false;
-        setMeleeBlocking(false);
-      }
+      bowAiming.current  = false;
+      ssBlocking.current = false;
+      // Note: melee RMB is now a heavy hit (not a hold-block), so no blocking cleanup needed.
     }
-  }, [setMeleeBlocking]);
+  }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (["AltLeft","AltRight","F1","F2","F3","F9","ControlLeft","ControlRight"].includes(e.code)) {
+    if (["AltLeft","AltRight","F1","F2","F3","F9","ControlLeft","ControlRight","Escape"].includes(e.code)) {
       e.preventDefault();
     }
     keys.current[e.code] = true;
+
+    // ESC — pause game, release pointer lock
+    if (e.code === "Escape") {
+      setPaused(true);
+      document.exitPointerLock();
+      return;
+    }
 
     // F1 — toggle God Mode (noclip, free-fly, T-pose)
     if (e.code === "F1") {
@@ -1584,14 +1590,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       return;
     }
 
-    if (e.code === "KeyR") {
-      // R = reload for ranged weapons, open spell radial for staff/magic
-      const wm = useGameStore.getState().weaponMode;
-      if (wm === "pistol" || wm === "rifle") {
-        reload();
-      } else {
-        setShowSpellRadial(true);
-      }
+    // R — skill slot 4 (5th skill, 0-indexed)
+    if (e.code === "KeyR") { e.preventDefault(); executeSkillRef.current?.(4); }
+
+    // E — interact with the nearest interactable object
+    if (e.code === "KeyE") {
+      document.dispatchEvent(new CustomEvent("game:interact"));
     }
 
     // F — fire the selected magic spell from the radial wheel
@@ -1623,15 +1627,15 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       else document.body.requestPointerLock();
     }
 
-    // P — cycle camera views: tps (front) → action → fps → tps
+    // P — cycle camera modes: tps → action → rts → tps
     if (e.code === "KeyP") {
       cycleCameraMode();
     }
 
-    // F2 — kept for compat: direct tps ↔ fps jump
+    // F2 — direct tps ↔ rts jump (quick toggle between normal and strategic view)
     if (e.code === "F2") {
       const store = useGameStore.getState();
-      setCameraMode(store.camera.mode === "fps" ? "tps" : "fps");
+      setCameraMode(store.camera.mode === "rts" ? "tps" : "rts");
     }
 
     // F3 — settings panel
@@ -1704,7 +1708,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       if (setInvincible) setInvincible(true);
     }
   }, [
-    reload, cycleWeapon, transitionTo,
+    setPaused, cycleWeapon, transitionTo,
     setCameraMode, cycleCameraMode, setShowCameraSettings,
     startCrouch, endCrouch, setInvincible,
     toggleCharacterPanel,
@@ -1714,7 +1718,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const handleKeyUp   = useCallback((e: KeyboardEvent) => { keys.current[e.code] = false; }, []);
   const handlePLC = useCallback(() => {
     locked.current = document.pointerLockElement === document.body;
-    setPaused(!locked.current);
+    // Gaining pointer lock always resumes the game.
+    // Losing it (alt-tab, window blur) pauses until the player clicks back in.
+    if (locked.current) setPaused(false);
+    else                setPaused(true);
   }, [setPaused]);
   const handleCtxMenu = useCallback((e: MouseEvent) => e.preventDefault(), []);
 
@@ -1726,9 +1733,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     document.addEventListener("keyup",             handleKeyUp);
     document.addEventListener("pointerlockchange", handlePLC);
     document.addEventListener("contextmenu",       handleCtxMenu);
-    // Sync immediately in case pointer lock was granted before this effect ran
+    // Sync locked ref immediately (pointer lock may already be active on re-mount)
     locked.current = document.pointerLockElement === document.body;
-    setPaused(!locked.current);
+    // Do NOT force-pause on mount — game starts unpaused; ESC / pointer-lock-loss pauses.
     return () => {
       document.removeEventListener("mousemove",         handleMouseMove);
       document.removeEventListener("mousedown",         handleMouseDown);
@@ -1808,22 +1815,23 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
     // ── Camera ─────────────────────────────────────────────────────────────
     // tps    = user-configured over-shoulder (shoulderX/Y/Z)
-    // action = tight cinematic combat cam: closer, lower, tighter FOV feel
-    // fps    = first-person at eye level
+    // action = tight cinematic combat cam: closer, lower, more dramatic
+    // rts    = elevated strategic / top-down follow camera (fixed angle)
     const { mode, shoulderX, shoulderY, shoulderZ } = gs.camera;
-    const camX = mode === "fps"    ? 0
+    const camX = mode === "rts"    ? 0
                : mode === "action" ? 0.28
                : shoulderX;
-    const camY = mode === "fps"    ? EYE_HEIGHT
-               : mode === "action" ? 0.80   // ≈ hip height for 1.524 m character (was 0.9 / 1.70 m ref)
+    const camY = mode === "rts"    ? RTS_CAM_Y
+               : mode === "action" ? 0.80
                : shoulderY;
-    const camZ = mode === "fps"    ? 0.1
+    const camZ = mode === "rts"    ? RTS_CAM_Z
                : mode === "action" ? 1.55
                : shoulderZ;
     camera.position.set(camX, camY, camZ);
-    camera.rotation.x = pitch.current;
+    // RTS camera: fixed downward pitch, ignore mouse pitch
+    camera.rotation.x = mode === "rts" ? RTS_PITCH : pitch.current;
     camera.rotation.y = 0;
-    camera.rotation.z = rollCamZ.current;
+    camera.rotation.z = mode === "rts" ? 0 : rollCamZ.current;
 
     // ── Head bob — procedural vertical/lateral camera oscillation ────────────
     // Only while grounded and moving; fades to zero when stationary.
@@ -1869,7 +1877,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       leanGroupRef.current.quaternion.copy(_leanQ); // body mesh: lean only
     }
 
-    if (modelGroupRef.current) modelGroupRef.current.visible = (mode !== "fps");
+    if (modelGroupRef.current) modelGroupRef.current.visible = true; // always visible (no fps mode)
 
     // ── Weapon model + hand-bone tracking ──────────────────────────────────
     const wm        = gs.weaponMode;
