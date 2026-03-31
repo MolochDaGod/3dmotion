@@ -637,6 +637,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const { camera, scene } = useThree();
   const { world, rapier } = useRapier() as any;
   const charCtrl          = useRef<any>(null);
+  // Latch set on first Rapier WASM panic; clears on next clean mount.
+  // Prevents the cascade of hundreds of panics that destroy the WebGL context.
+  const rapierPanicked    = useRef(false);
 
   const {
     health, shoot, reload, ammo, isReloading,
@@ -924,7 +927,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     try { ctrl.enableSnapToGround(0.3); } catch { /* version variance */ }
     ctrl.setApplyImpulsesToDynamicBodies(false);
     charCtrl.current = ctrl;
-    return () => { world.removeCharacterController(ctrl); };
+    return () => {
+      // Null charCtrl BEFORE freeing so any racing useFrame sees null and
+      // skips rather than calling methods on a freed WASM controller object.
+      charCtrl.current = null;
+      world.removeCharacterController(ctrl);
+    };
   }, [world]);
 
   // ── Camera parenting ──────────────────────────────────────────────────────
@@ -1867,7 +1875,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     // Freeze the animation mixer in T-pose (timeScale=0) when god mode is on
     if (mixerRef.current) mixerRef.current.timeScale = godModeActive ? 0 : 1;
 
-    if (godModeActive && playerRBRef.current) {
+    if (godModeActive && playerRBRef.current && !rapierPanicked.current) {
       const gSpeed = (keys.current["ShiftLeft"] || keys.current["ShiftRight"]) ? 30 : 12;
       // Reuse module-level scratch vectors — no heap allocation
       _flyFwd.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current));
@@ -1880,8 +1888,11 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       if (_flyDir.lengthSq() > 0) _flyDir.normalize().multiplyScalar(gSpeed * delta);
       if (keys.current["Space"])                                           _flyDir.y += gSpeed * delta;
       if (keys.current["ControlLeft"] || keys.current["ControlRight"])    _flyDir.y -= gSpeed * delta;
+      // Copy WASM translation to plain scalars before calling setNextKinematicTranslation
+      // — same pattern as the ground-physics block to prevent potential borrow aliasing.
       const pos  = playerRBRef.current.translation();
-      const next = { x: pos.x + _flyDir.x, y: pos.y + _flyDir.y, z: pos.z + _flyDir.z };
+      const px = pos.x, py = pos.y, pz = pos.z;
+      const next = { x: px + _flyDir.x, y: py + _flyDir.y, z: pz + _flyDir.z };
       playerRBRef.current.setNextKinematicTranslation(next);
       rootRef.current.position.set(next.x, next.y - capCY, next.z);
       playerPosRef.current.copy(rootRef.current.position);
@@ -1934,10 +1945,15 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     // never re-borrows the same capsule it was given, and copy rb.translation()
     // into plain scalars before calling setNextKinematicTranslation (two
     // sequential borrows on the bodies store are safe; simultaneous ones are not).
+    //
+    // rapierPanicked: once the first panic fires, the WASM RefCell is corrupted.
+    // Every subsequent call will also panic, causing a cascade that destroys the
+    // React component tree and the WebGL context.  Skip ALL Rapier calls after
+    // the first panic until the component remounts with a fresh world.
     const rb   = playerRBRef.current;
     const ctrl = charCtrl.current;
 
-    if (rb && ctrl) {
+    if (rb && ctrl && !rapierPanicked.current) {
       velY.current += -22 * delta;
       if (velY.current < -30) velY.current = -30;
       _moveVec.y = velY.current * delta;
@@ -1992,10 +2008,14 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
           playerPosRef.current.copy(rootRef.current.position);
         }
       } catch (_rapierErr) {
-        // Rapier WASM borrow panic — silently skip this frame's physics.
-        // The character holds its last good position; next frame retries.
-        // Catching here prevents the panic from propagating into React and
-        // triggering the "Invalid hook call" + WebGL context-loss cascade.
+        // Rapier WASM borrow panic — latch the flag so we never call Rapier
+        // again from this component instance.  Without the latch, every
+        // subsequent frame fires the same panic (the WASM RefCell remains
+        // corrupted after the first panic), producing a cascade of hundreds
+        // of errors that destroys the React tree and the WebGL context.
+        // The component will fully remount on the next character-switch or
+        // scene reload, giving a fresh Rapier world.
+        rapierPanicked.current = true;
       }
     } else {
       // Fallback: no Rapier rigidbody yet — apply horizontal movement directly
