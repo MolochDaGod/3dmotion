@@ -18,9 +18,11 @@ import {
 } from "./assets/manifest";
 
 // ─── Capsule ──────────────────────────────────────────────────────────────────
-const CAPSULE_HH = 0.5;
-const CAPSULE_R  = 0.35;
-const CAPSULE_CY = CAPSULE_HH + CAPSULE_R;
+// Racalvin is 60 in = 1.524 m.  Capsule total = 2·HH + 2·R = 1.44 m (snug fit).
+// CY = HH + R = distance from feet to the capsule centre-of-mass.
+const CAPSULE_HH = 0.42;   // half-height of cylinder  (was 0.50 → 1.70 m body)
+const CAPSULE_R  = 0.30;   // hemisphere radius         (was 0.35)
+const CAPSULE_CY = CAPSULE_HH + CAPSULE_R;   // 0.72 m
 
 // ─── Movement ─────────────────────────────────────────────────────────────────
 const WALK_SPEED    = 4.5;
@@ -30,7 +32,7 @@ const PITCH_MIN        = -Math.PI / 2.5;
 const PITCH_MAX_TPS    =  Math.PI / 8;
 const PITCH_MAX_ACTION =  Math.PI / 5;   // action cam — slight downward look freedom
 const PITCH_MAX_FPS    =  Math.PI / 2 - 0.05;
-const EYE_HEIGHT    = 1.70;
+const EYE_HEIGHT    = 1.42;   // eye level ≈ 93% of 1.524 m (was 1.70, matched old oversized capsule)
 const ROLL_SPEED     = 14;
 const ROLL_DURATION  = 0.45;
 const ROLL_COOLDOWN  = 1.2;
@@ -513,6 +515,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   // ── Active character definition (read once on mount; Game.tsx remounts via key) ──
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const charDef = useCharacterStore.getState().def;
+
+  // Per-character capsule dims — sourced from the CharacterDef so each character
+  // gets the correct physics body.  Module-level CAPSULE_HH/R are the Racalvin defaults.
+  const capHH = charDef.capsuleHH;               // half-height of cylinder
+  const capR  = charDef.capsuleR;                // hemisphere radius
+  const capCY = capHH + capR;                    // feet → capsule centre-of-mass
 
   // ── Scene refs ────────────────────────────────────────────────────────────
   const rootRef             = useRef<THREE.Group>(null!);
@@ -1749,7 +1757,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
                : mode === "action" ? 0.28
                : shoulderX;
     const camY = mode === "fps"    ? EYE_HEIGHT
-               : mode === "action" ? 0.9
+               : mode === "action" ? 0.80   // ≈ hip height for 1.524 m character (was 0.9 / 1.70 m ref)
                : shoulderY;
     const camZ = mode === "fps"    ? 0.1
                : mode === "action" ? 1.55
@@ -1875,7 +1883,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       const pos  = playerRBRef.current.translation();
       const next = { x: pos.x + _flyDir.x, y: pos.y + _flyDir.y, z: pos.z + _flyDir.z };
       playerRBRef.current.setNextKinematicTranslation(next);
-      rootRef.current.position.set(next.x, next.y - CAPSULE_CY, next.z);
+      rootRef.current.position.set(next.x, next.y - capCY, next.z);
       playerPosRef.current.copy(rootRef.current.position);
       return; // skip normal physics + locomotion state machine
     }
@@ -1980,7 +1988,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
           const px = pos.x, py = pos.y, pz = pos.z;
           const nx = px + resolved.x, ny = py + resolved.y, nz = pz + resolved.z;
           rb.setNextKinematicTranslation({ x: nx, y: ny, z: nz });
-          rootRef.current.position.set(nx, ny - CAPSULE_CY, nz);
+          rootRef.current.position.set(nx, ny - capCY, nz);
           playerPosRef.current.copy(rootRef.current.position);
         }
       } catch (_rapierErr) {
@@ -2090,11 +2098,11 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       <RigidBody
         ref={playerRBRef}
         type="kinematicPosition"
-        position={[0, getIslandHeight(0, 0) + CAPSULE_CY, 0]}
+        position={[0, getIslandHeight(0, 0) + capCY, 0]}
         colliders={false}
         enabledRotations={[false, false, false]}
       >
-        <CapsuleCollider args={[CAPSULE_HH, CAPSULE_R]} collisionGroups={CG_PLAYER} />
+        <CapsuleCollider args={[capHH, capR]} collisionGroups={CG_PLAYER} />
       </RigidBody>
 
       <group ref={rootRef}>
@@ -2105,13 +2113,16 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
             {modelObj ? (
               <primitive object={modelObj} />
             ) : (
+              // Fallback capsule+head — proportioned for 60 in (1.524 m) character.
+              // Body: R=0.28, L=0.84 → total 1.40 m (torso + legs)
+              // Head: R=0.20, centre at 1.44 m
               <group>
-                <mesh position={[0, 0.9, 0]} castShadow>
-                  <capsuleGeometry args={[0.35, 1.0, 4, 8]} />
+                <mesh position={[0, 0.70, 0]} castShadow>
+                  <capsuleGeometry args={[0.28, 0.84, 4, 8]} />
                   <meshStandardMaterial color="#4a90d9" />
                 </mesh>
-                <mesh position={[0, 1.75, 0]} castShadow>
-                  <sphereGeometry args={[0.28, 8, 8]} />
+                <mesh position={[0, 1.44, 0]} castShadow>
+                  <sphereGeometry args={[0.20, 8, 8]} />
                   <meshStandardMaterial color="#f4c896" />
                 </mesh>
               </group>
