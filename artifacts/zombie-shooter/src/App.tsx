@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Game from "@/game/Game";
 import { EditorPanel } from "@/game/EditorPanel";
-import { useEditorStore } from "@/game/useEditorStore";
+import { useEditorStore, SceneId } from "@/game/useEditorStore";
 import { MainMenu } from "@/game/MainMenu";
 import { useCharacterStore } from "@/game/useCharacterStore";
 
@@ -26,11 +26,12 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleEditor, togglePerf]);
 
-  const handleStart    = () => {
+  const handleStart = (scene: SceneId) => {
+    useEditorStore.getState().patch({ activeScene: scene });
     setGameStarted(true);
     setGameOver(false);
     setScore(0);
-    document.body.requestPointerLock().catch(() => {/* browser may reject if lock was just released */});
+    document.body.requestPointerLock().catch(() => {});
   };
   const handleGameOver = (finalScore: number) => {
     document.exitPointerLock();
