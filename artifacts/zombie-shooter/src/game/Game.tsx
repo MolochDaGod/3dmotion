@@ -508,6 +508,13 @@ export default function Game({ onGameOver }: GameProps) {
                 antialias:       true,
                 powerPreference: "high-performance",
               });
+              // WebGPURenderer requires async backend initialization before the
+              // first .render() call.  R3F's Canvas calls render() synchronously
+              // on the first frame, so we MUST await init() here in the gl factory
+              // before returning — otherwise every frame fires the
+              // "called before backend is initialized" error that corrupts the
+              // WebGPU command queue and kills the render loop.
+              await renderer.init();
               return renderer as unknown as THREE_TYPES.WebGLRenderer;
             }
           : { antialias: true, powerPreference: "high-performance" }
