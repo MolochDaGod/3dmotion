@@ -198,6 +198,7 @@ function SceneContent({
             onSkillHit={onSkillHit}
             onDead={onPlayerDead}
             playerPosRef={playerPosRef}
+            waterY={isGraveyard ? undefined : 0}
           />
 
           {/* Zombies inside Physics so their Rapier sensor bodies are registered */}

@@ -28,6 +28,7 @@ const AM = `${M}/animations/melee`;
 const AS = `${M}/animations/staff`;
 const AB = `${M}/animations/bow`;
 const ASS = `${M}/animations/shield-sword`;
+const ATV = `${M}/animations/traverse`;
 const WP = `${M}/props/weapons`;
 const WT = `${M}/props/weapons/textures`;
 const ENV = `${M}/environment`;
@@ -147,6 +148,19 @@ export const ANIM_SHIELD_SWORD = {
   attack3:     `${ASS}/ssAttack3.fbx`,
   attack4:     `${ASS}/ssAttack4.fbx`,
   drawSword:   `${ASS}/ssDrawSword.fbx`,
+} as const;
+
+export const ANIM_TRAVERSE = {
+  /** Mixamo "Climbing Up Wall" — LoopOnce, player vaults a ledge */
+  climbUp:     `${ATV}/climb-up.fbx`,
+  /** Mixamo "Climbing"         — LoopRepeat, general vertical climb */
+  climbing:    `${ATV}/climbing.fbx`,
+  /** Mixamo "Treading Water"   — LoopRepeat, stationary in water   */
+  treading:    `${ATV}/treading.fbx`,
+  /** Mixamo "Swimming"         — LoopRepeat, moving through water   */
+  swimming:    `${ATV}/swimming.fbx`,
+  /** Mixamo "Swimming To Edge" — LoopOnce,  transition out of water */
+  swimToEdge:  `${ATV}/swim-to-edge.fbx`,
 } as const;
 
 // ── Weapon props ──────────────────────────────────────────────────────────────

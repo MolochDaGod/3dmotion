@@ -13,7 +13,7 @@ import { SkillEffects, type SkillEffectsHandle } from "./SkillEffects";
 import type { SkillHitPayload } from "./Game";
 import {
   CHARACTER, ANIM_PISTOL, ANIM_RIFLE, ANIM_MELEE,
-  ANIM_STAFF, ANIM_BOW, ANIM_SHIELD_SWORD,
+  ANIM_STAFF, ANIM_BOW, ANIM_SHIELD_SWORD, ANIM_TRAVERSE,
   WEAPON_PROPS, WEAPON_TEXTURES, texPath,
 } from "./assets/manifest";
 
@@ -144,6 +144,16 @@ const FADE_ATK_CHAIN = 0.04;   // attack done → queued attack (crisp cut)
 const FADE_ATK_REST  = 0.18;   // attack done → return to idle
 const FADE_LOCO      = 0.14;   // locomotion ↔ locomotion blend
 
+// ─── Water + Climbing constants ───────────────────────────────────────────────
+const WATER_GRAV      = -5;     // reduced gravity while submerged (buoyancy)
+const SWIM_SPEED      = 3.0;    // horizontal speed in water (m/s)
+const SWIM_UP_FORCE   = 3.5;    // velY added per second while Space is held
+const SWIM_MAX_VEL    = 2.5;    // max absolute velY in water
+const SWIM_SURFACE_Y  = 0.4;    // metres above waterY the player floats at
+const CLIMB_UP_DUR    = 1.4;    // seconds — matches Mixamo "Climbing Up Wall" clip
+const CLIMB_VAULT_Y   = 2.0;    // how high (m) the player teleports on a vault
+const WALL_BLOCK_FRAC = 0.25;   // resolved/attempted ratio below this → "wall blocked"
+
 // ─── Animation keys ───────────────────────────────────────────────────────────
 
 type PistolKey =
@@ -201,7 +211,14 @@ type SwordShieldKey =
   | "ssAttack1" | "ssAttack2" | "ssAttack3" | "ssAttack4"
   | "ssDrawSword";
 
-type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey | SwordShieldKey;
+type TraverseKey =
+  | "climbUp"     // Climbing Up Wall — LoopOnce, vaults a ledge
+  | "climbing"    // Climbing         — LoopRepeat, general vertical climb
+  | "treading"    // Treading Water   — LoopRepeat, stationary in water
+  | "swimming"    // Swimming         — LoopRepeat, moving in water
+  | "swimToEdge"; // Swimming To Edge — LoopOnce, exiting water
+
+type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey | SwordShieldKey | TraverseKey;
 
 // ─── Load queues (paths sourced from assets/manifest.ts) ──────────────────────
 
@@ -324,6 +341,16 @@ const SS_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "ssDrawSword", file: ANIM_SHIELD_SWORD.drawSword },
 ];
 
+// ─── Traverse animations (climbing + swimming) ────────────────────────────────
+// Loaded eagerly alongside the pistol pack so they work from any weapon mode.
+const TRAVERSE_QUEUE: Array<{ key: AnimKey; file: string }> = [
+  { key: "climbUp",    file: ANIM_TRAVERSE.climbUp    },
+  { key: "climbing",   file: ANIM_TRAVERSE.climbing   },
+  { key: "treading",   file: ANIM_TRAVERSE.treading   },
+  { key: "swimming",   file: ANIM_TRAVERSE.swimming   },
+  { key: "swimToEdge", file: ANIM_TRAVERSE.swimToEdge },
+];
+
 // ─── LoopOnce animations (non-looping) ────────────────────────────────────────
 // These clamp at last frame. Attacks are a subset: BLOCKING_ONCE.
 // ── LAYER 1: "base layer" — locomotion animations (idle/walk/run/crouch/jump).
@@ -352,6 +379,8 @@ const ONCE_ANIMS = new Set<AnimKey>([
   "ssBlock","ssBlockHit","ssDrawSword",
   // directional dodges (play once, then snap back to locomotion)
   "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
+  // traverse — one-shot transitions
+  "climbUp", "swimToEdge",
 ]);
 
 // ─── Blocking animations — must play fully before queue can run ───────────────
@@ -364,6 +393,8 @@ const BLOCKING_ONCE = new Set<AnimKey>([
   "ssAttack1","ssAttack2","ssAttack3","ssAttack4",
   "ssBlock","ssBlockHit",
   "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
+  // traverse
+  "climbUp", "swimToEdge",
 ]);
 
 // ─── Idle for each weapon mode ────────────────────────────────────────────────
@@ -556,11 +587,14 @@ export interface PlayerProps {
   onSkillHit:  (payload: SkillHitPayload) => void;
   onDead:      () => void;
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
+  /** Y level (world space) below which the character is considered submerged.
+   *  Omit or pass Infinity to disable water for a scene (e.g. Graveyard). */
+  waterY?:     number;
 }
 
 // ─── Player ───────────────────────────────────────────────────────────────────
 
-export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: PlayerProps) {
+export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, waterY }: PlayerProps) {
   // ── Active character definition (read once on mount; Game.tsx remounts via key) ──
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const charDef = useCharacterStore.getState().def;
@@ -605,6 +639,15 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const rollTimer    = useRef(0);
   const rollDir      = useRef(new THREE.Vector3(0, 0, -1));
   const rollCooldown = useRef(0);
+
+  // ── Traverse (water + climbing) refs ─────────────────────────────────────
+  const inWater       = useRef(false);  // true while player foot Y < waterY
+  const prevInWater   = useRef(false);  // previous-frame inWater (edge detection)
+  const isClimbing    = useRef(false);  // true while climbUp anim is playing
+  const climbTimer    = useRef(0);      // elapsed seconds since climbUp started
+  // wallBlocked: set to true when Rapier reports horizontal movement fully blocked
+  // while pressing forward — used to trigger the climb on Space press.
+  const wallBlocked   = useRef(false);
 
   // Velocity smoothing — eliminates rubber-band jitter on start/stop/direction change.
   // Stores the current smoothed horizontal velocity (m/s); updated via exponential decay.
@@ -1071,6 +1114,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     };
 
     loadSeq(PISTOL_QUEUE, 0);
+    // Traverse animations loaded in parallel — they work regardless of weapon mode.
+    // FBXLoader is NOT shared here (loader is const above), so serial within this pack,
+    // but concurrent with the pistol queue.
+    loadSeq(TRAVERSE_QUEUE as typeof PISTOL_QUEUE, 0);
 
     return () => {
       cancelled = true;
@@ -2033,9 +2080,24 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     // Apply time step to produce the per-frame displacement sent to Rapier
     _moveVec.copy(smoothVelRef.current).multiplyScalar(delta);
 
-    if (keys.current["Space"] && grounded.current && !crouching.current && !rolling.current) {
-      velY.current     = JUMP_FORCE;
-      grounded.current = false;
+    if (keys.current["Space"] && grounded.current && !crouching.current && !rolling.current && !inWater.current) {
+      if (wallBlocked.current && !isClimbing.current && actionsRef.current["climbUp"]) {
+        // Vault over the wall: play blocking climb-up anim and apply upward physics
+        isClimbing.current = true;
+        climbTimer.current = 0;
+        transitionTo("climbUp", 0.08);
+        // After vault finishes, return to idle
+        setTimeout(() => {
+          isClimbing.current = false;
+          climbTimer.current = 0;
+          if (!blockingOnce.current) {
+            transitionTo(idleForMode(useGameStore.getState().weaponMode), 0.2);
+          }
+        }, Math.round(CLIMB_UP_DUR * 1000) + 200);
+      } else if (!isClimbing.current) {
+        velY.current     = JUMP_FORCE;
+        grounded.current = false;
+      }
     }
 
     // ── Rapier physics ──────────────────────────────────────────────────────
@@ -2055,9 +2117,80 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     const rb   = playerRBRef.current;
     const ctrl = charCtrl.current;
 
+    // ── Water detection ──────────────────────────────────────────────────────
+    // Compare foot-level Y (rootRef position = foot level) against waterY prop.
+    const footY      = rootRef.current.position.y;
+    const effectiveWaterY = (typeof waterY === "number" && isFinite(waterY)) ? waterY : -Infinity;
+    const nowInWater = footY < effectiveWaterY;
+
+    // Edge: entering water — kill downward momentum so there's no hard splash
+    if (nowInWater && !prevInWater.current) {
+      velY.current = Math.min(velY.current, 0.5);
+    }
+
+    // Edge: exiting water onto shore (grounded while previously in water)
+    if (!nowInWater && prevInWater.current && grounded.current && !blockingOnce.current) {
+      if (actionsRef.current["swimToEdge"]) {
+        transitionTo("swimToEdge", 0.08);
+        // After clip (~1.3 s) return to weapon idle
+        setTimeout(() => {
+          if (!inWater.current && !blockingOnce.current) {
+            transitionTo(idleForMode(useGameStore.getState().weaponMode), 0.25);
+          }
+        }, 1350);
+      }
+    }
+
+    prevInWater.current = nowInWater;
+    inWater.current     = nowInWater;
+
+    // Clamp horizontal speed in water
+    if (nowInWater) {
+      const hLen = Math.sqrt(_moveVec.x * _moveVec.x + _moveVec.z * _moveVec.z);
+      if (hLen > SWIM_SPEED * delta) {
+        const s = (SWIM_SPEED * delta) / hLen;
+        _moveVec.x *= s;
+        _moveVec.z *= s;
+      }
+    }
+
     if (rb && ctrl && !rapierPanicked.current) {
-      velY.current += -22 * delta;
-      if (velY.current < -30) velY.current = -30;
+      // ── Gravity (context-aware) ─────────────────────────────────────────
+      if (nowInWater) {
+        // Buoyancy: gently float toward surface (waterY - SWIM_SURFACE_Y)
+        const targetY  = effectiveWaterY - SWIM_SURFACE_Y;
+        const diff     = targetY - footY;
+        const buoyancy = THREE.MathUtils.clamp(diff * 4, -2, 4);
+        velY.current   = THREE.MathUtils.clamp(
+          velY.current + (WATER_GRAV + buoyancy) * delta,
+          -SWIM_MAX_VEL, SWIM_MAX_VEL
+        );
+        // Space = swim up
+        if (keys.current["Space"]) {
+          velY.current = THREE.MathUtils.clamp(
+            velY.current + SWIM_UP_FORCE * delta,
+            -SWIM_MAX_VEL, SWIM_MAX_VEL
+          );
+        }
+      } else {
+        velY.current += -22 * delta;
+        if (velY.current < -30) velY.current = -30;
+
+        // ── Climbing vault ───────────────────────────────────────────────
+        // If pressing W into a blocked wall and Space is pressed, vault up.
+        if (isClimbing.current) {
+          climbTimer.current += delta;
+          // Apply upward velocity during the animation (first CLIMB_UP_DUR sec)
+          if (climbTimer.current < CLIMB_UP_DUR) {
+            velY.current = 5.5;   // steady upward push
+          } else {
+            // Vault complete — apply a final boost and exit climbing
+            isClimbing.current = false;
+            climbTimer.current = 0;
+            velY.current       = 3;   // small hop at the crest
+          }
+        }
+      }
       _moveVec.y = velY.current * delta;
 
       try {
@@ -2076,12 +2209,22 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
           const resolved   = ctrl.computedMovement();
           const isGrounded = ctrl.computedGrounded();
 
+          // ── Wall-block detection (for climb trigger) ─────────────────
+          // Compare intended horizontal displacement with what Rapier resolved.
+          if (!nowInWater && grounded.current && fwd) {
+            const attempted = Math.sqrt(_moveVec.x * _moveVec.x + _moveVec.z * _moveVec.z);
+            const actual    = Math.sqrt(resolved.x * resolved.x + resolved.z * resolved.z);
+            wallBlocked.current = attempted > 0.002 && actual < attempted * WALL_BLOCK_FRAC;
+          } else {
+            wallBlocked.current = false;
+          }
+
           if (isGrounded && velY.current < 0) {
             velY.current = 0;
             if (!grounded.current) {
               grounded.current = true;
-              // Land animation (only if not mid-attack)
-              if (!blockingOnce.current) {
+              // Land animation (only if not mid-attack and not water-exit)
+              if (!blockingOnce.current && !prevInWater.current) {
                 const landAnim: AnimKey =
                     wm === "staff"   ? "staffIdle"
                   : (wm === "sword" || wm === "axe") ? "meleeIdle"
@@ -2123,7 +2266,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       // Fallback: no Rapier rigidbody yet — apply horizontal movement directly
       rootRef.current.position.x += _moveVec.x;
       rootRef.current.position.z += _moveVec.z;
-      velY.current += -22 * delta;
+      velY.current += nowInWater ? WATER_GRAV * delta : -22 * delta;
       rootRef.current.position.y += velY.current * delta;
       if (rootRef.current.position.y <= 0) {
         rootRef.current.position.y = 0;
@@ -2131,6 +2274,20 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
         grounded.current = true;
       }
       playerPosRef.current.copy(rootRef.current.position);
+    }
+
+    // ── LAYER 0: Traverse animation state machine (water + climbing) ──────────
+    // Takes full priority over weapon locomotion whenever the player is in water
+    // or actively climbing.  Climbing uses blockingOnce so LAYER 1 is already
+    // suspended by the standard mechanism; water needs an explicit early-return.
+    if (inWater.current) {
+      const moving = fwd || bwd || left || right;
+      const target: AnimKey = moving ? "swimming" : "treading";
+      if (curAnim.current !== target && actionsRef.current[target]) {
+        transitionTo(target, FADE_LOCO);
+      }
+      // Skip weapon locomotion SM entirely while underwater
+      return;
     }
 
     // ── LAYER 1: Locomotion animation state machine ────────────────────────
