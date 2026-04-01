@@ -202,7 +202,7 @@ function CameraSettingsPanel() {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             {CAMERA_CYCLE.map((m: CameraViewMode) => {
-              const label = m === "tps" ? "Third Person" : m === "action" ? "Action Cam" : "First Person";
+              const label = m === "tps" ? "Third Person" : m === "action" ? "Action Cam" : "ARPG Iso";
               return (
                 <button
                   key={m}
@@ -423,7 +423,7 @@ export function HUD() {
   const healthPct   = (health / maxHealth) * 100;
   const healthColor = healthPct > 60 ? "#4caf50" : healthPct > 30 ? "#ff9800" : "#f44336";
   const manaPct     = (mana / maxMana) * 100;
-  const isRTS       = camera.mode === "rts";
+  const isARPG      = camera.mode === "arpg";
 
   return (
     <>
@@ -483,7 +483,7 @@ export function HUD() {
           textTransform: "uppercase",
           fontFamily: "monospace",
         }}>
-          {camera.mode === "rts" ? "RTS CAM" : camera.mode === "action" ? "ACTION CAM" : "TPS"} · P to cycle · F3 settings
+          {camera.mode === "arpg" ? "ARPG ISO" : camera.mode === "action" ? "ACTION CAM" : "TPS"} · P to cycle · F3 settings
         </div>
 
         {/* Health + Mana — bottom left */}

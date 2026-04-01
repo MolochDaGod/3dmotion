@@ -4,9 +4,9 @@ import { create } from "zustand";
 
 // "tps"    = third-person over-shoulder (default / "front" view — character visible)
 // "action" = tight cinematic combat cam (closer, lower, more dramatic)
-// "rts"    = elevated strategic / top-down follow camera
-export type CameraViewMode = "tps" | "action" | "rts";
-export const CAMERA_CYCLE: CameraViewMode[] = ["tps", "action", "rts"];
+// "arpg"   = isometric follow cam — Diablo/PoE style, fixed ~-45° world angle
+export type CameraViewMode = "tps" | "action" | "arpg";
+export const CAMERA_CYCLE: CameraViewMode[] = ["tps", "action", "arpg"];
 
 export interface CameraSettings {
   mode:        CameraViewMode;

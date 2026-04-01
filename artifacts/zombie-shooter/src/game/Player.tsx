@@ -31,9 +31,13 @@ const JUMP_FORCE    = 9;
 const PITCH_MIN        = -Math.PI / 2.5;
 const PITCH_MAX_TPS    =  Math.PI / 8;
 const PITCH_MAX_ACTION =  Math.PI / 5;   // action cam — slight downward look freedom
-const RTS_PITCH        = -Math.PI / 3;   // ~-60 deg fixed downward angle for RTS camera
-const RTS_CAM_Y        = 14.0;           // units above player
-const RTS_CAM_Z        = 8.5;            // units behind player
+// ARPG isometric camera — Diablo / Path of Exile feel.
+// -45° pitch + equal height/depth → classic "diamond" isometric angle.
+// Closer to the player than a pure overhead RTS cam so the world feels
+// immersive and character details are legible.
+const ARPG_PITCH       = -Math.PI / 4;  // -45° — true isometric downward angle
+const ARPG_CAM_Y       = 9.5;           // units above player (was 14 in RTS mode)
+const ARPG_CAM_Z       = 9.5;           // units behind player → arctan(9.5/9.5)=45°
 const EYE_HEIGHT    = 1.42;   // eye level ≈ 93% of 1.524 m (was 1.70, matched old oversized capsule)
 const ROLL_SPEED     = 14;
 const ROLL_DURATION  = 0.45;
@@ -1426,8 +1430,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!locked.current) return;
     const { sensitivity, mode } = useGameStore.getState().camera;
-    // RTS camera has a fixed angle — mouse look is disabled
-    if (mode === "rts") return;
+    // ARPG camera has a fixed world angle — mouse look is disabled
+    if (mode === "arpg") return;
     yaw.current   -= e.movementX * sensitivity;
     pitch.current -= e.movementY * sensitivity;
     const pMax = mode === "action" ? PITCH_MAX_ACTION : PITCH_MAX_TPS;
@@ -1589,15 +1593,15 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
       else document.body.requestPointerLock();
     }
 
-    // P — cycle camera modes: tps → action → rts → tps
+    // P — cycle camera modes: tps → action → arpg → tps
     if (e.code === "KeyP") {
       cycleCameraMode();
     }
 
-    // F2 — direct tps ↔ rts jump (quick toggle between normal and strategic view)
+    // F2 — direct tps ↔ arpg jump (quick toggle between third-person and isometric)
     if (e.code === "F2") {
       const store = useGameStore.getState();
-      setCameraMode(store.camera.mode === "rts" ? "tps" : "rts");
+      setCameraMode(store.camera.mode === "arpg" ? "tps" : "arpg");
     }
 
     // F3 — settings panel
@@ -1831,32 +1835,37 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     //
     // tps    = user-configured over-shoulder (shoulderX/Y/Z)
     // action = tight cinematic combat cam: closer, lower, more dramatic
-    // rts    = elevated strategic / top-down follow camera (fixed angle)
+    // arpg   = isometric follow cam — Diablo/PoE style, fixed world angle
     const { mode, shoulderX, shoulderY, shoulderZ } = gs.camera;
-    const camX = mode === "rts"    ? 0
+    const camX = mode === "arpg"   ? 0
                : mode === "action" ? 0.28
                : shoulderX;
-    const camY = mode === "rts"    ? RTS_CAM_Y
+    const camY = mode === "arpg"   ? ARPG_CAM_Y
                : mode === "action" ? 0.80
                : shoulderY;
-    const camZ = mode === "rts"    ? RTS_CAM_Z
+    const camZ = mode === "arpg"   ? ARPG_CAM_Z
                : mode === "action" ? 1.55
                : shoulderZ;
 
     // Head bob — procedural oscillation while moving; fades out on stop.
+    // Suppressed in ARPG mode (fixed camera — bob looks odd from isometric angle).
     const isMovingNow = (fwd || bwd || left || right) && grounded.current;
     const bobFreq = sprint ? 13 : 9;
     bobTimerRef.current += delta * bobFreq * (isMovingNow ? 1 : -Math.min(1, bobTimerRef.current));
     bobTimerRef.current  = Math.max(0, bobTimerRef.current);
     const bobAmp  = sprint ? 0.025 : 0.014;
-    const bobY    = (isMovingNow || bobTimerRef.current > 0.01) ? Math.sin(bobTimerRef.current) * bobAmp : 0;
-    const bobX    = (isMovingNow || bobTimerRef.current > 0.01) ? Math.sin(bobTimerRef.current * 0.5) * bobAmp * 0.35 : 0;
+    const enableBob = mode !== "arpg";
+    const bobY    = enableBob && (isMovingNow || bobTimerRef.current > 0.01) ? Math.sin(bobTimerRef.current) * bobAmp : 0;
+    const bobX    = enableBob && (isMovingNow || bobTimerRef.current > 0.01) ? Math.sin(bobTimerRef.current * 0.5) * bobAmp * 0.35 : 0;
 
     const pPos = rootRef.current.position; // character world position
 
-    if (mode === "rts") {
-      // RTS: fixed offset above player — no yaw rotation, just follow
-      _camIdeal.set(pPos.x, pPos.y + RTS_CAM_Y, pPos.z + RTS_CAM_Z);
+    if (mode === "arpg") {
+      // ARPG isometric: fixed world-space offset, no yaw rotation.
+      // Camera always looks from the same world direction (like Diablo).
+      // Position: directly behind (+Z) and above (+Y) the player — the
+      // resulting angle is arctan(ARPG_CAM_Y / ARPG_CAM_Z) ≈ -45°.
+      _camIdeal.set(pPos.x, pPos.y + ARPG_CAM_Y, pPos.z + ARPG_CAM_Z);
     } else {
       // TPS / action: shoulder offset rotated by character yaw
       // Compute yawQ once (also reused for rootRef rotation below)
@@ -1876,9 +1885,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     camera.position.copy(cameraWorldPosRef.current);
 
     // Camera rotation — world space (no parent transform to inherit yaw from)
-    camera.rotation.x = mode === "rts" ? RTS_PITCH : pitch.current;
-    camera.rotation.y = mode === "rts" ? 0        : yaw.current;
-    camera.rotation.z = mode === "rts" ? 0        : rollCamZ.current;
+    camera.rotation.x = mode === "arpg" ? ARPG_PITCH : pitch.current;
+    camera.rotation.y = mode === "arpg" ? 0          : yaw.current;
+    camera.rotation.z = mode === "arpg" ? 0          : rollCamZ.current;
 
     // ── FOV zoom — smooth lerp for melee block (1.5×) and bow aim ────────────
     // Uses exponential decay (1 - e^(-k·dt)) for true frame-rate independence —
