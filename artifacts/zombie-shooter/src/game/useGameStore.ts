@@ -1,100 +1,19 @@
 import { create } from "zustand";
 
-// ─── Camera settings ──────────────────────────────────────────────────────────
+// ── Static definitions live in data/ — re-exported here for backward compat ───
+// Prefer importing directly from "data/camera", "data/weapons", etc.
+export type { CameraViewMode, CameraSettings } from "./data/camera";
+export { CAMERA_CYCLE, DEFAULT_CAMERA } from "./data/camera";
+export type { WeaponMode } from "./data/weapons";
+export { WEAPON_CYCLE } from "./data/weapons";
+export type { SpellType, SpellDef, MagicProjectileState } from "./data/spells";
+export { SPELLS } from "./data/spells";
 
-// "tps"    = third-person over-shoulder (default / "front" view — character visible)
-// "action" = tight cinematic combat cam (closer, lower, more dramatic)
-// "arpg"   = isometric follow cam — Diablo/PoE style, fixed ~-45° world angle
-export type CameraViewMode = "tps" | "action" | "arpg";
-export const CAMERA_CYCLE: CameraViewMode[] = ["tps", "action", "arpg"];
-
-export interface CameraSettings {
-  mode:        CameraViewMode;
-  fov:         number;
-  sensitivity: number;
-  shoulderX:   number;
-  shoulderY:   number;
-  shoulderZ:   number;
-}
-
-export const DEFAULT_CAMERA: CameraSettings = {
-  mode:        "tps",
-  fov:         70,
-  sensitivity: 0.002,
-  shoulderX:   0.52,
-  shoulderY:   1.30,
-  shoulderZ:   2.55,
-};
-
-// ─── Weapon modes ─────────────────────────────────────────────────────────────
-
-export type WeaponMode = "pistol" | "rifle" | "sword" | "axe" | "staff" | "bow" | "shield";
-export const WEAPON_CYCLE: WeaponMode[] = ["pistol", "rifle", "sword", "axe", "staff", "bow", "shield"];
-
-// ─── Spell system (colors sourced from BinbunVFX MagicProjectiles pack) ──────
-
-export type SpellType = "orb" | "javelin" | "wave" | "nova";
-
-export interface SpellDef {
-  id:          SpellType;
-  name:        string;
-  icon:        string;
-  color:       string;        // outer glow / trail
-  coreColor:   string;        // bright inner core
-  damage:      number;
-  speed:       number;        // world units/s; 0 = stationary burst
-  radius:      number;        // impact / AoE radius
-  manaCost:    number;
-  cooldown:    number;        // seconds between casts
-  description: string;
-}
-
-// Colors directly translated from the Godot .tres material files
-export const SPELLS: SpellDef[] = [
-  {
-    id: "orb", name: "Arcane Orb", icon: "🔮",
-    color: "#FFE600",     // secondary_color basic_01
-    coreColor: "#FFEACC", // primary_color basic_01
-    damage: 40, speed: 14, radius: 0.6,
-    manaCost: 25, cooldown: 0.8,
-    description: "Slow orb of arcane energy",
-  },
-  {
-    id: "javelin", name: "Frost Javelin", icon: "❄",
-    color: "#69C0FF",     // secondary_color basic_02
-    coreColor: "#CCE0FF", // primary_color basic_02
-    damage: 20, speed: 38, radius: 0.2,
-    manaCost: 15, cooldown: 0.25,
-    description: "Fast piercing bolt of frost",
-  },
-  {
-    id: "wave", name: "Void Wave", icon: "〰",
-    color: "#7783FF",     // secondary_color basic_03
-    coreColor: "#FFE1DF", // primary_color basic_03
-    damage: 25, speed: 16, radius: 4.0,
-    manaCost: 35, cooldown: 1.4,
-    description: "Expanding ring of void energy",
-  },
-  {
-    id: "nova", name: "Fire Nova", icon: "💥",
-    color: "#F15B00",     // secondary_color basic_04
-    coreColor: "#FDEAB2", // primary_color basic_04
-    damage: 70, speed: 0, radius: 7.0,
-    manaCost: 55, cooldown: 2.2,
-    description: "Explosive burst of fire",
-  },
-];
-
-// ─── Magic projectile instances ───────────────────────────────────────────────
-
-export interface MagicProjectileState {
-  id:        string;
-  spell:     SpellDef;
-  position:  [number, number, number];
-  direction: [number, number, number];
-  spawnedAt: number;          // Date.now()
-  maxLife:   number;          // seconds before auto-despawn
-}
+import type { CameraViewMode, CameraSettings } from "./data/camera";
+import { CAMERA_CYCLE, DEFAULT_CAMERA } from "./data/camera";
+import type { WeaponMode } from "./data/weapons";
+import { WEAPON_CYCLE } from "./data/weapons";
+import type { SpellType, MagicProjectileState } from "./data/spells";
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -193,7 +112,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   score:         0,
   kills:         0,
   isReloading:   false,
-  isPaused:      false,  // game starts unpaused; ESC key or pointer-lock loss pauses
+  isPaused:      false,
   isInvincible:  false,
   wave:          1,
   camera:        { ...DEFAULT_CAMERA },

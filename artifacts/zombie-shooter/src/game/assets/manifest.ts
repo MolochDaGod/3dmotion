@@ -221,34 +221,6 @@ export function texPath(pngUrl: string): string {
   return webpSupported() ? pngUrl.replace(/\.png$/i, ".webp") : pngUrl;
 }
 
-// ── Collision / interaction groups ────────────────────────────────────────────
-/**
- * Rapier collision group bitmasks.
- * Each group is a 16-bit membership + 16-bit filter packed into a 32-bit int.
- *
- * Groups:
- *   0 — world / terrain (ground, walls, ruin props)
- *   1 — player character controller capsule
- *   2 — zombie sensor bodies
- *   3 — projectiles (bullets, arrows, magic)
- *
- * Rules:
- *   terrain   → collides with player + zombie (NOT with other terrain or projectiles)
- *   player    → collides with terrain + zombie
- *   zombie    → collides with terrain + player (sensor; no player-zombie collision needed)
- *   projectile → collides with terrain + zombie (NOT player)
- */
-export const GROUP_TERRAIN    = 0b0001;
-export const GROUP_PLAYER     = 0b0010;
-export const GROUP_ZOMBIE     = 0b0100;
-export const GROUP_PROJECTILE = 0b1000;
-
-/** Pack membership + filter into the interactionGroups u32 */
-export function interactionGroups(membership: number, filter: number): number {
-  return (membership << 16) | filter;
-}
-
-export const COLLIDE_TERRAIN    = interactionGroups(GROUP_TERRAIN,    GROUP_PLAYER | GROUP_ZOMBIE);
-export const COLLIDE_PLAYER     = interactionGroups(GROUP_PLAYER,     GROUP_TERRAIN);
-export const COLLIDE_ZOMBIE     = interactionGroups(GROUP_ZOMBIE,     GROUP_TERRAIN | GROUP_PLAYER);
-export const COLLIDE_PROJECTILE = interactionGroups(GROUP_PROJECTILE, GROUP_TERRAIN | GROUP_ZOMBIE);
+// ── Collision groups removed ───────────────────────────────────────────────────
+// Canonical Rapier collision group constants live in CollisionLayers.ts.
+// Import CG_WORLD, CG_PLAYER, CG_ZOMBIE_SENSOR from there.
