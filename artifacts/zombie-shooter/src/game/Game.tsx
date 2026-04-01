@@ -8,11 +8,9 @@ import { Sky } from "@react-three/drei";
 import { Perf } from "r3f-perf";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
-// WebGPU renderer — imported from the three/src/* export path so Vite bundles
-// only the renderer code without duplicating the full three/webgpu mega-bundle.
-// WebGPURenderer auto-detects browser WebGPU support and falls back to WebGL 2
-// if unavailable (Chrome 113+, Edge 113+, Safari 18+; Firefox uses WebGL 2).
-import WebGPURenderer from "three/src/renderers/webgpu/WebGPURenderer.js";
+// WebGPURenderer is lazy-loaded at runtime so Vite never eagerly traverses the
+// Three.js node-graph during the dev-server scan phase.  The dynamic import()
+// below runs only in browsers that actually have navigator.gpu.
 import { getIslandHeight, getTerrainHeight, GENESIS_TERRAIN_SIZE } from "./terrain";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
@@ -497,12 +495,14 @@ export default function Game({ onGameOver }: GameProps) {
         shadows={{ type: SUPPORTS_WEBGPU ? THREE_TYPES.PCFSoftShadowMap : THREE_TYPES.PCFShadowMap }}
         camera={{ fov: 70, near: 0.05, far: 500 }}
         gl={SUPPORTS_WEBGPU
-          ? (canvas) => {
-              // Create WebGPURenderer — same three.js singleton, WebGPU backend.
-              // Cast is required because R3F types expect WebGLRenderer, but the
-              // runtime interface (setSize, render, dispose, shadowMap, etc.) is
-              // fully compatible with WebGPURenderer's Renderer base class.
-              const renderer = new WebGPURenderer({
+          ? async (canvas) => {
+              // Dynamic import keeps WebGPU out of Vite's static scan graph.
+              const { default: WebGPURenderer } = await import(
+                /* webpackIgnore: true */
+                "three/src/renderers/webgpu/WebGPURenderer.js"
+              );
+              // Cast: R3F expects WebGLRenderer; WebGPURenderer is API-compatible.
+              const renderer = new (WebGPURenderer as any)({
                 canvas,
                 antialias:       true,
                 powerPreference: "high-performance",

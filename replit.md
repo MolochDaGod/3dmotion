@@ -180,6 +180,12 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 
 **Key files:** ANNIHILATE_LEARNINGS.md — architecture reference from studied game repo
 
+**Vite OOM Root Cause & Fix (resolved):**
+- `@tailwindcss/vite` v4's Oxide Rust engine does an **eager full-project scan** at startup — with the game's large source files (Player.tsx = 109 KB) this spiked memory over the system limit and triggered OOM kill (exit 137) on every first HTTP request.
+- **Fix:** Removed `@tailwindcss/vite` from vite.config.ts and `@tailwindcss/postcss` from PostCSS config. Rewrote `src/index.css` to pure CSS custom properties (no `@import "tailwindcss"`, no `@theme`, no `@apply`). Tailwind runtime classes for HUD/UI are resolved via the **Tailwind CDN** `<script>` tag in `index.html` with a full `tailwind.config` object for custom semantic colors.
+- Startup is now **175 ms** (pre-built deps cache, no re-optimization) and the server is stable across all requests.
+- **NEVER add `@tailwindcss/vite` or `@tailwindcss/postcss` back** — the Oxide engine OOMs in this environment. CDN-only approach must be kept.
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

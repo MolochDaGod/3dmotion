@@ -1,9 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
+
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-import { VitePWA } from "vite-plugin-pwa";
 
 function injectWasmPreload(base: string) {
   return {
@@ -50,53 +49,8 @@ export default defineConfig({
   base: basePath,
   plugins: [
     react(),
-    tailwindcss(),
     runtimeErrorOverlay(),
     injectWasmPreload(basePath),
-    VitePWA({
-      registerType: "autoUpdate",
-      devOptions: { enabled: false },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,svg,wasm}"],
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
-        runtimeCaching: [
-          {
-            urlPattern: /\/models\//i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "game-models",
-              expiration: {
-                maxEntries: 400,
-                maxAgeSeconds: 30 * 24 * 60 * 60,
-              },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          {
-            urlPattern: /\.(?:js|css)(\?.*)?$/i,
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "js-css-cache",
-              expiration: {
-                maxEntries: 60,
-                maxAgeSeconds: 30 * 24 * 60 * 60,
-              },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-        ],
-      },
-      manifest: {
-        name: "Motion Training",
-        short_name: "MotionTraining",
-        description:
-          "Third-person survival wave shooter — 7 weapons, 8 magic spells, AI-generated characters",
-        theme_color: "#0a0a0a",
-        background_color: "#0a0a0a",
-        display: "fullscreen",
-        icons: [{ src: "favicon.svg", sizes: "any", type: "image/svg+xml" }],
-      },
-    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
@@ -138,18 +92,8 @@ export default defineConfig({
             return "vendor-3d";
           }
           if (
-            id.includes("/@radix-ui/") ||
-            id.includes("/framer-motion/") ||
-            id.includes("/lucide-react/") ||
-            id.includes("/recharts/")
-          ) {
-            return "vendor-ui";
-          }
-          if (
             id.includes("/zustand/") ||
-            id.includes("/wouter/") ||
-            id.includes("/zod/") ||
-            id.includes("/@tanstack/")
+            id.includes("/leva/")
           ) {
             return "vendor-state";
           }
@@ -157,9 +101,6 @@ export default defineConfig({
         },
       },
     },
-  },
-  optimizeDeps: {
-    include: ["leva", "r3f-perf"],
   },
   server: {
     port,
