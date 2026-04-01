@@ -5,7 +5,7 @@ import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RigidBody, CapsuleCollider, useRapier } from "@react-three/rapier";
 import { CG_PLAYER } from "./CollisionLayers";
-import { getIslandHeight } from "./terrain";
+import { getIslandHeight, getTerrainHeight } from "./terrain";
 import { useGameStore, WeaponMode, WEAPON_CYCLE, SPELLS } from "./useGameStore";
 import { useCharacterStore } from "./useCharacterStore";
 import { WEAPON_SKILLS, type SkillDef } from "./SkillSystem";
@@ -592,11 +592,14 @@ export interface PlayerProps {
   /** Y level (world space) below which the character is considered submerged.
    *  Omit or pass Infinity to disable water for a scene (e.g. Graveyard). */
   waterY?:     number;
+  /** World-space feet position for the initial capsule spawn.
+   *  Defaults to the island beach (0, beach_height, 50) if omitted. */
+  spawnPos?:   [number, number, number];
 }
 
 // ─── Player ───────────────────────────────────────────────────────────────────
 
-export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, waterY }: PlayerProps) {
+export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, waterY, spawnPos }: PlayerProps) {
   // ── Active character definition (read once on mount; Game.tsx remounts via key) ──
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const charDef = useCharacterStore.getState().def;
@@ -2379,7 +2382,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
       <RigidBody
         ref={playerRBRef}
         type="kinematicPosition"
-        position={[0, getIslandHeight(0, 0) + capCY, 0]}
+        position={spawnPos
+          ? [spawnPos[0], spawnPos[1] + capCY, spawnPos[2]]
+          : [0, (getIslandHeight(0, 50) || getTerrainHeight(0, 0) || 3) + capCY, 50]}
         colliders={false}
         enabledRotations={[false, false, false]}
       >

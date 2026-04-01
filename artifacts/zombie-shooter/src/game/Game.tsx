@@ -63,13 +63,26 @@ const MELEE_RANGE       = 2.6;
 const MELEE_DAMAGE      = 80;
 const MELEE_ARC_DOT     = 0.35;
 
-// Genesis Island — spawn ring at ~70–80 m radius from centre
-// (island is 200 m wide; shoreline sits at roughly r=80 m).
+// Genesis Island — player spawns at north beach (0, _, 50).
+// Zombie ring is centered on that beach area so they can navigate there.
+// Primary ring: radius ~30-55 m from player (beach / slope area).
+// Secondary ring: east/west coasts for flanking threats.
 const ISLAND_SPAWN: [number, number, number][] = [
-  [ 78, 0,   0], [-78, 0,   0], [  0, 0,  78], [  0, 0, -78],
-  [ 55, 0,  55], [-55, 0,  55], [ 55, 0, -55], [-55, 0, -55],
-  [ 70, 0,  36], [-70, 0,  36], [ 70, 0, -36], [-70, 0, -36],
-  [ 36, 0,  70], [-36, 0,  70], [ 36, 0, -70], [-36, 0, -70],
+  // North coast — directly behind player (very close, quick threat)
+  [  0, 0,  82], [ 28, 0,  78], [-28, 0,  78],
+  // NE / NW coast flanks
+  [ 55, 0,  65], [-55, 0,  65],
+  // East / West coasts (medium range, beach paths to player)
+  [ 80, 0,  30], [-80, 0,  30],
+  [ 78, 0,  -5], [-78, 0,  -5],
+  // South-east / south-west — longer flanking routes
+  [ 65, 0, -45], [-65, 0, -45],
+  // Far south — arrives last, keeps pressure escalating
+  [  0, 0, -78], [ 38, 0, -70], [-38, 0, -70],
+  // Dock area (east shore, x≈68)
+  [ 70, 0,  18], [ 70, 0, -18],
+  // Inland south (small jitter from south mountain base)
+  [ 20, 0, -60], [-20, 0, -60],
 ];
 // Graveyard: flat centre, spawns ring at ~20–28 m radius
 const GRAVEYARD_SPAWN: [number, number, number][] = [
@@ -199,6 +212,9 @@ function SceneContent({
             onDead={onPlayerDead}
             playerPosRef={playerPosRef}
             waterY={isGraveyard ? undefined : 0}
+            spawnPos={isGraveyard
+              ? [0, getTerrainHeight(0, 0), 0]
+              : [0, getIslandHeight(0, 50) || 3, 50]}
           />
 
           {/* Zombies inside Physics so their Rapier sensor bodies are registered */}

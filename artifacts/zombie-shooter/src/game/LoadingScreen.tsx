@@ -13,6 +13,19 @@ export function ProgressBridge({
   const readyFired  = useRef(false);
   const hasStarted  = useRef(false);
 
+  // Fast-path: if nothing starts loading within 1.5 s (all assets cached),
+  // dismiss the overlay immediately so the player isn't stuck on a black screen.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!readyFired.current && !hasStarted.current) {
+        readyFired.current = true;
+        onLoaded();
+      }
+    }, 1500);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (total > 0) hasStarted.current = true;
     onProgress(progress);
