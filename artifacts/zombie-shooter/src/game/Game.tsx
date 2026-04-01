@@ -29,13 +29,10 @@ import { AdminPanel } from "./AdminPanel";
 import { SpawnedObjects } from "./SpawnedObjects";
 
 // ── Runtime capability detection ──────────────────────────────────────────────
-// navigator.gpu is the WebGPU entry point.  It exists in Chrome 113+, Edge 113+,
-// and Safari 18+.  Firefox still uses WebGL 2 only.  We pick the renderer at
-// startup so the Canvas and its children mount consistently.
-const SUPPORTS_WEBGPU =
-  typeof navigator !== "undefined" &&
-  "gpu" in navigator &&
-  navigator.gpu !== null;
+// WebGPU is disabled — navigator.gpu exists in modern browsers but the canvas
+// getContext("webgpu") call fails inside the Replit iframe proxy.  WebGL 2 is
+// fully supported everywhere and is the correct renderer for this environment.
+const SUPPORTS_WEBGPU = false;
 
 // ─── Skill hit payload ────────────────────────────────────────────────────────
 // Player resolves who got hit (via Rapier shape cast or geometry) then calls
