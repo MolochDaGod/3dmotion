@@ -151,16 +151,18 @@ export const ANIM_SHIELD_SWORD = {
 } as const;
 
 export const ANIM_TRAVERSE = {
-  /** Mixamo "Climbing Up Wall" — LoopOnce, player vaults a ledge */
-  climbUp:     `${ATV}/climb-up.fbx`,
-  /** Mixamo "Climbing"         — LoopRepeat, general vertical climb */
-  climbing:    `${ATV}/climbing.fbx`,
-  /** Mixamo "Treading Water"   — LoopRepeat, stationary in water   */
-  treading:    `${ATV}/treading.fbx`,
-  /** Mixamo "Swimming"         — LoopRepeat, moving through water   */
-  swimming:    `${ATV}/swimming.fbx`,
-  /** Mixamo "Swimming To Edge" — LoopOnce,  transition out of water */
-  swimToEdge:  `${ATV}/swim-to-edge.fbx`,
+  /** Mixamo "Climbing To Top"  — LoopOnce,   player vaults a ledge */
+  climbUp:      `${ATV}/climb-up.fbx`,
+  /** Mixamo "Climbing"         — LoopRepeat,  general wall-climb cycle */
+  climbing:     `${ATV}/climbing.fbx`,
+  /** Mixamo "Climbing Ladder"  — LoopRepeat,  ladder-specific climb cycle */
+  climbLadder:  `${ATV}/climb-ladder.fbx`,
+  /** Mixamo "Treading Water"   — LoopRepeat,  stationary in water */
+  treading:     `${ATV}/treading.fbx`,
+  /** Mixamo "Swimming"         — LoopRepeat,  moving through water */
+  swimming:     `${ATV}/swimming.fbx`,
+  /** Mixamo "Swimming To Edge" — LoopOnce,   transition out of water */
+  swimToEdge:   `${ATV}/swim-to-edge.fbx`,
 } as const;
 
 // ── Weapon props ──────────────────────────────────────────────────────────────

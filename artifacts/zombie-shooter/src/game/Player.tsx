@@ -212,11 +212,12 @@ type SwordShieldKey =
   | "ssDrawSword";
 
 type TraverseKey =
-  | "climbUp"     // Climbing Up Wall — LoopOnce, vaults a ledge
-  | "climbing"    // Climbing         — LoopRepeat, general vertical climb
-  | "treading"    // Treading Water   — LoopRepeat, stationary in water
-  | "swimming"    // Swimming         — LoopRepeat, moving in water
-  | "swimToEdge"; // Swimming To Edge — LoopOnce, exiting water
+  | "climbUp"      // Climbing To Top  — LoopOnce,   vaults a ledge
+  | "climbing"     // Climbing         — LoopRepeat,  general wall-climb cycle
+  | "climbLadder"  // Climbing Ladder  — LoopRepeat,  ladder-specific cycle
+  | "treading"     // Treading Water   — LoopRepeat,  stationary in water
+  | "swimming"     // Swimming         — LoopRepeat,  moving in water
+  | "swimToEdge";  // Swimming To Edge — LoopOnce,    exiting water
 
 type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey | SwordShieldKey | TraverseKey;
 
@@ -344,11 +345,12 @@ const SS_QUEUE: Array<{ key: AnimKey; file: string }> = [
 // ─── Traverse animations (climbing + swimming) ────────────────────────────────
 // Loaded eagerly alongside the pistol pack so they work from any weapon mode.
 const TRAVERSE_QUEUE: Array<{ key: AnimKey; file: string }> = [
-  { key: "climbUp",    file: ANIM_TRAVERSE.climbUp    },
-  { key: "climbing",   file: ANIM_TRAVERSE.climbing   },
-  { key: "treading",   file: ANIM_TRAVERSE.treading   },
-  { key: "swimming",   file: ANIM_TRAVERSE.swimming   },
-  { key: "swimToEdge", file: ANIM_TRAVERSE.swimToEdge },
+  { key: "climbUp",     file: ANIM_TRAVERSE.climbUp     },
+  { key: "climbing",    file: ANIM_TRAVERSE.climbing    },
+  { key: "climbLadder", file: ANIM_TRAVERSE.climbLadder },
+  { key: "treading",    file: ANIM_TRAVERSE.treading    },
+  { key: "swimming",    file: ANIM_TRAVERSE.swimming    },
+  { key: "swimToEdge",  file: ANIM_TRAVERSE.swimToEdge  },
 ];
 
 // ─── LoopOnce animations (non-looping) ────────────────────────────────────────
