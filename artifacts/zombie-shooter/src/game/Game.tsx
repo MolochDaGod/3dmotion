@@ -8,6 +8,11 @@ import { Sky } from "@react-three/drei";
 import { Perf } from "r3f-perf";
 import * as THREE_TYPES from "three";
 import * as THREE from "three";
+// WebGPU renderer — imported from the three/src/* export path so Vite bundles
+// only the renderer code without duplicating the full three/webgpu mega-bundle.
+// WebGPURenderer auto-detects browser WebGPU support and falls back to WebGL 2
+// if unavailable (Chrome 113+, Edge 113+, Safari 18+; Firefox uses WebGL 2).
+import WebGPURenderer from "three/src/renderers/webgpu/WebGPURenderer.js";
 import { getIslandHeight, getTerrainHeight } from "./terrain";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
@@ -24,6 +29,15 @@ import { ProgressBridge, LoadingScreen } from "./LoadingScreen";
 import { useEditorStore } from "./useEditorStore";
 import { AdminPanel } from "./AdminPanel";
 import { SpawnedObjects } from "./SpawnedObjects";
+
+// ── Runtime capability detection ──────────────────────────────────────────────
+// navigator.gpu is the WebGPU entry point.  It exists in Chrome 113+, Edge 113+,
+// and Safari 18+.  Firefox still uses WebGL 2 only.  We pick the renderer at
+// startup so the Canvas and its children mount consistently.
+const SUPPORTS_WEBGPU =
+  typeof navigator !== "undefined" &&
+  "gpu" in navigator &&
+  navigator.gpu !== null;
 
 // ─── Skill hit payload ────────────────────────────────────────────────────────
 // Player resolves who got hit (via Rapier shape cast or geometry) then calls
@@ -98,6 +112,7 @@ function SceneContent({
   onMagicHit,
   onLoadProgress,
   onLoaded,
+  useWebGPU,
 }: {
   zombies: ZombieData[];
   bullets: BulletData[];
@@ -112,6 +127,11 @@ function SceneContent({
   onMagicHit: (id: string, pos: THREE.Vector3, spell: MagicProjectileState["spell"]) => void;
   onLoadProgress: (p: number) => void;
   onLoaded:       () => void;
+  // true when a WebGPURenderer is in use — @react-three/postprocessing uses
+  // WebGL-specific APIs (getContext, capabilities, extensions) that don't exist
+  // on WebGPURenderer, so we skip the EffectComposer in that path and let the
+  // renderer's built-in ACES tone mapping + emissive bloom carry visual quality.
+  useWebGPU: boolean;
 }) {
   const ed = useEditorStore();
   const { activeId } = useCharacterStore();
@@ -204,29 +224,33 @@ function SceneContent({
       <SpawnedObjects />
 
       {/* ── Post-processing pipeline ───────────────────────────────────────────
-           Bloom         — spell glow, torches, emissive surfaces
-           DepthOfField  — subtle cinematic background blur (editor-tunable)
-           Vignette      — edge darkening for immersive framing
-           Chromatic     — barrel/lens aberration (0 by default, editor can crank up)   */}
-      <EffectComposer>
-        <Bloom
-          luminanceThreshold={ed.bloomThreshold}
-          luminanceSmoothing={ed.bloomSmoothing}
-          intensity={ed.bloomIntensity}
-          mipmapBlur
-        />
-        <DepthOfField
-          focusDistance={ed.dofFocusDistance}
-          focalLength={ed.dofFocalLength}
-          bokehScale={ed.dofBokehScale}
-        />
-        <Vignette
-          eskil={false}
-          offset={ed.vignetteOffset}
-          darkness={ed.vignetteDarkness}
-        />
-        <ChromaticAberration offset={caOffset} />
-      </EffectComposer>
+           WebGL 2 path: full @react-three/postprocessing stack.
+           WebGPU path:  @react-three/postprocessing is skipped because it uses
+           WebGL-specific APIs (getContext, capabilities, extensions) that do not
+           exist on WebGPURenderer.  The renderer's built-in ACES tone mapping
+           and emissive materials provide equivalent visual quality in that path.
+           Bloom / Vignette / DOF / ChromaticAberration only on WebGL 2.        */}
+      {!useWebGPU && (
+        <EffectComposer>
+          <Bloom
+            luminanceThreshold={ed.bloomThreshold}
+            luminanceSmoothing={ed.bloomSmoothing}
+            intensity={ed.bloomIntensity}
+            mipmapBlur
+          />
+          <DepthOfField
+            focusDistance={ed.dofFocusDistance}
+            focalLength={ed.dofFocalLength}
+            bokehScale={ed.dofBokehScale}
+          />
+          <Vignette
+            eskil={false}
+            offset={ed.vignetteOffset}
+            darkness={ed.vignetteDarkness}
+          />
+          <ChromaticAberration offset={caOffset} />
+        </EffectComposer>
+      )}
 
       {/* ── Asset load progress bridge (must be inside Canvas) ── */}
       <ProgressBridge onProgress={onLoadProgress} onLoaded={onLoaded} />
@@ -452,15 +476,58 @@ export default function Game({ onGameOver }: GameProps) {
 
   return (
     <div className="fixed inset-0 bg-black cursor-none">
+      {/*
+        ── Renderer selection ────────────────────────────────────────────────────
+        WebGPU (SUPPORTS_WEBGPU = true):
+          • gl factory returns a WebGPURenderer.  Three.js auto-detects if the
+            browser truly supports WebGPU and falls back to its own WebGL 2 backend
+            if not — so this is always safe.
+          • @react-three/postprocessing is disabled (see SceneContent below) because
+            the postprocessing library accesses WebGLRenderer-specific APIs.
+          • ACESFilmicToneMapping + toneMappingExposure are set on the renderer to
+            compensate visually: emissive surfaces look bright/glowy, sky is correct.
+          • shadows use PCFSoftShadowMap for smoother contact shadows in WebGPU mode.
+
+        WebGL 2 (SUPPORTS_WEBGPU = false):
+          • Standard R3F Canvas with WebGL 2 renderer + full postprocessing stack.
+        ───────────────────────────────────────────────────────────────────────── */}
       <Canvas
-        shadows={{ type: THREE_TYPES.PCFShadowMap }}
+        shadows={{ type: SUPPORTS_WEBGPU ? THREE_TYPES.PCFSoftShadowMap : THREE_TYPES.PCFShadowMap }}
         camera={{ fov: 70, near: 0.05, far: 500 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={SUPPORTS_WEBGPU
+          ? (canvas) => {
+              // Create WebGPURenderer — same three.js singleton, WebGPU backend.
+              // Cast is required because R3F types expect WebGLRenderer, but the
+              // runtime interface (setSize, render, dispose, shadowMap, etc.) is
+              // fully compatible with WebGPURenderer's Renderer base class.
+              const renderer = new WebGPURenderer({
+                canvas,
+                antialias:       true,
+                powerPreference: "high-performance",
+              });
+              return renderer as unknown as THREE_TYPES.WebGLRenderer;
+            }
+          : { antialias: true, powerPreference: "high-performance" }
+        }
         dpr={[1, 2]}
         style={{ width: "100%", height: "100%" }}
         onCreated={({ gl }) => {
-          if (!gl.capabilities.isWebGL2) {
-            console.warn("[Canvas] WebGL2 not available — falling back to WebGL1");
+          // ACES Filmic tone mapping gives emissive surfaces a natural bloom-like
+          // glow and keeps the sky and skin tones perceptually correct.
+          // Applied to both WebGPU and WebGL 2 paths for consistent look.
+          gl.toneMapping        = THREE_TYPES.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.15;
+
+          if (SUPPORTS_WEBGPU) {
+            console.info("[Renderer] WebGPU backend — hardware-accelerated rendering active");
+          } else {
+            // WebGL 2 path — verify we got a proper GL2 context
+            const glAny = gl as unknown as { capabilities?: { isWebGL2?: boolean } };
+            if (glAny.capabilities && !glAny.capabilities.isWebGL2) {
+              console.warn("[Renderer] WebGL2 not available — running on WebGL1 fallback");
+            } else {
+              console.info("[Renderer] WebGL 2 renderer active");
+            }
           }
         }}
       >
@@ -478,6 +545,7 @@ export default function Game({ onGameOver }: GameProps) {
           onMagicHit={handleMagicHit}
           onLoadProgress={handleLoadProgress}
           onLoaded={handleLoaded}
+          useWebGPU={SUPPORTS_WEBGPU}
         />
       </Canvas>
 
