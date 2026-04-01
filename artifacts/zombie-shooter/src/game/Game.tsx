@@ -13,7 +13,7 @@ import * as THREE from "three";
 // WebGPURenderer auto-detects browser WebGPU support and falls back to WebGL 2
 // if unavailable (Chrome 113+, Edge 113+, Safari 18+; Firefox uses WebGL 2).
 import WebGPURenderer from "three/src/renderers/webgpu/WebGPURenderer.js";
-import { getIslandHeight, getTerrainHeight } from "./terrain";
+import { getIslandHeight, getTerrainHeight, GENESIS_TERRAIN_SIZE } from "./terrain";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
@@ -65,11 +65,13 @@ const MELEE_RANGE       = 2.6;
 const MELEE_DAMAGE      = 80;
 const MELEE_ARC_DOT     = 0.35;
 
-// Zombies spawn at the island's shoreline (~22–26 m radius) and walk inland
+// Genesis Island — spawn ring at ~70–80 m radius from centre
+// (island is 200 m wide; shoreline sits at roughly r=80 m).
 const ISLAND_SPAWN: [number, number, number][] = [
-  [ 24, 0,  0], [-24, 0,  0], [ 0, 0,  24], [  0, 0, -24],
-  [ 17, 0, 17], [-17, 0, 17], [17, 0, -17], [-17, 0, -17],
-  [ 22, 0, 10], [-22, 0, 10], [22, 0, -10], [-22, 0, -10],
+  [ 78, 0,   0], [-78, 0,   0], [  0, 0,  78], [  0, 0, -78],
+  [ 55, 0,  55], [-55, 0,  55], [ 55, 0, -55], [-55, 0, -55],
+  [ 70, 0,  36], [-70, 0,  36], [ 70, 0, -36], [-70, 0, -36],
+  [ 36, 0,  70], [-36, 0,  70], [ 36, 0, -70], [-36, 0, -70],
 ];
 // Graveyard: flat centre, spawns ring at ~20–28 m radius
 const GRAVEYARD_SPAWN: [number, number, number][] = [
@@ -187,7 +189,7 @@ function SceneContent({
 
       {/* ── All physics bodies — terrain, player, AND zombie sensors ── */}
       {/* key forces full remount of nav worker + physics when scene changes */}
-      <NavWorkerProvider key={ed.activeScene} obstacles={navObstacles}>
+      <NavWorkerProvider key={ed.activeScene} obstacles={navObstacles} terrainSize={isGraveyard ? 120 : GENESIS_TERRAIN_SIZE}>
         <Physics gravity={[0, -22, 0]} timeStep="vary">
           {isGraveyard ? <Graveyard /> : <PirateIsland />}
           {/* key remounts when character OR scene changes — resets spawn pos */}

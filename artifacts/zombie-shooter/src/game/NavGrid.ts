@@ -3,31 +3,28 @@
 // getPath(fromX, fromZ, toX, toZ) requests using A* with 8-directional movement
 // and simple visibility smoothing.
 
-import { TERRAIN_SIZE } from "./terrain";
-
 // ── Grid parameters ───────────────────────────────────────────────────────────
-const CELL   = 2.0;                       // world units per cell
-const N      = Math.ceil(TERRAIN_SIZE / CELL); // 60 cells each axis
-const ORIGIN = -TERRAIN_SIZE / 2;         // world X/Z of cell (0,0) left edge
+const CELL = 2.0; // world units per cell (fixed)
 
-// ── Internal grid state ───────────────────────────────────────────────────────
-// 0 = walkable, 1 = blocked
-let _grid: Uint8Array | null = null;
+// Module-level state — set by initNavGrid, used by all pathfinding calls.
+let _N:      number = 60;   // cells per axis (default: 120 m / 2 = 60)
+let _ORIGIN: number = -60;  // world X/Z of cell (0,0) left edge
+let _grid:   Uint8Array | null = null;
 
-function idx(col: number, row: number): number { return row * N + col; }
+function idx(col: number, row: number): number { return row * _N + col; }
 function inBounds(col: number, row: number): boolean {
-  return col >= 0 && col < N && row >= 0 && row < N;
+  return col >= 0 && col < _N && row >= 0 && row < _N;
 }
 
 function worldToCell(wx: number, wz: number): [number, number] {
   return [
-    Math.floor((wx - ORIGIN) / CELL),
-    Math.floor((wz - ORIGIN) / CELL),
+    Math.floor((wx - _ORIGIN) / CELL),
+    Math.floor((wz - _ORIGIN) / CELL),
   ];
 }
 
 function cellCenter(col: number, row: number): [number, number] {
-  return [ORIGIN + (col + 0.5) * CELL, ORIGIN + (row + 0.5) * CELL];
+  return [_ORIGIN + (col + 0.5) * CELL, _ORIGIN + (row + 0.5) * CELL];
 }
 
 // Mark all cells within `radius` world-units of (wx,wz) as blocked
@@ -56,14 +53,23 @@ export interface NavObstacle {
   radius: number;
 }
 
-export function initNavGrid(obstacles: NavObstacle[]): void {
-  const grid = new Uint8Array(N * N); // all walkable by default
+/**
+ * Initialise (or re-initialise) the nav grid.
+ * @param obstacles  List of circular obstacles (palm trees, props, etc.)
+ * @param terrainSize  World size of the terrain in metres (default 120 for graveyard).
+ *                     Pass 200 for the Genesis Island.
+ */
+export function initNavGrid(obstacles: NavObstacle[], terrainSize: number = 120): void {
+  _N      = Math.ceil(terrainSize / CELL);
+  _ORIGIN = -terrainSize / 2;
+
+  const grid = new Uint8Array(_N * _N); // all walkable by default
 
   // Mark boundary ring as blocked (matches CuboidCollider walls)
   const BORDER = 2; // cells
-  for (let r = 0; r < N; r++) {
-    for (let c = 0; c < N; c++) {
-      if (r < BORDER || r >= N - BORDER || c < BORDER || c >= N - BORDER) {
+  for (let r = 0; r < _N; r++) {
+    for (let c = 0; c < _N; c++) {
+      if (r < BORDER || r >= _N - BORDER || c < BORDER || c >= _N - BORDER) {
         grid[idx(c, r)] = 1;
       }
     }
@@ -165,7 +171,6 @@ export function getPath(
   // Source cell walkability check
   let srcC = fc, srcR = fr;
   if (_grid[idx(srcC, srcR)] === 1) {
-    // Find nearest walkable cell to start
     outer2: for (let d = 1; d <= 3; d++) {
       for (let dr = -d; dr <= d; dr++) {
         for (let dc = -d; dc <= d; dc++) {
@@ -181,24 +186,24 @@ export function getPath(
 
   if (srcC === goalC && srcR === goalR) return [];
 
-  const gScore  = new Float32Array(N * N).fill(Infinity);
-  const cameFrom = new Int32Array(N * N).fill(-1);
-  const open    = new MinHeap();
+  const gScore   = new Float32Array(_N * _N).fill(Infinity);
+  const cameFrom = new Int32Array(_N * _N).fill(-1);
+  const open     = new MinHeap();
 
   const startI = idx(srcC, srcR);
   gScore[startI] = 0;
   open.push({ f: octile(goalC - srcC, goalR - srcR), i: startI });
 
-  const goalI = idx(goalC, goalR);
-  const MAX_ITER = 4000;
+  const goalI   = idx(goalC, goalR);
+  const MAX_ITER = 8000; // bumped to handle larger 200 m grid
   let iter = 0;
 
   while (open.size > 0 && iter++ < MAX_ITER) {
     const { i: ci } = open.pop()!;
     if (ci === goalI) break;
 
-    const cr = Math.floor(ci / N);
-    const cc = ci % N;
+    const cr = Math.floor(ci / _N);
+    const cc = ci % _N;
     const cg = gScore[ci];
 
     for (const [dc, dr, cost] of DIRS) {
@@ -227,14 +232,13 @@ export function getPath(
   const raw: [number, number][] = [];
   let cur = goalI;
   while (cur !== -1) {
-    const r = Math.floor(cur / N);
-    const c = cur % N;
+    const r = Math.floor(cur / _N);
+    const c = cur % _N;
     raw.unshift(cellCenter(c, r));
     cur = cameFrom[cur];
   }
 
   // ── Visibility smoothing (string-pull) ───────────────────────────────────
-  // Removes waypoints that are directly visible from the previous retained one.
   if (raw.length <= 2) return raw;
 
   function hasLoS(ax: number, az: number, bx: number, bz: number): boolean {

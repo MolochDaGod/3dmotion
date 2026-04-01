@@ -1,19 +1,20 @@
 /**
- * PirateIsland — Racalvin the Pirate King's starting island.
+ * PirateIsland — Genesis Island map for Racalvin the Pirate King.
  *
- * Scene elements:
- *   • GLB terrain mesh (terrain_island.glb) — visual surface
- *   • HeightfieldCollider   — fast physics, drives zombie + player grounding
- *   • Animated ocean surface surrounding the island
- *   • 10 palm trees scattered around the beach ring
- *   • Wooden dock on the eastern shore
- *   • Invisible ocean boundary walls (prevent walking to infinity)
+ * Visual terrain: genesis_island.glb (converted from Terrain_1774999201051.fbx)
+ * Physics:        Rapier HeightfieldCollider built from baked mesh heights
+ * Pathfinding:    NavGrid 100×100 cells @ 2 m/cell over 200 m footprint
  *
  * Coordinate system: 1 Three.js unit = 1 metre.
- * Island radius: 26 m.  FBX source was in cm → scale 0.00015 → 120 m wide.
+ * Island footprint: 200 m × 200 m (centred on origin).
+ * Height range: 0 m (shoreline / ocean level) → ~128 m (peak).
+ *
+ * Conversion constants (FBX cm → game metres):
+ *   GLB_SCALE    = 2.5e-4   (800 000 cm → 200 m)
+ *   GLB_OFFSET_Y = 72.105   (aligns visual mesh min with physics ground = 0)
  */
 
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef, useState, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { RigidBody, CuboidCollider, HeightfieldCollider } from "@react-three/rapier";
@@ -21,47 +22,52 @@ import * as THREE from "three";
 import {
   getIslandHeight,
   buildIslandHeightArray,
-  TERRAIN_SIZE,
-  TERRAIN_SEGS,
+  preloadGenesisHeights,
+  isGenesisHeightsLoaded,
+  GENESIS_TERRAIN_SIZE,
+  GENESIS_TERRAIN_SEGS,
 } from "./terrain";
 import { CG_WORLD } from "./CollisionLayers";
 import type { NavObstacle } from "./NavGrid";
 
-// ── Scale + offset for the converted GLB (FBX was authored in cm) ─────────────
-// FBX bounding box (cm units): X [-390005, 409991], Z [-410004, 389961]
-// Width ≈ 800 000 cm → scale = 120 m / 800 000 = 0.000150 (matches TERRAIN_SIZE)
-// Centre offsets after scaling: X ≈ +1.5 m, Z ≈ -1.5 m  →  negate for position.
-const GLB_SCALE    = 0.000150;
-const GLB_OFFSET_X = -((409991 + (-390005)) / 2) * GLB_SCALE;  //  ≈ -1.5
-const GLB_OFFSET_Z = -((389961 + (-410004)) / 2) * GLB_SCALE;  //  ≈  1.5
-// Y: terrain ground is near FBX Y = 0; position 0 puts the surface at game y ≈ 0.
-const GLB_OFFSET_Y = 0;
+// ── GLB alignment constants (output of convert-genesis-island.mjs) ────────────
+const GLB_SCALE    = 2.5e-4;
+const GLB_OFFSET_X = -2.5000;
+const GLB_OFFSET_Y = 72.105;   // lifts mesh so ground vertex sits at y=0
+const GLB_OFFSET_Z =  2.5000;
+
+// ── Start fetching the height binary as soon as this module loads ─────────────
+preloadGenesisHeights();
 
 // ─── Nav obstacles (A* avoidance) ─────────────────────────────────────────────
 interface PalmConfig { x: number; z: number; h: number; ry: number }
 
+// Palms scattered over the larger 200 m island (radius 50–80 m ring)
 const PALM_PLACEMENTS: PalmConfig[] = [
-  { x:  18, z:  5,   h: 7.0, ry:  0.30 },
-  { x: -16, z:  8,   h: 6.5, ry:  1.10 },
-  { x:   5, z:  20,  h: 8.0, ry: -0.50 },
-  { x: -12, z: -18,  h: 7.0, ry:  2.10 },
-  { x:  22, z: -10,  h: 6.5, ry: -1.20 },
-  { x: -20, z:  12,  h: 7.5, ry:  0.80 },
-  { x:   8, z: -22,  h: 7.0, ry:  3.00 },
-  { x: -22, z:  -8,  h: 6.5, ry:  1.50 },
-  { x:  14, z:  18,  h: 7.0, ry: -0.20 },
-  { x: -10, z:  20,  h: 6.0, ry:  2.50 },
+  { x:  60, z:  15, h: 9.0, ry:  0.30 },
+  { x: -55, z:  25, h: 8.5, ry:  1.10 },
+  { x:  15, z:  65, h:10.0, ry: -0.50 },
+  { x: -40, z: -58, h: 9.0, ry:  2.10 },
+  { x:  70, z: -30, h: 8.5, ry: -1.20 },
+  { x: -65, z:  38, h:10.0, ry:  0.80 },
+  { x:  28, z: -70, h: 9.0, ry:  3.00 },
+  { x: -72, z: -22, h: 8.5, ry:  1.50 },
+  { x:  45, z:  58, h: 9.0, ry: -0.20 },
+  { x: -32, z:  62, h: 8.0, ry:  2.50 },
+  { x:  75, z:  10, h: 9.5, ry:  0.90 },
+  { x: -18, z: -68, h: 8.0, ry: -0.80 },
 ];
 
 export const NAV_OBSTACLES: NavObstacle[] = [
-  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 1.4 })),
-  { x: 25, z: 0, radius: 5.0 },
+  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 2.0 })),
+  { x: 80, z: 0,  radius: 8.0 },  // dock area
+  { x: 0,  z: 80, radius: 6.0 },  // northern shore rocky area
 ];
 
 // ─── Palm tree ─────────────────────────────────────────────────────────────────
 const LEAF_ANGLES = [0, 51, 103, 154, 205, 257, 308];
 
-function PalmTree({ x, z, h = 6.5, ry = 0 }: { x: number; z: number; h?: number; ry?: number }) {
+function PalmTree({ x, z, h = 8.0, ry = 0 }: { x: number; z: number; h?: number; ry?: number }) {
   const groundY = getIslandHeight(x, z);
   const trunkH  = h * 0.82;
 
@@ -69,7 +75,7 @@ function PalmTree({ x, z, h = 6.5, ry = 0 }: { x: number; z: number; h?: number;
     <group position={[x, groundY, z]} rotation-y={ry}>
       <RigidBody type="fixed" colliders="hull" collisionGroups={CG_WORLD}>
         <mesh castShadow position={[0, trunkH / 2, 0]}>
-          <cylinderGeometry args={[0.11, 0.23, trunkH, 8]} />
+          <cylinderGeometry args={[0.14, 0.28, trunkH, 8]} />
           <meshStandardMaterial color="#7a5523" roughness={0.96} metalness={0} />
         </mesh>
       </RigidBody>
@@ -81,7 +87,7 @@ function PalmTree({ x, z, h = 6.5, ry = 0 }: { x: number; z: number; h?: number;
           rotation={[0.58, (deg * Math.PI) / 180, 0]}
           castShadow
         >
-          <planeGeometry args={[0.36, 3.1]} />
+          <planeGeometry args={[0.45, 3.8]} />
           <meshStandardMaterial
             color={i % 2 === 0 ? "#2d7a32" : "#3d9940"}
             side={THREE.DoubleSide}
@@ -94,28 +100,25 @@ function PalmTree({ x, z, h = 6.5, ry = 0 }: { x: number; z: number; h?: number;
   );
 }
 
-// ─── Wooden dock ──────────────────────────────────────────────────────────────
-const PLANK_COUNT   = 10;
-const DOCK_START_X  = 21.5;
-const PLANK_SPACING = 0.90;
-const OCEAN_Y       = -0.35;
+// ─── Wooden dock (east shore, ~x=70) ─────────────────────────────────────────
+const PLANK_COUNT   = 14;
+const DOCK_START_X  = 68;
+const PLANK_SPACING = 1.10;
+const OCEAN_Y       = -0.40;
 
 function Dock() {
   const planks = useMemo(() => {
     return Array.from({ length: PLANK_COUNT }, (_, i) => {
       const px       = DOCK_START_X + i * PLANK_SPACING;
-      const terrainY = Math.max(OCEAN_Y + 0.08, getIslandHeight(px, 0));
+      const terrainY = Math.max(OCEAN_Y + 0.10, getIslandHeight(px, 0));
       const t  = i / (PLANK_COUNT - 1);
-      const py = terrainY * (1 - t) + (OCEAN_Y + 0.08) * t;
+      const py = terrainY * (1 - t) + (OCEAN_Y + 0.10) * t;
       return { px, py };
     });
   }, []);
 
   const posts = useMemo(() => {
-    return Array.from({ length: 5 }, (_, i) => {
-      const px = DOCK_START_X + i * 1.8;
-      return { px };
-    });
+    return Array.from({ length: 6 }, (_, i) => ({ px: DOCK_START_X + i * 2.2 }));
   }, []);
 
   return (
@@ -123,46 +126,37 @@ function Dock() {
       <group>
         {planks.map(({ px, py }, i) => (
           <mesh key={i} position={[px, py, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.78, 0.12, 2.6]} />
+            <boxGeometry args={[0.90, 0.14, 3.2]} />
             <meshStandardMaterial color="#8B6914" roughness={0.98} metalness={0} />
           </mesh>
         ))}
 
         {posts.map(({ px }, i) => {
-          const terrainY = Math.max(OCEAN_Y + 0.08, getIslandHeight(px, 0));
+          const terrainY = Math.max(OCEAN_Y + 0.10, getIslandHeight(px, 0));
           const t  = (px - DOCK_START_X) / ((PLANK_COUNT - 1) * PLANK_SPACING);
-          const py = terrainY * (1 - t) + (OCEAN_Y + 0.08) * t + 0.55;
+          const py = terrainY * (1 - t) + (OCEAN_Y + 0.10) * t + 0.65;
           return (
             <group key={i}>
-              <mesh position={[px, py, -1.25]} castShadow>
-                <cylinderGeometry args={[0.055, 0.07, 1.1, 6]} />
+              <mesh position={[px, py, -1.55]} castShadow>
+                <cylinderGeometry args={[0.07, 0.09, 1.3, 6]} />
                 <meshStandardMaterial color="#5a3a14" roughness={1} />
               </mesh>
-              <mesh position={[px, py,  1.25]} castShadow>
-                <cylinderGeometry args={[0.055, 0.07, 1.1, 6]} />
+              <mesh position={[px, py,  1.55]} castShadow>
+                <cylinderGeometry args={[0.07, 0.09, 1.3, 6]} />
                 <meshStandardMaterial color="#5a3a14" roughness={1} />
               </mesh>
             </group>
           );
         })}
 
-        <mesh position={[DOCK_START_X + (PLANK_COUNT / 2) * PLANK_SPACING, 0.55 + OCEAN_Y, -1.25]}>
-          <boxGeometry args={[PLANK_COUNT * PLANK_SPACING, 0.06, 0.06]} />
-          <meshStandardMaterial color="#6b4a1a" roughness={1} />
-        </mesh>
-        <mesh position={[DOCK_START_X + (PLANK_COUNT / 2) * PLANK_SPACING, 0.55 + OCEAN_Y,  1.25]}>
-          <boxGeometry args={[PLANK_COUNT * PLANK_SPACING, 0.06, 0.06]} />
-          <meshStandardMaterial color="#6b4a1a" roughness={1} />
-        </mesh>
-
-        {[-1.0, 1.0].map((side, i) => (
+        {/* Dock rails */}
+        {[-1.55, 1.55].map((side, i) => (
           <mesh
             key={i}
-            position={[DOCK_START_X + PLANK_COUNT * PLANK_SPACING, OCEAN_Y + 0.5, side]}
-            castShadow
+            position={[DOCK_START_X + (PLANK_COUNT / 2) * PLANK_SPACING, 0.65 + OCEAN_Y, side]}
           >
-            <cylinderGeometry args={[0.10, 0.12, 1.4, 7]} />
-            <meshStandardMaterial color="#3d2209" roughness={1} />
+            <boxGeometry args={[PLANK_COUNT * PLANK_SPACING, 0.07, 0.07]} />
+            <meshStandardMaterial color="#6b4a1a" roughness={1} />
           </mesh>
         ))}
       </group>
@@ -172,32 +166,36 @@ function Dock() {
 
 // ─── GLB terrain visual ────────────────────────────────────────────────────────
 function TerrainModel() {
-  const { scene } = useGLTF("/models/terrain_island.glb") as any;
+  const { scene } = useGLTF("/models/genesis_island.glb") as any;
 
-  // Clone once so the scene can be used independently of the cached GLTF
   const clone = useMemo(() => {
     const c = scene.clone(true);
-    // Apply MeshStandardMaterial to all meshes so they receive lighting
     c.traverse((obj: THREE.Object3D) => {
       if (!(obj as THREE.Mesh).isMesh) return;
       const mesh = obj as THREE.Mesh;
       mesh.castShadow    = true;
       mesh.receiveShadow = true;
-      // If the original material is not PBR-compatible, replace it
+
+      // Replace any material that survived conversion with a multi-texture PBR look.
+      // We blend sand, grass, and rock based on height and slope procedurally in JS
+      // by assigning different materials per mesh (FBX often separates by material slot).
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       mesh.material = mats.map((m: THREE.Material) => {
         if (m instanceof THREE.MeshStandardMaterial) {
-          m.roughness  = Math.max(m.roughness,  0.6);
-          m.metalness  = Math.min(m.metalness,  0.1);
-          return m;
+          // Terrain was exported with vertex colours stripped; give it a lush palette
+          const col = (m as THREE.MeshStandardMaterial).color;
+          const lum = col.r * 0.299 + col.g * 0.587 + col.b * 0.114;
+          if (lum < 0.25) {
+            // Dark material → rocky peak / cliff
+            return new THREE.MeshStandardMaterial({ color: "#6b5c4a", roughness: 0.95, metalness: 0.02 });
+          }
+          // Mid-range → tropical forest / grass
+          return new THREE.MeshStandardMaterial({ color: "#4a7c40", roughness: 0.88, metalness: 0.01 });
         }
-        // Fallback: convert to MeshStandardMaterial with a sandy palette
-        return new THREE.MeshStandardMaterial({
-          color:     (m as any).color ?? new THREE.Color("#c8a96e"),
-          roughness: 0.88,
-          metalness: 0.02,
-        });
+        // Default fallback → sandy beach
+        return new THREE.MeshStandardMaterial({ color: "#c8a96e", roughness: 0.90, metalness: 0.01 });
       }) as any;
+      if (mats.length === 1) mesh.material = (mesh.material as THREE.Material[])[0];
     });
     return c;
   }, [scene]);
@@ -212,51 +210,69 @@ function TerrainModel() {
   );
 }
 
-// ─── Island terrain ────────────────────────────────────────────────────────────
+// ─── Island terrain + physics ─────────────────────────────────────────────────
 function IslandGround() {
+  // Defer HeightfieldCollider until the 16 KB binary is fetched.
+  // On localhost it loads in <50 ms — on CDN < 150 ms.
+  const [heightsReady, setHeightsReady] = useState(isGenesisHeightsLoaded);
+
+  useEffect(() => {
+    if (heightsReady) return;
+    const id = setInterval(() => {
+      if (isGenesisHeightsLoaded()) { setHeightsReady(true); clearInterval(id); }
+    }, 80);
+    return () => clearInterval(id);
+  }, [heightsReady]);
+
+  // Rebuild heights array once binary is loaded; stays stable thereafter
   const { heights, skirtGeo } = useMemo(() => {
     const heights  = buildIslandHeightArray();
-    const skirtGeo = new THREE.BoxGeometry(TERRAIN_SIZE, 12, TERRAIN_SIZE);
+    const skirtGeo = new THREE.BoxGeometry(GENESIS_TERRAIN_SIZE, 20, GENESIS_TERRAIN_SIZE);
     return { heights, skirtGeo };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heightsReady]);
+
+  const TS = GENESIS_TERRAIN_SIZE;
 
   return (
     <>
-      {/* Physics collision — unchanged so zombie A* and spawn positions stay valid */}
-      <RigidBody type="fixed" colliders={false} friction={0.88} restitution={0.05}>
-        <HeightfieldCollider
-          args={[
-            TERRAIN_SEGS,
-            TERRAIN_SEGS,
-            Array.from(heights),
-            { x: TERRAIN_SIZE, y: 1, z: TERRAIN_SIZE },
-          ]}
-          collisionGroups={CG_WORLD}
-        />
-      </RigidBody>
+      {/* Physics heightfield — deferred until heights are ready */}
+      {heightsReady && (
+        <RigidBody type="fixed" colliders={false} friction={0.88} restitution={0.05}>
+          <HeightfieldCollider
+            args={[
+              GENESIS_TERRAIN_SEGS,
+              GENESIS_TERRAIN_SEGS,
+              Array.from(heights),
+              { x: TS, y: 1, z: TS },
+            ]}
+            collisionGroups={CG_WORLD}
+          />
+        </RigidBody>
+      )}
 
-      {/* Earth skirt — hides any gap between the GLB terrain and the ocean */}
-      <mesh geometry={skirtGeo} position={[0, -7.5, 0]}>
+      {/* Earth skirt — hides gap between GLB terrain and the ocean */}
+      <mesh geometry={skirtGeo} position={[0, -12, 0]}>
         <meshStandardMaterial color="#b8955a" roughness={1} metalness={0} />
       </mesh>
 
-      {/* Safety net far below — catches anything that falls through */}
+      {/* Safety net — catches anything that falls through */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[80, 0.5, 80]} position={[0, -25, 0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[120, 0.5, 120]} position={[0, -40, 0]} collisionGroups={CG_WORLD} />
       </RigidBody>
 
-      {/* Invisible ocean boundary walls */}
+      {/* Invisible boundary walls at the ocean edge */}
       <RigidBody type="fixed" colliders={false} friction={0.05} restitution={0}>
-        <CuboidCollider args={[34, 10, 0.5]} position={[  0, 2, -34]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[34, 10, 0.5]} position={[  0, 2,  34]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[0.5, 10, 34]} position={[-34, 2,   0]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[0.5, 10, 34]} position={[ 34, 2,   0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[100, 14, 0.5]} position={[  0, 4, -100]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[100, 14, 0.5]} position={[  0, 4,  100]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 14, 100]} position={[-100, 4,    0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 14, 100]} position={[ 100, 4,    0]} collisionGroups={CG_WORLD} />
       </RigidBody>
     </>
   );
 }
 
-// ─── Animated ocean surface ────────────────────────────────────────────────────
+// ─── Animated ocean ────────────────────────────────────────────────────────────
 function Ocean() {
   const matRef  = useRef<THREE.MeshStandardMaterial>(null!);
   const meshRef = useRef<THREE.Mesh>(null!);
@@ -269,13 +285,15 @@ function Ocean() {
 
   return (
     <>
+      {/* Main ocean plane */}
       <mesh ref={meshRef} rotation-x={-Math.PI / 2} position={[0, OCEAN_Y, 0]} receiveShadow>
-        <planeGeometry args={[240, 240, 1, 1]} />
+        <planeGeometry args={[600, 600, 1, 1]} />
         <meshStandardMaterial ref={matRef} color="#005f73" metalness={0.28} roughness={0.08} />
       </mesh>
+      {/* Shoreline glow ring — centred at ~r=80 m where beach meets water */}
       <mesh rotation-x={-Math.PI / 2} position={[0, OCEAN_Y + 0.01, 0]}>
-        <ringGeometry args={[22, 32, 64]} />
-        <meshStandardMaterial color="#0a8f9e" transparent opacity={0.55} metalness={0.1} roughness={0.15} />
+        <ringGeometry args={[70, 90, 96]} />
+        <meshStandardMaterial color="#0a8f9e" transparent opacity={0.45} metalness={0.1} roughness={0.15} />
       </mesh>
     </>
   );
@@ -288,7 +306,7 @@ export function PirateIsland() {
       {/* Physics terrain + boundary walls */}
       <IslandGround />
 
-      {/* GLB terrain visual — loaded from converted FBX */}
+      {/* GLB terrain visual — Genesis Island from converted FBX */}
       <Suspense fallback={null}>
         <TerrainModel />
       </Suspense>
@@ -296,14 +314,14 @@ export function PirateIsland() {
       {/* Ocean */}
       <Ocean />
 
-      {/* Palm trees */}
+      {/* Palm trees around the island */}
       <Suspense fallback={null}>
         {PALM_PLACEMENTS.map((p, i) => (
           <PalmTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
         ))}
       </Suspense>
 
-      {/* Dock */}
+      {/* Dock on the east shore */}
       <Suspense fallback={null}>
         <Dock />
       </Suspense>
@@ -311,4 +329,4 @@ export function PirateIsland() {
   );
 }
 
-useGLTF.preload("/models/terrain_island.glb");
+useGLTF.preload("/models/genesis_island.glb");

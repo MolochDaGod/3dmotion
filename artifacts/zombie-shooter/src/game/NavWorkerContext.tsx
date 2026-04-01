@@ -33,11 +33,12 @@ const NavWorkerContext = createContext<NavWorkerCtx>({
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 interface Props {
-  obstacles: NavObstacle[];
-  children: ReactNode;
+  obstacles:   NavObstacle[];
+  terrainSize?: number;
+  children:    ReactNode;
 }
 
-export function NavWorkerProvider({ obstacles, children }: Props) {
+export function NavWorkerProvider({ obstacles, terrainSize = 120, children }: Props) {
   const workerRef  = useRef<Worker | null>(null);
   const pendingRef = useRef(new Map<number, PathCallback>());
   const idRef      = useRef(0);
@@ -66,7 +67,7 @@ export function NavWorkerProvider({ obstacles, children }: Props) {
       console.error("[NavWorker] error:", err.message);
     };
 
-    worker.postMessage({ type: "init", obstacles });
+    worker.postMessage({ type: "init", obstacles, terrainSize });
 
     return () => {
       worker.terminate();
