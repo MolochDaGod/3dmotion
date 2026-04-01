@@ -527,6 +527,9 @@ const _fwdVec       = new THREE.Vector3();   // camera-relative forward
 const _rgtVec       = new THREE.Vector3();   // camera-relative right
 const _moveVec      = new THREE.Vector3();   // resolved movement applied to physics this frame
 const _targetVel    = new THREE.Vector3();   // desired velocity (m/s) from input — smoothed toward
+// Camera smooth-follow scratch (world-space, reused every frame)
+const _camIdeal     = new THREE.Vector3();   // desired camera world pos
+const _camOffset    = new THREE.Vector3();   // shoulder offset rotated by yaw
 // God-mode scratch
 const _flyDir       = new THREE.Vector3();
 const _flyFwd       = new THREE.Vector3();
@@ -602,6 +605,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
   // Velocity smoothing — eliminates rubber-band jitter on start/stop/direction change.
   // Stores the current smoothed horizontal velocity (m/s); updated via exponential decay.
   const smoothVelRef = useRef(new THREE.Vector3(0, 0, 0));
+
+  // Smooth camera world-space position — lerped toward the ideal shoulder offset
+  // each frame so physics jitter / Rapier corrections never snap the view.
+  const cameraWorldPosRef = useRef(new THREE.Vector3());
 
   // ── Procedural animation refs ─────────────────────────────────────────────
   const leanRef          = useRef(0);    // current body lean angle (radians)
@@ -911,14 +918,28 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     };
   }, [world]);
 
-  // ── Camera parenting ──────────────────────────────────────────────────────
+  // ── Camera setup — WORLD SPACE (not parented to character) ───────────────
+  // The camera is kept as a direct child of the Three.js scene so that the
+  // smooth-follow logic in useFrame can lerp its world-space position without
+  // fighting a parent transform. Previously the camera was parented to rootRef,
+  // meaning every Rapier position correction (wall collision, slope snap, etc.)
+  // instantly yanked the camera — visible as "rubber-banding".
   useEffect(() => {
     camera.rotation.order = "YXZ";
-    const root = rootRef.current;
-    if (root) root.add(camera);
-    camera.position.set(camSettings.shoulderX, camSettings.shoulderY, camSettings.shoulderZ);
+    // Prime the smooth-pos tracker from the character's current world position
+    // so the camera doesn't fly in from the origin on mount.
+    const spawn = rootRef.current?.position;
+    if (spawn) {
+      camera.position.set(
+        spawn.x + camSettings.shoulderX,
+        spawn.y + camSettings.shoulderY,
+        spawn.z + camSettings.shoulderZ,
+      );
+      cameraWorldPosRef.current.copy(camera.position);
+    }
     camera.rotation.set(0, 0, 0);
-    return () => { scene.add(camera); };
+    // Ensure camera is in scene space (R3F may have moved it)
+    scene.add(camera);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, scene]);
 
@@ -1214,13 +1235,22 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
 
   // transitionTo — for locomotion only.
   // Skips if same animation. Does NOT interrupt a blocking-once attack.
+  // Avoids reset() on already-running loop animations so the cycle phase is
+  // preserved — prevents the pop/stutter visible when changing direction.
   const transitionTo = useCallback((next: AnimKey, fade = FADE_LOCO) => {
     if (blockingOnce.current) return;         // never interrupt an attack
     if (curAnim.current === next) return;
     actionsRef.current[curAnim.current]?.fadeOut(fade);
     const a = actionsRef.current[next];
     if (a) {
-      a.reset().fadeIn(fade).play();
+      if (!a.isRunning()) {
+        // Not playing yet — start cleanly from the top
+        a.reset().fadeIn(fade).play();
+      } else {
+        // Already playing (e.g. returning to walk from sprint mid-stride)
+        // — just cross-fade in without restarting the phase.
+        a.fadeIn(fade);
+      }
       curAnim.current = next;
     }
   }, []);
@@ -1793,7 +1823,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     const right  = !!(keys.current["KeyD"] || keys.current["ArrowRight"]);
     const sprint = !!(keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !crouching.current;
 
-    // ── Camera ─────────────────────────────────────────────────────────────
+    // ── Camera — smooth world-space follow ─────────────────────────────────
+    // Camera lives in SCENE space (not parented to rootRef) so that Rapier
+    // physics corrections never snap it.  Each frame we compute the IDEAL
+    // camera world position, then exponentially lerp the actual camera toward
+    // it (k=18 → ~95 % settled in ≈ 0.17 s, feels responsive but never jerky).
+    //
     // tps    = user-configured over-shoulder (shoulderX/Y/Z)
     // action = tight cinematic combat cam: closer, lower, more dramatic
     // rts    = elevated strategic / top-down follow camera (fixed angle)
@@ -1807,23 +1842,43 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     const camZ = mode === "rts"    ? RTS_CAM_Z
                : mode === "action" ? 1.55
                : shoulderZ;
-    camera.position.set(camX, camY, camZ);
-    // RTS camera: fixed downward pitch, ignore mouse pitch
-    camera.rotation.x = mode === "rts" ? RTS_PITCH : pitch.current;
-    camera.rotation.y = 0;
-    camera.rotation.z = mode === "rts" ? 0 : rollCamZ.current;
 
-    // ── Head bob — procedural vertical/lateral camera oscillation ────────────
-    // Only while grounded and moving; fades to zero when stationary.
+    // Head bob — procedural oscillation while moving; fades out on stop.
     const isMovingNow = (fwd || bwd || left || right) && grounded.current;
     const bobFreq = sprint ? 13 : 9;
     bobTimerRef.current += delta * bobFreq * (isMovingNow ? 1 : -Math.min(1, bobTimerRef.current));
     bobTimerRef.current  = Math.max(0, bobTimerRef.current);
     const bobAmp  = sprint ? 0.025 : 0.014;
-    if (isMovingNow || bobTimerRef.current > 0.01) {
-      camera.position.y += Math.sin(bobTimerRef.current) * bobAmp;
-      camera.position.x += Math.sin(bobTimerRef.current * 0.5) * bobAmp * 0.35;
+    const bobY    = (isMovingNow || bobTimerRef.current > 0.01) ? Math.sin(bobTimerRef.current) * bobAmp : 0;
+    const bobX    = (isMovingNow || bobTimerRef.current > 0.01) ? Math.sin(bobTimerRef.current * 0.5) * bobAmp * 0.35 : 0;
+
+    const pPos = rootRef.current.position; // character world position
+
+    if (mode === "rts") {
+      // RTS: fixed offset above player — no yaw rotation, just follow
+      _camIdeal.set(pPos.x, pPos.y + RTS_CAM_Y, pPos.z + RTS_CAM_Z);
+    } else {
+      // TPS / action: shoulder offset rotated by character yaw
+      // Compute yawQ once (also reused for rootRef rotation below)
+      _yawQ.setFromAxisAngle(_UP_AXIS, yaw.current);
+      _camOffset.set(camX, camY, camZ).applyQuaternion(_yawQ);
+      _camIdeal.copy(pPos).add(_camOffset);
+      // Bob applied in world space along global Y and strafe-right
+      _camIdeal.y += bobY;
+      // Lateral bob along the right vector (cos yaw, 0, -sin yaw)
+      _camIdeal.x += bobX * Math.cos(yaw.current);
+      _camIdeal.z += bobX * -Math.sin(yaw.current);
     }
+
+    // Smooth lerp toward ideal — k=18: responsive, never snappy
+    const camT = 1 - Math.exp(-18 * delta);
+    cameraWorldPosRef.current.lerp(_camIdeal, camT);
+    camera.position.copy(cameraWorldPosRef.current);
+
+    // Camera rotation — world space (no parent transform to inherit yaw from)
+    camera.rotation.x = mode === "rts" ? RTS_PITCH : pitch.current;
+    camera.rotation.y = mode === "rts" ? 0        : yaw.current;
+    camera.rotation.z = mode === "rts" ? 0        : rollCamZ.current;
 
     // ── FOV zoom — smooth lerp for melee block (1.5×) and bow aim ────────────
     // Uses exponential decay (1 - e^(-k·dt)) for true frame-rate independence —
@@ -1841,10 +1896,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef }: P
     // ── Roll cam-Z decay — exponential, frame-rate-independent ───────────────
     rollCamZ.current *= Math.exp(-14 * delta);
 
-    // ── Yaw on rootRef (camera parent) — lean kept on leanGroupRef only ───────
-    // rootRef gets ONLY the yaw so the follow-camera never drifts sideways.
+    // ── Yaw on rootRef — lean kept on leanGroupRef only ──────────────────────
+    // rootRef gets ONLY the yaw so the character body faces the right direction.
     // The body-lean quaternion is applied to the child leanGroupRef so only
-    // the character mesh tilts; camera distance/direction remains perfectly rigid.
+    // the character mesh tilts; the world-space camera tracks separately.
     const strafe = !sprint && grounded.current && !rolling.current;
     const targetLean = (left && !right && strafe) ?  0.07
                      : (right && !left && strafe) ? -0.07 : 0;
