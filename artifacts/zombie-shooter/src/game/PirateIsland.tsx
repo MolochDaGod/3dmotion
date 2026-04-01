@@ -60,8 +60,15 @@ const PALM_PLACEMENTS: PalmConfig[] = [
 
 export const NAV_OBSTACLES: NavObstacle[] = [
   ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 2.0 })),
-  { x: 80, z: 0,  radius: 8.0 },  // dock area
-  { x: 0,  z: 80, radius: 6.0 },  // northern shore rocky area
+  // ── Mountain — the island peak at (0,0) rises to 128 m.
+  //    The steep-cliff zone starts around radius 30 m from centre and
+  //    extends to ~45 m where the terrain flattens to beach level (~2 m).
+  //    We block the entire unscalable cone so zombies route around the coast.
+  { x:  0, z:  0, radius: 42.0 },  // main summit + upper cliffs
+  { x: 15, z: -5, radius:  8.0 },  // south-east cliff spur
+  { x:-15, z: -5, radius:  8.0 },  // south-west cliff spur
+  { x: 80, z: 0,  radius:  8.0 },  // dock area
+  { x: 0,  z: 80, radius:  6.0 },  // northern shore rocky area
 ];
 
 // ─── Palm tree ─────────────────────────────────────────────────────────────────
