@@ -16,6 +16,7 @@ import {
   ANIM_STAFF, ANIM_BOW, ANIM_SHIELD_SWORD, ANIM_TRAVERSE,
   WEAPON_PROPS, WEAPON_TEXTURES, texPath,
 } from "./assets/manifest";
+import { useWeaponFit } from "./useWeaponFit";
 
 // ─── Capsule ──────────────────────────────────────────────────────────────────
 // Racalvin is 60 in = 1.524 m.  Capsule total = 2·HH + 2·R = 1.44 m (snug fit).
@@ -62,74 +63,12 @@ const SHOOT_CD: Record<WeaponMode, number> = {
 const MELEE_DMG_DELAY  = 350;   // ms after animation start when hit fires
 const MELEE_COMBO_WIN  = 0.70;  // s — window after anim ends to chain combo
 
-// ─── Weapon hand-bone rotations ───────────────────────────────────────────────
-// For Mixamo-compatible rigs (Meshy AI Corsair King) the right-hand bone's
-// local +X axis points toward the fingertips (along the arm extension).
-// Most weapon packs (craftpix etc.) model the blade/head along +Y and the
-// handle toward -Y. To align handle with grip (bone +X) and blade forward:
-//   Euler(0, 0, -π/2)  rotates the weapon's +Y blade → bone +X (correct grip)
-//   Euler(0, π, -π/2)  additionally flips blade end vs handle if needed
-// Staff (cane): shaft along model +Y, pivot at base.  We want the shaft to angle
-// diagonally upward-forward in the grip (like a mage combat stance).
-//   Euler(-π*0.35, 0, π/2):  Z rotation brings +Y shaft → +X bone dir (forward),
-//   then negative X tilt angles the tip upward-back for a natural staff carry.
-// A position offset of (0, -0.5, 0) applied to the mesh shifts the grip point
-// from the model base to approx 1/3 up the shaft so it sits in the palm.
-// Gun props (Pixel Guns 3D): barrel along +Z, grip along -Y.
-//   Pistol: Euler(π/2, 0, 0) tilts barrel to face +X (bone forward dir)
-//   Rifle:  same default; scale up since rifle is 2-handed
-// Bow prop (craftpix): stave along +Y → left-hand bone, tilt to match draw pose
-const SWORD_ROT  = new THREE.Euler(0, 0, -Math.PI / 2);
-const AXE_ROT    = new THREE.Euler(0, 0, -Math.PI / 2);
-const STAFF_ROT  = new THREE.Euler(-Math.PI * 0.35, 0, Math.PI / 2);
-const PISTOL_ROT = new THREE.Euler(Math.PI / 2, 0, 0);
-const RIFLE_ROT  = new THREE.Euler(Math.PI / 2, 0, 0);
-// Bow is held in LEFT hand — left hand bone +X also points fingertip-ward but
-// inverted relative to body. π/2 on X + π on Y gives a reasonable bow pose.
-const BOW_ROT    = new THREE.Euler(Math.PI / 2, Math.PI, 0);
-// Shield also goes on the LEFT hand.  Face the shield outward from the body:
-// tilt back (-π/4 on X) so it faces forward and slightly rotate on Y.
-const SHIELD_ROT = new THREE.Euler(-Math.PI / 4, Math.PI / 2, 0);
-
-// ─── Weapon-fit pipeline — read override values saved by ModelViewer ──────────
-// ModelViewer writes to localStorage under "weapon_fit_{key}" when the user
-// clicks "Save to Game".  We read here on each Player mount so character-
-// switching picks up any changes made in the viewer without a full page reload.
-function readFitQAdj(key: string, fallback: THREE.Euler): THREE.Quaternion {
-  try {
-    const raw = localStorage.getItem(`weapon_fit_${key}`);
-    if (raw) {
-      const d = JSON.parse(raw) as { rotation: [number, number, number] };
-      if (Array.isArray(d.rotation) && d.rotation.length === 3) {
-        return new THREE.Quaternion().setFromEuler(
-          new THREE.Euler(d.rotation[0], d.rotation[1], d.rotation[2])
-        );
-      }
-    }
-  } catch { /* corrupt or missing */ }
-  return new THREE.Quaternion().setFromEuler(fallback);
-}
-function readFitScale(key: string, fallback: number): number {
-  try {
-    const raw = localStorage.getItem(`weapon_fit_${key}`);
-    if (raw) {
-      const d = JSON.parse(raw) as { scale: [number, number, number] };
-      if (Array.isArray(d.scale) && d.scale.length === 3) return d.scale[0];
-    }
-  } catch { /* corrupt */ }
-  return fallback;
-}
-function readFitPos(key: string): THREE.Vector3 | null {
-  try {
-    const raw = localStorage.getItem(`weapon_fit_${key}`);
-    if (raw) {
-      const d = JSON.parse(raw) as { position: [number, number, number] };
-      if (Array.isArray(d.position) && d.position.length === 3)
-        return new THREE.Vector3(...d.position);
-    }
-  } catch { /* corrupt */ }
-  return null;
-}
+// ─── Weapon-fit pipeline ──────────────────────────────────────────────────────
+// Fit data (bone-relative position, rotation, scale) is fetched from the API
+// via useWeaponFit() and applied once in a useEffect that parents each weapon
+// mesh directly to the appropriate hand bone.  No per-frame world-transform
+// copy is needed — Three.js propagates the bone's world matrix to all children
+// automatically before the renderer draws each frame.
 
 // ─── Staff mana costs ─────────────────────────────────────────────────────────
 const STAFF_CAST1_COST = 20;
@@ -700,18 +639,17 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
   const packLoadedRef     = useRef(new Set<string>(["pistol"]));
   const prevWeaponModeRef = useRef<WeaponMode>("pistol");
 
-  // ── Hand-bone tracking ────────────────────────────────────────────────────
+  // ── Weapon-fit API ────────────────────────────────────────────────────────
+  // getFit(key) → bone-relative { position, rotation, scale } from API / localStorage / defaults.
+  // saveFit(key, offset) → persists to API + localStorage.
+  const { getFit, saveFit: _saveFit } = useWeaponFit();
+  // Expose saveFit via ref so ModelViewer can call it without going through props.
+  // (Not currently wired — ModelViewer talks directly to the API.  Here for future use.)
+  void _saveFit;
+
+  // ── Hand-bone refs ────────────────────────────────────────────────────────
   const handBoneRef      = useRef<THREE.Bone | null>(null);    // right hand
   const leftHandBoneRef  = useRef<THREE.Bone | null>(null);    // left hand (bow)
-  // Weapon rotation adjustments — seeded from localStorage if the user has saved
-  // a custom fit in the ModelViewer, otherwise fall back to the hardcoded constants.
-  const swordQAdj        = useRef(readFitQAdj("sword",  SWORD_ROT));
-  const axeQAdj          = useRef(readFitQAdj("axe",    AXE_ROT));
-  const caneQAdj         = useRef(readFitQAdj("staff1", STAFF_ROT));
-  const pistolPropQAdj   = useRef(readFitQAdj("pistol", PISTOL_ROT));
-  const riflePropQAdj    = useRef(readFitQAdj("rifle",  RIFLE_ROT));
-  const bowQAdj          = useRef(readFitQAdj("bow",    BOW_ROT));
-  const shieldQAdj       = useRef(readFitQAdj("shield", SHIELD_ROT));
 
   // ── Model state ───────────────────────────────────────────────────────────
   const [modelObj,      setModelObj]      = useState<THREE.Group | null>(null);
@@ -1146,13 +1084,60 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     });
   }, [modelObj]);
 
+  // ── Bone-parent all weapon meshes ─────────────────────────────────────────
+  // Best-practice Mixamo pipeline: weapon props are children of the hand bone
+  // in the scene graph.  Three.js propagates the bone's world matrix to every
+  // child automatically — no per-frame world-position copy needed.
+  // This effect re-runs whenever a weapon finishes loading OR when the API
+  // delivers updated fit data, keeping transforms in sync without reloading.
+  useEffect(() => {
+    if (!modelObj) return;
+
+    // Re-discover bones here so the effect doesn't depend on refs.
+    let handBone: THREE.Bone | null = null;
+    let leftHandBone: THREE.Bone | null = null;
+    modelObj.traverse((o) => {
+      if (!(o instanceof THREE.Bone)) return;
+      const n = o.name.toLowerCase();
+      if (!handBone && (n.includes("righthand") || n.includes("hand_r") || n === "right hand"))
+        handBone = o as THREE.Bone;
+      if (!leftHandBone && (n.includes("lefthand") || n.includes("hand_l") || n === "left hand"))
+        leftHandBone = o as THREE.Bone;
+    });
+
+    const attachToBone = (
+      obj: THREE.Group | null,
+      bone: THREE.Bone | null,
+      fitKey: string,
+    ) => {
+      if (!obj || !bone) return;
+      // Move from whatever parent (scene root / previous bone) → target bone.
+      if (obj.parent !== bone) {
+        obj.parent?.remove(obj);
+        bone.add(obj);
+      }
+      const fit = getFit(fitKey);
+      obj.position.set(...fit.position);
+      obj.setRotationFromEuler(new THREE.Euler(...fit.rotation));
+      obj.scale.set(...fit.scale);
+    };
+
+    // Right-hand weapons
+    attachToBone(swordObj,      handBone,     "sword");
+    attachToBone(axeObj,        handBone,     "axe");
+    attachToBone(caneObj,       handBone,     "staff1");
+    attachToBone(pistolPropObj, handBone,     "pistol");
+    attachToBone(riflePropObj,  handBone,     "rifle");
+    // Left-hand weapons
+    attachToBone(bowPropObj,    leftHandBone, "bow");
+    attachToBone(shieldPropObj, leftHandBone, "shield");
+  }, [modelObj, swordObj, axeObj, caneObj, pistolPropObj, riflePropObj, bowPropObj, shieldPropObj, getFit]);
+
   // ── Load weapon models ────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.sword, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(readFitScale("sword", 0.01));
-      const sp = readFitPos("sword"); if (sp) fbx.position.copy(sp);
       fbx.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
       fbx.visible = false;
       setSwordObj(fbx);
@@ -1164,8 +1149,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.axe, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(readFitScale("axe", 0.01));
-      const ap = readFitPos("axe"); if (ap) fbx.position.copy(ap);
       fbx.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
       fbx.visible = false;
       setAxeObj(fbx);
@@ -1177,12 +1160,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.staff1, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(readFitScale("staff1", 0.012));
-      // Shift mesh so the grip (≈1/3 up the shaft) sits at the bone origin.
-      // At scale 0.012 a ~120cm staff ≈ 1.44 world units; offset ≈ -0.48.
-      // localStorage override replaces default if saved via ModelViewer.
-      const sfp = readFitPos("staff1");
-      fbx.position.set(sfp ? sfp.x : 0, sfp ? sfp.y : -0.5, sfp ? sfp.z : 0);
+      // Position/scale/rotation applied by bone attachment effect (useWeaponFit).
       const texLoader = new THREE.TextureLoader();
       texLoader.load(texPath(WEAPON_TEXTURES.staff), (tex) => {
         tex.flipY = false;
@@ -1207,8 +1185,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.pistol, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(readFitScale("pistol", 0.012));
-      const pp = readFitPos("pistol"); if (pp) fbx.position.copy(pp);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow = true;
@@ -1227,8 +1203,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.rifle, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(readFitScale("rifle", 0.013));
-      const rp = readFitPos("rifle"); if (rp) fbx.position.copy(rp);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow = true;
@@ -1248,8 +1222,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.bow, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(readFitScale("bow", 0.015));
-      const bp = readFitPos("bow"); if (bp) fbx.position.copy(bp);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow = true;
@@ -1265,8 +1237,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     // Shield prop — left hand, metallic face
     new FBXLoader().load(WEAPON_PROPS.shield, (fbx) => {
       if (cancelled) return;
-      fbx.scale.setScalar(readFitScale("shield", 0.012));
-      const shp = readFitPos("shield"); if (shp) fbx.position.copy(shp);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow    = true;
@@ -1986,43 +1956,16 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     const isStaffWm = wm === "staff";
     const isBowWm   = wm === "bow";
     const isSSWm    = wm === "shield";
-    const hand      = handBoneRef.current;
-    const leftHand  = leftHandBoneRef.current;
 
-    // trackWeapon: show=false → hide; show=true → follow bone (all camera modes).
-    // In FPS mode the character mesh is invisible but bones still animate, so
-    // weapon props naturally appear at hand-level in the lower screen area.
-    function trackWeapon(
-      grp: THREE.Group,
-      obj: THREE.Group | null,
-      show: boolean,
-      qAdj: THREE.Quaternion,
-      boneOverride?: THREE.Bone | null,
-    ) {
-      if (!obj) return;
-      obj.visible = show;
-      const bone = boneOverride !== undefined ? boneOverride : hand;
-      if (show && bone) {
-        bone.getWorldPosition(grp.position);
-        bone.getWorldQuaternion(grp.quaternion);
-        grp.quaternion.multiply(qAdj);
-      }
-    }
-
-    if (swordGroupRef.current && swordObj)
-      trackWeapon(swordGroupRef.current, swordObj, isMelee && wm === "sword", swordQAdj.current);
-    if (axeGroupRef.current && axeObj)
-      trackWeapon(axeGroupRef.current, axeObj, isMelee && wm === "axe", axeQAdj.current);
-    if (caneGroupRef.current && caneObj)
-      trackWeapon(caneGroupRef.current, caneObj, isStaffWm, caneQAdj.current);
-    if (pistolPropGroupRef.current && pistolPropObj)
-      trackWeapon(pistolPropGroupRef.current, pistolPropObj, wm === "pistol", pistolPropQAdj.current);
-    if (riflePropGroupRef.current && riflePropObj)
-      trackWeapon(riflePropGroupRef.current, riflePropObj, wm === "rifle", riflePropQAdj.current);
-    if (bowPropGroupRef.current && bowPropObj)
-      trackWeapon(bowPropGroupRef.current, bowPropObj, isBowWm, bowQAdj.current, leftHand);
-    if (shieldPropGroupRef.current && shieldPropObj)
-      trackWeapon(shieldPropGroupRef.current, shieldPropObj, isSSWm, shieldQAdj.current, leftHand);
+    // Weapon visibility — props are already bone-parented so no world-transform
+    // copy is needed here.  Bones animate; children follow automatically.
+    if (swordObj)      swordObj.visible      = isMelee && wm === "sword";
+    if (axeObj)        axeObj.visible        = isMelee && wm === "axe";
+    if (caneObj)       caneObj.visible       = isStaffWm;
+    if (pistolPropObj) pistolPropObj.visible = wm === "pistol";
+    if (riflePropObj)  riflePropObj.visible  = wm === "rifle";
+    if (bowPropObj)    bowPropObj.visible    = isBowWm;
+    if (shieldPropObj) shieldPropObj.visible = isSSWm;
 
     // ── GOD MODE: noclip free-fly (T-pose) ─────────────────────────────────
     const godModeActive = gs.godMode;
@@ -2434,27 +2377,16 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
         </group>
       </group>
 
-      <group ref={swordGroupRef}>
-        {swordObj && <primitive object={swordObj} />}
-      </group>
-      <group ref={axeGroupRef}>
-        {axeObj && <primitive object={axeObj} />}
-      </group>
-      <group ref={caneGroupRef}>
-        {caneObj && <primitive object={caneObj} />}
-      </group>
-      <group ref={pistolPropGroupRef}>
-        {pistolPropObj && <primitive object={pistolPropObj} />}
-      </group>
-      <group ref={riflePropGroupRef}>
-        {riflePropObj && <primitive object={riflePropObj} />}
-      </group>
-      <group ref={bowPropGroupRef}>
-        {bowPropObj && <primitive object={bowPropObj} />}
-      </group>
-      <group ref={shieldPropGroupRef}>
-        {shieldPropObj && <primitive object={shieldPropObj} />}
-      </group>
+      {/* Weapon props are bone-parented imperatively (handBone.add) in the
+          bone attachment useEffect.  These empty groups are kept as stable refs
+          so downstream code that references swordGroupRef etc. doesn't break. */}
+      <group ref={swordGroupRef} />
+      <group ref={axeGroupRef} />
+      <group ref={caneGroupRef} />
+      <group ref={pistolPropGroupRef} />
+      <group ref={riflePropGroupRef} />
+      <group ref={bowPropGroupRef} />
+      <group ref={shieldPropGroupRef} />
     </>
   );
 }

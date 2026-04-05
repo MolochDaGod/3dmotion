@@ -129,6 +129,10 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 - `public/models/` — Corsair King FBX + animations (pistol/rifle/melee/staff/bow packs); mutant.{gltf,bin,jpg} (zombie); cane1/5/10.fbx + cane_texture.png; pistol_prop.fbx + rifle_prop.fbx (Pixel Guns 3D); bow_prop.fbx (craftpix); bow*.fbx animations (Pro Longbow Pack)
 - Bow animation set: bowIdle/WalkFwd/WalkBwd/StrafeL/StrafeR/RunFwd/RunBwd/Jump/Draw/Aim/Fire/Block/AimWalk×4
 - Weapon model tracking: sword/axe/cane/pistolProp/rifleProp → right-hand bone; bowProp → left-hand bone
+- **Bone-parenting architecture**: weapons are children of hand bones via `handBone.add(obj)` in a useEffect; transforms driven by `useWeaponFit` hook (no per-frame world-transform copy)
+- **`useWeaponFit`** (`src/game/useWeaponFit.ts`): fetches weapon fit offsets from `GET /api/weapon-fits`, caches in localStorage, falls back to hardcoded defaults in `data/weaponFitDefaults.ts`
+- **Weapon Fit API**: `GET /api/weapon-fits` → all fits; `PUT /api/weapon-fits/:weaponKey` → upsert. Stored in `weapon_fits` PostgreSQL table (lib/db/src/schema/weapon-fits.ts)
+- **ModelViewer `saveToGame`**: calls `PUT /api/weapon-fits/:key` to persist bone-relative transforms so Player.tsx picks them up on next load
 
 **Animation systems:**
 - **8-directional pistol locomotion** — W+A/D = walkArcL/R or runArcL/R; S+A/D = walkBwdArc/runBwdArc variants; full diagonal coverage

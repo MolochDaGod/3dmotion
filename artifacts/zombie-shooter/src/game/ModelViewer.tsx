@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { CHARACTER_REGISTRY } from "./CharacterRegistry";
 import { ANIM_PISTOL, ANIM_MELEE, WEAPON_PROPS, WEAPON_TEXTURES } from "./assets/manifest";
+import { useWeaponFit } from "./useWeaponFit";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { TransformControls as TransformControlsImpl } from "three-stdlib";
 
@@ -443,6 +444,9 @@ export function ModelViewer({ onBack }: { onBack: () => void }) {
   const [customUrl,     setCustomUrl]     = useState("");
   const [activeUrl,     setActiveUrl]     = useState("");
 
+  // ── weapon-fit API ────────────────────────────────────────────────────────
+  const { saveFit: saveWeaponFitToApi } = useWeaponFit();
+
   // ── weapon-fit state ──────────────────────────────────────────────────────
   const [weaponIdx,      setWeaponIdx]     = useState(0);
   const [boneList,       setBoneList]      = useState<string[]>([]);
@@ -493,13 +497,17 @@ export function ModelViewer({ onBack }: { onBack: () => void }) {
     setResetKey((k) => k + 1); // force scene remount → re-seeds to game defaults
   }, [weaponKey]);
 
-  // Save current pivot transform to localStorage so the game reads it on next mount.
+  // Save current pivot transform: localStorage (instant) + API (persistent).
   const saveToGame = useCallback(() => {
-    try {
-      localStorage.setItem(LS_KEY(weaponKey), JSON.stringify(offset));
-      setSaved(true);
-    } catch { /* storage full */ }
-  }, [weaponKey, offset]);
+    const fit = {
+      position: offset.position as [number,number,number],
+      rotation: offset.rotation as [number,number,number],
+      scale:    offset.scale    as [number,number,number],
+      boneName: targetBone,
+    };
+    saveWeaponFitToApi(weaponKey, fit);
+    setSaved(true);
+  }, [weaponKey, offset, targetBone, saveWeaponFitToApi]);
 
   // ── scene remount keys ───────────────────────────────────────────────────
   const charSceneKey   = `${meshPath}-${animIdx}`;
