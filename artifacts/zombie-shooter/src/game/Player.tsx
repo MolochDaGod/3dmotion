@@ -18,6 +18,21 @@ import {
 } from "./assets/manifest";
 import { useWeaponFit } from "./useWeaponFit";
 
+// ─── Weapon-scale normalisation ───────────────────────────────────────────────
+// FBX files may be authored in centimetres, inches, or metres.
+// We record the longest bounding-box dimension of each prop at load time
+// (userData.rawLongestDim, in native units, scale=1) then compute the final
+// bone-relative scale at attach time as:
+//   obj.scale.setScalar( desiredMetres / rawLongestDim )
+// This makes every model unit-agnostic: a 90 cm sword is 90 cm regardless of
+// whether the FBX was authored in cm or inches.
+function storeFbxRawSize(fbx: THREE.Group): void {
+  const box  = new THREE.Box3().setFromObject(fbx);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  fbx.userData.rawLongestDim = Math.max(size.x, size.y, size.z) || 1;
+}
+
 // ─── Capsule ──────────────────────────────────────────────────────────────────
 // Racalvin is 60 in = 1.524 m.  Capsule total = 2·HH + 2·R = 1.44 m (snug fit).
 // CY = HH + R = distance from feet to the capsule centre-of-mass.
@@ -1116,10 +1131,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
         obj.parent?.remove(obj);
         bone.add(obj);
       }
-      const fit = getFit(fitKey);
+      const fit   = getFit(fitKey);
+      const rawLD = (obj.userData.rawLongestDim as number) || 1;
       obj.position.set(...fit.position);
       obj.setRotationFromEuler(new THREE.Euler(...fit.rotation));
-      obj.scale.set(...fit.scale);
+      // fit.scale[0] = desired longest-dimension in metres (unit-agnostic)
+      obj.scale.setScalar(fit.scale[0] / rawLD);
     };
 
     // Right-hand weapons
@@ -1138,6 +1155,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.sword, (fbx) => {
       if (cancelled) return;
+      storeFbxRawSize(fbx);
       fbx.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
       fbx.visible = false;
       setSwordObj(fbx);
@@ -1149,6 +1167,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.axe, (fbx) => {
       if (cancelled) return;
+      storeFbxRawSize(fbx);
       fbx.traverse((c) => { if ((c as THREE.Mesh).isMesh) c.castShadow = true; });
       fbx.visible = false;
       setAxeObj(fbx);
@@ -1160,6 +1179,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.staff1, (fbx) => {
       if (cancelled) return;
+      storeFbxRawSize(fbx);
       // Position/scale/rotation applied by bone attachment effect (useWeaponFit).
       const texLoader = new THREE.TextureLoader();
       texLoader.load(texPath(WEAPON_TEXTURES.staff), (tex) => {
@@ -1185,6 +1205,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.pistol, (fbx) => {
       if (cancelled) return;
+      storeFbxRawSize(fbx);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow = true;
@@ -1203,6 +1224,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.rifle, (fbx) => {
       if (cancelled) return;
+      storeFbxRawSize(fbx);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow = true;
@@ -1222,6 +1244,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     let cancelled = false;
     new FBXLoader().load(WEAPON_PROPS.bow, (fbx) => {
       if (cancelled) return;
+      storeFbxRawSize(fbx);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow = true;
@@ -1237,6 +1260,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     // Shield prop — left hand, metallic face
     new FBXLoader().load(WEAPON_PROPS.shield, (fbx) => {
       if (cancelled) return;
+      storeFbxRawSize(fbx);
       fbx.traverse((c) => {
         if ((c as THREE.Mesh).isMesh) {
           c.castShadow    = true;

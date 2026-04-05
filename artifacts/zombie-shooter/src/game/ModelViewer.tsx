@@ -22,41 +22,39 @@ const VIEWER_ANIMS: { label: string; path: string }[] = [
   { label: "Block",          path: ANIM_MELEE.block },
 ];
 
-// ─── Per-weapon game scale (mirrors Player.tsx constants) ─────────────────────
-// Meshy / Unity FBX files export in centimetres; 0.01 → metres.
-// Guns and staffs are slightly larger relative to the rig, hence 0.012–0.015.
-export const WEAPON_GAME_SCALE: Record<string, number> = {
-  sword: 0.01, axe: 0.01, axe2: 0.01,
-  pistol: 0.012, rifle: 0.013,
-  bow: 0.015, shield: 0.012,
-  staff1: 0.012, staff5: 0.012, staff10: 0.012,
-};
-
-// ─── Per-weapon game-defaults (pre-seeded from Player.tsx hard-coded constants) ─
-// position = FBX local offset so grip sits at bone origin (e.g. staff shifted down)
-// rotation = qAdj Euler [x, y, z] in radians (the Quaternion applied after bone pose)
-// scale    = uniform scale applied to the FBX model  (same as WEAPON_GAME_SCALE above)
+// ─── Per-weapon game-defaults ─────────────────────────────────────────────────
+// scale[0] = desired longest bounding-box dimension in METRES (unit-agnostic).
+// The actual Three.js object scale is computed at attach time as:
+//   obj.scale.setScalar( desiredM / rawLongestDim )
+// where rawLongestDim is the FBX's longest dim in its native units (measured
+// at load time with scale=1). This makes cm and inch FBX files look the same.
 export const WEAPON_GAME_DEFAULTS: Record<string, WeaponOffset> = {
-  sword:   { position:[  0,    0, 0], rotation:[             0,          0, -Math.PI/2],    scale:[0.01,  0.01,  0.01]  },
-  axe:     { position:[  0,    0, 0], rotation:[             0,          0, -Math.PI/2],    scale:[0.01,  0.01,  0.01]  },
-  axe2:    { position:[  0,    0, 0], rotation:[             0,          0, -Math.PI/2],    scale:[0.01,  0.01,  0.01]  },
-  staff1:  { position:[  0, -0.5, 0], rotation:[-Math.PI*0.35,          0,  Math.PI/2],    scale:[0.012, 0.012, 0.012] },
-  staff5:  { position:[  0, -0.5, 0], rotation:[-Math.PI*0.35,          0,  Math.PI/2],    scale:[0.012, 0.012, 0.012] },
-  staff10: { position:[  0, -0.5, 0], rotation:[-Math.PI*0.35,          0,  Math.PI/2],    scale:[0.012, 0.012, 0.012] },
-  pistol:  { position:[  0,    0, 0], rotation:[    Math.PI/2,          0,           0],   scale:[0.012, 0.012, 0.012] },
-  rifle:   { position:[  0,    0, 0], rotation:[    Math.PI/2,          0,           0],   scale:[0.013, 0.013, 0.013] },
-  bow:     { position:[  0,    0, 0], rotation:[    Math.PI/2,   Math.PI,           0],    scale:[0.015, 0.015, 0.015] },
-  shield:  { position:[  0,    0, 0], rotation:[  -Math.PI/4,  Math.PI/2,           0],   scale:[0.012, 0.012, 0.012] },
+  sword:   { position:[  0,    0, 0], rotation:[             0,          0, -Math.PI/2],    scale:[0.90, 0.90, 0.90] },
+  axe:     { position:[  0,    0, 0], rotation:[             0,          0, -Math.PI/2],    scale:[0.65, 0.65, 0.65] },
+  axe2:    { position:[  0,    0, 0], rotation:[             0,          0, -Math.PI/2],    scale:[0.65, 0.65, 0.65] },
+  staff1:  { position:[  0, -0.5, 0], rotation:[-Math.PI*0.35,          0,  Math.PI/2],    scale:[1.60, 1.60, 1.60] },
+  staff5:  { position:[  0, -0.5, 0], rotation:[-Math.PI*0.35,          0,  Math.PI/2],    scale:[1.60, 1.60, 1.60] },
+  staff10: { position:[  0, -0.5, 0], rotation:[-Math.PI*0.35,          0,  Math.PI/2],    scale:[1.60, 1.60, 1.60] },
+  pistol:  { position:[  0,    0, 0], rotation:[    Math.PI/2,          0,           0],    scale:[0.28, 0.28, 0.28] },
+  rifle:   { position:[  0,    0, 0], rotation:[    Math.PI/2,          0,           0],    scale:[0.85, 0.85, 0.85] },
+  bow:     { position:[  0,    0, 0], rotation:[    Math.PI/2,   Math.PI,           0],     scale:[1.00, 1.00, 1.00] },
+  shield:  { position:[  0,    0, 0], rotation:[  -Math.PI/4,  Math.PI/2,           0],    scale:[0.65, 0.65, 0.65] },
 };
 
 const LS_KEY = (wk: string) => `weapon_fit_${wk}`;
 
+const MIN_VALID_DESIRED_M = 0.05; // < 5 cm means old format — discard
+
 function loadFitOffset(wk: string): WeaponOffset {
   try {
     const raw = localStorage.getItem(LS_KEY(wk));
-    if (raw) return JSON.parse(raw) as WeaponOffset;
+    if (raw) {
+      const fit = JSON.parse(raw) as WeaponOffset;
+      // Discard stale entries from the old unit-conversion scale format.
+      if (fit.scale[0] >= MIN_VALID_DESIRED_M) return fit;
+    }
   } catch { /* corrupt */ }
-  return WEAPON_GAME_DEFAULTS[wk] ?? { position:[0,0,0], rotation:[0,0,0], scale:[1,1,1] };
+  return WEAPON_GAME_DEFAULTS[wk] ?? { position:[0,0,0], rotation:[0,0,0], scale:[0.8,0.8,0.8] };
 }
 
 // ─── Weapon catalogue ─────────────────────────────────────────────────────────
@@ -233,6 +231,18 @@ function ModelScene({
   );
 }
 
+// ─── FBX size normalisation helper ───────────────────────────────────────────
+// Record the longest bounding-box dimension (native units, scale=1) so that
+// weapon scale can be expressed as "desired size in metres" rather than a raw
+// unit-conversion factor.  This makes cm-exported and inch-exported FBX files
+// look the same in the viewport and in-game.
+function storeFbxRawSize(fbx: THREE.Group): void {
+  const box  = new THREE.Box3().setFromObject(fbx);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  fbx.userData.rawLongestDim = Math.max(size.x, size.y, size.z) || 1;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // WEAPON FIT  scene
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -262,6 +272,9 @@ function WeaponFitScene({
   const mixerRef       = useRef<THREE.AnimationMixer | null>(null);
   const weaponPivotRef = useRef<THREE.Group>(null);
   const tcRef          = useRef<TransformControlsImpl>(null);
+  // Longest bounding-box dimension of the loaded weapon FBX in native units (scale=1).
+  // Used to convert between "desired metres" and raw pivot scale.
+  const rawLDRef       = useRef(1);
 
   const [charModel,   setCharModel]   = useState<THREE.Group | null>(null);
   const [weaponModel, setWeaponModel] = useState<THREE.Group | null>(null);
@@ -307,9 +320,10 @@ function WeaponFitScene({
   useEffect(() => {
     const loader = new FBXLoader();
     loader.load(weaponPath, (fbx) => {
-      // FBX files export in cm — do NOT scale the mesh itself.
-      // Scale is placed on the pivot (initialOffset.scale) so it matches the
-      // game exactly and TransformControls shows the true game-world dimensions.
+      // Measure native bounding-box (scale=1) so pivot scale can be expressed
+      // as "desired metres" regardless of the FBX's authoring unit (cm/inch/m).
+      storeFbxRawSize(fbx);
+      rawLDRef.current = (fbx.userData.rawLongestDim as number) || 1;
 
       // apply texture if available
       if (weaponTexPath) {
@@ -371,13 +385,16 @@ function WeaponFitScene({
     const onchange = () => {
       const pivot = weaponPivotRef.current;
       if (!pivot) return;
-      const p = pivot.position;
-      const e = new THREE.Euler().setFromQuaternion(pivot.quaternion);
+      const p  = pivot.position;
+      const e  = new THREE.Euler().setFromQuaternion(pivot.quaternion);
       const sc = pivot.scale;
+      // pivot.scale is in raw units (native FBX units).  Convert back to
+      // "desired metres" so the stored value is unit-agnostic.
+      const desiredM = +(sc.x * rawLDRef.current).toFixed(4);
       onOffsetChange({
-        position: [+p.x.toFixed(4),  +p.y.toFixed(4),  +p.z.toFixed(4)],
-        rotation: [+e.x.toFixed(4),  +e.y.toFixed(4),  +e.z.toFixed(4)],
-        scale:    [+sc.x.toFixed(4), +sc.y.toFixed(4), +sc.z.toFixed(4)],
+        position: [+p.x.toFixed(4), +p.y.toFixed(4), +p.z.toFixed(4)],
+        rotation: [+e.x.toFixed(4), +e.y.toFixed(4), +e.z.toFixed(4)],
+        scale:    [desiredM,         desiredM,          desiredM],
       });
     };
     tc.addEventListener("change", onchange);
@@ -398,7 +415,8 @@ function WeaponFitScene({
       // are all seeded from the game defaults (or from saved localStorage data).
       pivot.position.set(initialOffset.position[0], initialOffset.position[1], initialOffset.position[2]);
       pivot.rotation.set(initialOffset.rotation[0], initialOffset.rotation[1], initialOffset.rotation[2]);
-      pivot.scale.set(initialOffset.scale[0], initialOffset.scale[1], initialOffset.scale[2]);
+      // initialOffset.scale[0] = desired size in metres; rawLDRef = native units at scale=1.
+      pivot.scale.setScalar(initialOffset.scale[0] / rawLDRef.current);
     }
   });
 

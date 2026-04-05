@@ -20,10 +20,19 @@ export type { WeaponFitOffset };
 
 const LS_KEY = (k: string) => `weapon_fit_${k}`;
 
+// Scale values below this threshold are from the old unit-conversion format
+// (e.g. 0.01 = "cm→m factor") and must be discarded; new format stores
+// desired size in metres (minimum realistic weapon = ~10 cm).
+const MIN_VALID_DESIRED_M = 0.05;
+
 function readLocalFit(key: string): WeaponFitOffset | null {
   try {
     const raw = localStorage.getItem(LS_KEY(key));
-    if (raw) return JSON.parse(raw) as WeaponFitOffset;
+    if (!raw) return null;
+    const fit = JSON.parse(raw) as WeaponFitOffset;
+    // Discard stale entries from the old unit-conversion scale format.
+    if (fit.scale[0] < MIN_VALID_DESIRED_M) return null;
+    return fit;
   } catch { /* corrupt */ }
   return null;
 }
@@ -69,6 +78,8 @@ export function useWeaponFit() {
       }> }) => {
         const record: Record<string, WeaponFitOffset> = {};
         for (const row of data.fits) {
+          // Skip stale DB rows that used the old unit-conversion scale format.
+          if (row.scaleVal < MIN_VALID_DESIRED_M) continue;
           record[row.weaponKey] = rowToOffset(row);
         }
         setFitData((prev) => ({ ...prev, ...record }));
