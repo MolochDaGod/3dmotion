@@ -2343,8 +2343,22 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
       prevYaw.current = yaw.current;
 
       // ── Speed-matched animation timeScale — prevents foot sliding ───────────
-      // Scale the playback rate so the step frequency matches actual ground
-      // speed. Reference speeds are the m/s each FBX clip was authored at.
+      // Best-practice: drive timeScale from the ACTUAL smoothed physics velocity
+      // (smoothVelRef.current.length()), not the instantaneous input target.
+      //
+      // Using input-derived speed (the old approach) caused foot sliding because
+      // the animation snapped to full speed the moment a key was pressed while
+      // the physics body was still accelerating from rest, and snapped back to
+      // idle-speed the moment keys were released while momentum was still decaying.
+      //
+      // Using smoothVelRef.length() makes the animation speed track the real
+      // movement — the walk/run cycles naturally accelerate and decelerate in
+      // lockstep with the physics body, eliminating foot sliding at both ends.
+      //
+      // Only walk/run/strafe clips get timeScale correction.  Idle, attack,
+      // dodge, swim, and special clips always play at their authored speed (1.0
+      // or whatever was passed to _rawPlay) so we don't accidentally slow/speed
+      // a carefully timed attack swing or idle variety clip.
       const isCrouchMoving = crouching.current && (fwd || bwd || left || right) && grounded.current;
       const cur = actionsRef.current[curAnim.current];
       if (cur) {
@@ -2355,16 +2369,19 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
           const isRunAnim   = ak.includes("Run")   || ak.includes("run");
           const isWalkAnim  = ak.includes("Walk")  || ak.includes("walk");
           const isStrafAnim = ak.includes("Straf") || ak.includes("straf");
-          // Derive intended horizontal speed from input state (avoids physics jitter)
-          const horizSpeed = rolling.current ? ROLL_SPEED
-            : (fwd || bwd || left || right) ? (sprint ? RUN_SPEED : WALK_SPEED)
-            : 0;
-          let locoTs = 1.0;
-          if (horizSpeed > 0.1) {
-            if (isRunAnim)             locoTs = horizSpeed / ANIM_RUN_REF;
-            else if (isWalkAnim || isStrafAnim) locoTs = horizSpeed / ANIM_WALK_REF;
+          if (isRunAnim || isWalkAnim || isStrafAnim) {
+            // Use actual smoothed horizontal speed — tracks real physics velocity.
+            // Rolling uses a fixed speed because smoothVelRef isn't updated during rolls.
+            const actualSpeed = rolling.current
+              ? ROLL_SPEED
+              : smoothVelRef.current.length();
+            const refSpeed = isRunAnim ? ANIM_RUN_REF : ANIM_WALK_REF;
+            // Lower clamp: 0.05 lets the cycle slow to nearly-stopped during
+            // deceleration so feet don't slide when the character comes to rest.
+            cur.timeScale = Math.max(0.05, Math.min(3.0, actualSpeed / refSpeed));
           }
-          cur.timeScale = Math.max(0.4, Math.min(3.0, locoTs));
+          // Non-locomotion anims: leave timeScale untouched — _rawPlay already
+          // set it to the correct value (skill.timeScale, 1.0, etc.).
         }
       }
     }
