@@ -60,26 +60,26 @@ const MELEE_RANGE       = 2.6;
 const MELEE_DAMAGE      = 80;
 const MELEE_ARC_DOT     = 0.35;
 
-// Genesis Island — player spawns at north beach (0, _, 50).
-// Zombie ring is centered on that beach area so they can navigate there.
-// Primary ring: radius ~30-55 m from player (beach / slope area).
+// Genesis Island (2000 m footprint) — player spawns at north beach (0, _, 500).
+// Zombie ring is centred on that beach area so they can navigate there.
+// Primary ring: radius ~300–550 m from player (beach / slope area).
 // Secondary ring: east/west coasts for flanking threats.
 const ISLAND_SPAWN: [number, number, number][] = [
-  // North coast — directly behind player (very close, quick threat)
-  [  0, 0,  82], [ 28, 0,  78], [-28, 0,  78],
+  // North coast — directly behind player (player spawns at z≈500)
+  [   0, 0,  820], [ 280, 0,  780], [-280, 0,  780],
   // NE / NW coast flanks
-  [ 55, 0,  65], [-55, 0,  65],
+  [ 550, 0,  650], [-550, 0,  650],
   // East / West coasts (medium range, beach paths to player)
-  [ 80, 0,  30], [-80, 0,  30],
-  [ 78, 0,  -5], [-78, 0,  -5],
+  [ 800, 0,  300], [-800, 0,  300],
+  [ 780, 0,  -50], [-780, 0,  -50],
   // South-east / south-west — longer flanking routes
-  [ 65, 0, -45], [-65, 0, -45],
+  [ 650, 0, -450], [-650, 0, -450],
   // Far south — arrives last, keeps pressure escalating
-  [  0, 0, -78], [ 38, 0, -70], [-38, 0, -70],
-  // Dock area (east shore, x≈68)
-  [ 70, 0,  18], [ 70, 0, -18],
+  [   0, 0, -780], [ 380, 0, -700], [-380, 0, -700],
+  // Dock area (east shore, x≈680)
+  [ 700, 0,  180], [ 700, 0, -180],
   // Inland south (small jitter from south mountain base)
-  [ 20, 0, -60], [-20, 0, -60],
+  [ 200, 0, -600], [-200, 0, -600],
 ];
 // Graveyard: flat centre, spawns ring at ~20–28 m radius
 const GRAVEYARD_SPAWN: [number, number, number][] = [
@@ -197,7 +197,12 @@ function SceneContent({
 
       {/* ── All physics bodies — terrain, player, AND zombie sensors ── */}
       {/* key forces full remount of nav worker + physics when scene changes */}
-      <NavWorkerProvider key={ed.activeScene} obstacles={navObstacles} terrainSize={isGraveyard ? 120 : GENESIS_TERRAIN_SIZE}>
+      <NavWorkerProvider
+        key={ed.activeScene}
+        obstacles={navObstacles}
+        terrainSize={isGraveyard ? 120 : GENESIS_TERRAIN_SIZE}
+        cellSize={isGraveyard ? 2 : 10}
+      >
         <Physics gravity={[0, -22, 0]} timeStep="vary">
           {isGraveyard ? <Graveyard /> : <PirateIsland />}
           {/* key remounts when character OR scene changes — resets spawn pos */}
@@ -211,7 +216,7 @@ function SceneContent({
             waterY={isGraveyard ? undefined : 0}
             spawnPos={isGraveyard
               ? [0, getTerrainHeight(0, 0), 0]
-              : [0, getIslandHeight(0, 50) || 3, 50]}
+              : [0, getIslandHeight(0, 500) || 3, 500]}
           />
 
           {/* Zombies inside Physics so their Rapier sensor bodies are registered */}

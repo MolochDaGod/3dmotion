@@ -35,10 +35,12 @@ const NavWorkerContext = createContext<NavWorkerCtx>({
 interface Props {
   obstacles:   NavObstacle[];
   terrainSize?: number;
+  /** World units per nav-grid cell. Use larger values for big maps (default 2). */
+  cellSize?:   number;
   children:    ReactNode;
 }
 
-export function NavWorkerProvider({ obstacles, terrainSize = 120, children }: Props) {
+export function NavWorkerProvider({ obstacles, terrainSize = 120, cellSize = 2, children }: Props) {
   const workerRef  = useRef<Worker | null>(null);
   const pendingRef = useRef(new Map<number, PathCallback>());
   const idRef      = useRef(0);
@@ -67,7 +69,7 @@ export function NavWorkerProvider({ obstacles, terrainSize = 120, children }: Pr
       console.error("[NavWorker] error:", err.message);
     };
 
-    worker.postMessage({ type: "init", obstacles, terrainSize });
+    worker.postMessage({ type: "init", obstacles, terrainSize, cellSize });
 
     return () => {
       worker.terminate();

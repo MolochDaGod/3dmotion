@@ -4,7 +4,9 @@
 // and simple visibility smoothing.
 
 // ── Grid parameters ───────────────────────────────────────────────────────────
-const CELL = 2.0; // world units per cell (fixed)
+// CELL is now configurable via initNavGrid so large maps (e.g. 2000 m island)
+// can use a coarser grid (e.g. 10 m/cell) without inflating A* search space.
+let CELL   = 2.0; // world units per cell — set by initNavGrid
 
 // Module-level state — set by initNavGrid, used by all pathfinding calls.
 let _N:      number = 60;   // cells per axis (default: 120 m / 2 = 60)
@@ -55,11 +57,17 @@ export interface NavObstacle {
 
 /**
  * Initialise (or re-initialise) the nav grid.
- * @param obstacles  List of circular obstacles (palm trees, props, etc.)
+ * @param obstacles    List of circular obstacles (palm trees, props, etc.)
  * @param terrainSize  World size of the terrain in metres (default 120 for graveyard).
- *                     Pass 200 for the Genesis Island.
+ * @param cellSize     World units per grid cell (default 2). Use larger values
+ *                     (e.g. 10) for very large maps to keep A* fast.
  */
-export function initNavGrid(obstacles: NavObstacle[], terrainSize: number = 120): void {
+export function initNavGrid(
+  obstacles:   NavObstacle[],
+  terrainSize: number = 120,
+  cellSize:    number = 2,
+): void {
+  CELL    = cellSize;
   _N      = Math.ceil(terrainSize / CELL);
   _ORIGIN = -terrainSize / 2;
 

@@ -21,7 +21,7 @@
 import { initNavGrid, getPath } from "./NavGrid";
 import type { NavObstacle } from "./NavGrid";
 
-interface InitMsg  { type: "init"; obstacles: NavObstacle[]; terrainSize?: number }
+interface InitMsg  { type: "init"; obstacles: NavObstacle[]; terrainSize?: number; cellSize?: number }
 interface PathMsg  { type: "path"; id: number; fx: number; fz: number; tx: number; tz: number }
 type WorkerMsg = InitMsg | PathMsg;
 
@@ -29,7 +29,7 @@ self.onmessage = (e: MessageEvent<WorkerMsg>) => {
   const msg = e.data;
 
   if (msg.type === "init") {
-    initNavGrid(msg.obstacles, msg.terrainSize ?? 120);
+    initNavGrid(msg.obstacles, msg.terrainSize ?? 120, msg.cellSize ?? 2);
     (self as unknown as Worker).postMessage({ type: "ready" });
     return;
   }

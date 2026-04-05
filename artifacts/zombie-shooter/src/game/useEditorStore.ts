@@ -61,8 +61,8 @@ export const useEditorStore = create<EditorSettings>((set) => ({
 
   ambientIntensity: 0.55,
   sunIntensity:     2.80,
-  fogNear:          90,
-  fogFar:           230,
+  fogNear:          900,
+  fogFar:           2300,
 
   zombieSpeedMult:       1.00,
   zombieDetectionRadius: 22,

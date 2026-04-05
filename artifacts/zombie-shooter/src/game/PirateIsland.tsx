@@ -30,11 +30,15 @@ import {
 import { CG_WORLD } from "./CollisionLayers";
 import type { NavObstacle } from "./NavGrid";
 
-// ── GLB alignment constants (output of convert-genesis-island.mjs) ────────────
-const GLB_SCALE    = 2.5e-4;
-const GLB_OFFSET_X = -2.5000;
-const GLB_OFFSET_Y = 72.105;   // lifts mesh so ground vertex sits at y=0
-const GLB_OFFSET_Z =  2.5000;
+// ── GLB alignment constants ────────────────────────────────────────────────────
+// The GLB was authored at 200 m (2.5e-4 × 800 000 cm).
+// We keep Y scale identical so the mountain stays ~128 m tall, but stretch
+// X and Z by 10× to make the playable footprint 2000 m × 2000 m.
+const GLB_SCALE    = 2.5e-4;             // Y (height) scale — unchanged
+const GLB_SCALE_XZ = GLB_SCALE * 10;    // X/Z (horizontal) scale — 10×
+const GLB_OFFSET_X = -25.000;           // 10× the original −2.5
+const GLB_OFFSET_Y =  72.105;           // lifts mesh so ground vertex sits at y=0
+const GLB_OFFSET_Z =  25.000;           // 10× the original +2.5
 
 // ── Start fetching the height binary as soon as this module loads ─────────────
 preloadGenesisHeights();
@@ -42,33 +46,41 @@ preloadGenesisHeights();
 // ─── Nav obstacles (A* avoidance) ─────────────────────────────────────────────
 interface PalmConfig { x: number; z: number; h: number; ry: number }
 
-// Palms scattered over the larger 200 m island (radius 50–80 m ring)
+// Palms scattered over the 2000 m island — positions are 10× the original values.
+// Heights stay at real-world scale (9–10 m trunks) since the island is horizontally
+// stretched, not vertically.
 const PALM_PLACEMENTS: PalmConfig[] = [
-  { x:  60, z:  15, h: 9.0, ry:  0.30 },
-  { x: -55, z:  25, h: 8.5, ry:  1.10 },
-  { x:  15, z:  65, h:10.0, ry: -0.50 },
-  { x: -40, z: -58, h: 9.0, ry:  2.10 },
-  { x:  70, z: -30, h: 8.5, ry: -1.20 },
-  { x: -65, z:  38, h:10.0, ry:  0.80 },
-  { x:  28, z: -70, h: 9.0, ry:  3.00 },
-  { x: -72, z: -22, h: 8.5, ry:  1.50 },
-  { x:  45, z:  58, h: 9.0, ry: -0.20 },
-  { x: -32, z:  62, h: 8.0, ry:  2.50 },
-  { x:  75, z:  10, h: 9.5, ry:  0.90 },
-  { x: -18, z: -68, h: 8.0, ry: -0.80 },
+  { x:  600, z:  150, h: 9.0, ry:  0.30 },
+  { x: -550, z:  250, h: 8.5, ry:  1.10 },
+  { x:  150, z:  650, h:10.0, ry: -0.50 },
+  { x: -400, z: -580, h: 9.0, ry:  2.10 },
+  { x:  700, z: -300, h: 8.5, ry: -1.20 },
+  { x: -650, z:  380, h:10.0, ry:  0.80 },
+  { x:  280, z: -700, h: 9.0, ry:  3.00 },
+  { x: -720, z: -220, h: 8.5, ry:  1.50 },
+  { x:  450, z:  580, h: 9.0, ry: -0.20 },
+  { x: -320, z:  620, h: 8.0, ry:  2.50 },
+  { x:  750, z:  100, h: 9.5, ry:  0.90 },
+  { x: -180, z: -680, h: 8.0, ry: -0.80 },
+  // Extra palms to fill the larger shoreline
+  { x:  480, z: -600, h: 9.5, ry:  0.60 },
+  { x: -500, z: -550, h: 8.5, ry: -0.40 },
+  { x:  200, z:  750, h: 9.0, ry:  1.80 },
+  { x: -250, z:  720, h: 8.5, ry: -1.00 },
+  { x:  820, z:  200, h: 9.0, ry:  2.20 },
+  { x: -800, z:  150, h: 8.5, ry:  0.40 },
+  { x:  380, z:  800, h: 9.5, ry: -0.90 },
+  { x: -420, z:  780, h: 8.0, ry:  1.30 },
 ];
 
 export const NAV_OBSTACLES: NavObstacle[] = [
-  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 2.0 })),
-  // ── Mountain — the island peak at (0,0) rises to 128 m.
-  //    The steep-cliff zone starts around radius 30 m from centre and
-  //    extends to ~45 m where the terrain flattens to beach level (~2 m).
-  //    We block the entire unscalable cone so zombies route around the coast.
-  { x:  0, z:  0, radius: 42.0 },  // main summit + upper cliffs
-  { x: 15, z: -5, radius:  8.0 },  // south-east cliff spur
-  { x:-15, z: -5, radius:  8.0 },  // south-west cliff spur
-  { x: 80, z: 0,  radius:  8.0 },  // dock area
-  { x: 0,  z: 80, radius:  6.0 },  // northern shore rocky area
+  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 20.0 })),
+  // ── Mountain — island peak at (0,0), steep cliffs extend to ~450 m radius.
+  { x:    0, z:    0, radius: 420.0 },  // main summit + upper cliffs
+  { x:  150, z:  -50, radius:  80.0 },  // south-east cliff spur
+  { x: -150, z:  -50, radius:  80.0 },  // south-west cliff spur
+  { x:  800, z:    0, radius:  80.0 },  // dock area
+  { x:    0, z:  800, radius:  60.0 },  // northern shore rocky area
 ];
 
 // ─── Palm tree ─────────────────────────────────────────────────────────────────
@@ -107,10 +119,10 @@ function PalmTree({ x, z, h = 8.0, ry = 0 }: { x: number; z: number; h?: number;
   );
 }
 
-// ─── Wooden dock (east shore, ~x=70) ─────────────────────────────────────────
+// ─── Wooden dock (east shore, ~x=680 on the 2000 m island) ──────────────────
 const PLANK_COUNT   = 14;
-const DOCK_START_X  = 68;
-const PLANK_SPACING = 1.10;
+const DOCK_START_X  = 680;
+const PLANK_SPACING = 11.0;
 const OCEAN_Y       = -0.40;
 
 function Dock() {
@@ -133,7 +145,7 @@ function Dock() {
       <group>
         {planks.map(({ px, py }, i) => (
           <mesh key={i} position={[px, py, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.90, 0.14, 3.2]} />
+            <boxGeometry args={[9.0, 1.4, 32.0]} />
             <meshStandardMaterial color="#8B6914" roughness={0.98} metalness={0} />
           </mesh>
         ))}
@@ -141,15 +153,15 @@ function Dock() {
         {posts.map(({ px }, i) => {
           const terrainY = Math.max(OCEAN_Y + 0.10, getIslandHeight(px, 0));
           const t  = (px - DOCK_START_X) / ((PLANK_COUNT - 1) * PLANK_SPACING);
-          const py = terrainY * (1 - t) + (OCEAN_Y + 0.10) * t + 0.65;
+          const py = terrainY * (1 - t) + (OCEAN_Y + 0.10) * t + 6.5;
           return (
             <group key={i}>
-              <mesh position={[px, py, -1.55]} castShadow>
-                <cylinderGeometry args={[0.07, 0.09, 1.3, 6]} />
+              <mesh position={[px, py, -15.5]} castShadow>
+                <cylinderGeometry args={[0.7, 0.9, 13.0, 6]} />
                 <meshStandardMaterial color="#5a3a14" roughness={1} />
               </mesh>
-              <mesh position={[px, py,  1.55]} castShadow>
-                <cylinderGeometry args={[0.07, 0.09, 1.3, 6]} />
+              <mesh position={[px, py,  15.5]} castShadow>
+                <cylinderGeometry args={[0.7, 0.9, 13.0, 6]} />
                 <meshStandardMaterial color="#5a3a14" roughness={1} />
               </mesh>
             </group>
@@ -157,12 +169,12 @@ function Dock() {
         })}
 
         {/* Dock rails */}
-        {[-1.55, 1.55].map((side, i) => (
+        {[-15.5, 15.5].map((side, i) => (
           <mesh
             key={i}
-            position={[DOCK_START_X + (PLANK_COUNT / 2) * PLANK_SPACING, 0.65 + OCEAN_Y, side]}
+            position={[DOCK_START_X + (PLANK_COUNT / 2) * PLANK_SPACING, 6.5 + OCEAN_Y, side]}
           >
-            <boxGeometry args={[PLANK_COUNT * PLANK_SPACING, 0.07, 0.07]} />
+            <boxGeometry args={[PLANK_COUNT * PLANK_SPACING, 0.7, 0.7]} />
             <meshStandardMaterial color="#6b4a1a" roughness={1} />
           </mesh>
         ))}
@@ -210,7 +222,7 @@ function TerrainModel() {
   return (
     <group
       position={[GLB_OFFSET_X, GLB_OFFSET_Y, GLB_OFFSET_Z]}
-      scale={[GLB_SCALE, GLB_SCALE, GLB_SCALE]}
+      scale={[GLB_SCALE_XZ, GLB_SCALE, GLB_SCALE_XZ]}
     >
       <primitive object={clone} />
     </group>
@@ -265,15 +277,15 @@ function IslandGround() {
 
       {/* Safety net — catches anything that falls through */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[120, 0.5, 120]} position={[0, -40, 0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[1200, 0.5, 1200]} position={[0, -40, 0]} collisionGroups={CG_WORLD} />
       </RigidBody>
 
-      {/* Invisible boundary walls at the ocean edge */}
+      {/* Invisible boundary walls at the ocean edge (2000 m footprint → ±1000 m) */}
       <RigidBody type="fixed" colliders={false} friction={0.05} restitution={0}>
-        <CuboidCollider args={[100, 14, 0.5]} position={[  0, 4, -100]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[100, 14, 0.5]} position={[  0, 4,  100]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[0.5, 14, 100]} position={[-100, 4,    0]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[0.5, 14, 100]} position={[ 100, 4,    0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[1000, 14, 0.5]} position={[    0, 4, -1000]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[1000, 14, 0.5]} position={[    0, 4,  1000]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 14, 1000]} position={[-1000, 4,     0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 14, 1000]} position={[ 1000, 4,     0]} collisionGroups={CG_WORLD} />
       </RigidBody>
     </>
   );
@@ -292,14 +304,14 @@ function Ocean() {
 
   return (
     <>
-      {/* Main ocean plane */}
+      {/* Main ocean plane — large enough to fill the horizon beyond 2000 m island */}
       <mesh ref={meshRef} rotation-x={-Math.PI / 2} position={[0, OCEAN_Y, 0]} receiveShadow>
-        <planeGeometry args={[600, 600, 1, 1]} />
+        <planeGeometry args={[60000, 60000, 1, 1]} />
         <meshStandardMaterial ref={matRef} color="#005f73" metalness={0.28} roughness={0.08} />
       </mesh>
-      {/* Shoreline glow ring — centred at ~r=80 m where beach meets water */}
+      {/* Shoreline glow ring — centred at ~r=800 m (10× the original 80 m) */}
       <mesh rotation-x={-Math.PI / 2} position={[0, OCEAN_Y + 0.01, 0]}>
-        <ringGeometry args={[70, 90, 96]} />
+        <ringGeometry args={[700, 900, 96]} />
         <meshStandardMaterial color="#0a8f9e" transparent opacity={0.45} metalness={0.1} roughness={0.15} />
       </mesh>
     </>

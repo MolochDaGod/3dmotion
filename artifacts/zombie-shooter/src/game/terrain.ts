@@ -8,8 +8,10 @@ export const TERRAIN_SIZE = 120;   // graveyard world footprint in metres
 export const TERRAIN_SEGS = 63;    // 63 quad rows/cols → 64×64 vertex grid
 
 // ── Genesis Island constants ───────────────────────────────────────────────────
-// Baked from Terrain_1774999201051.fbx (800 000 cm → 200 m game world).
-export const GENESIS_TERRAIN_SIZE = 200;
+// Baked from Terrain_1774999201051.fbx (800 000 cm → 200 m FBX world).
+// Island is rendered at 10× horizontal scale so the playable footprint is 2000 m.
+// Heights are unchanged (mountain peak still ~128 m) — only X/Z expand.
+export const GENESIS_TERRAIN_SIZE = 2000;
 export const GENESIS_TERRAIN_SEGS = 63;   // same grid density, bigger world
 
 // ─── Legacy graveyard heightmap ───────────────────────────────────────────────
