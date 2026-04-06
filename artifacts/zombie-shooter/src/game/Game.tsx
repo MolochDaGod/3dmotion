@@ -152,6 +152,9 @@ function SceneContent({
   const ed = useEditorStore();
   const { activeId } = useCharacterStore();
 
+  // Shared ref: Player writes the current AnimKey every transition; MMOSync reads it at 12 Hz.
+  const currentAnimRef = useRef<string>("pistolIdle");
+
   const isGraveyard  = ed.activeScene === "graveyard";
   const navObstacles = isGraveyard ? GRAVEYARD_NAV_OBSTACLES : ISLAND_NAV_OBSTACLES;
   const activeMap    = isGraveyard ? "graveyard" : "island";
@@ -214,6 +217,7 @@ function SceneContent({
             onSkillHit={onSkillHit}
             onDead={onPlayerDead}
             playerPosRef={playerPosRef}
+            currentAnimRef={currentAnimRef}
             waterY={isGraveyard ? undefined : 0}
             spawnPos={isGraveyard
               ? [0, getTerrainHeight(0, 0), 0]
@@ -254,7 +258,8 @@ function SceneContent({
       <MMOSync
         playerPosRef={playerPosRef}
         playerYawRef={playerYawRef}
-        currentAnim="idle"
+        currentAnimRef={currentAnimRef}
+        characterId={activeId}
         map={activeMap}
       />
 

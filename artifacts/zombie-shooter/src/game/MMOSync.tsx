@@ -13,17 +13,19 @@ import { useGameStore } from "./useGameStore";
 const SNAP_INTERVAL_MS = 80; // ~12 Hz
 
 interface Props {
-  playerPosRef: React.MutableRefObject<THREE.Vector3>;
-  playerYawRef: React.MutableRefObject<number>;
-  currentAnim: string;
+  playerPosRef:   React.MutableRefObject<THREE.Vector3>;
+  playerYawRef:   React.MutableRefObject<number>;
+  /** Ref that Player.tsx updates on every animation transition */
+  currentAnimRef: React.MutableRefObject<string>;
+  /** Active character id from useCharacterStore — sent with each snapshot */
+  characterId:    string;
   map: string;
 }
 
-export function MMOSync({ playerPosRef, playerYawRef, currentAnim, map }: Props) {
+export function MMOSync({ playerPosRef, playerYawRef, currentAnimRef, characterId, map }: Props) {
   const username   = useMMOStore((s) => s.username);
   const wave       = useGameStore((s) => s.wave);
   const health     = useGameStore((s) => s.health);
-  const character  = useGameStore((s) => (s as any).selectedCharacter as string | undefined);
 
   const lastSnapRef  = useRef(0);
   const lastWaveRef  = useRef(0);
@@ -31,7 +33,7 @@ export function MMOSync({ playerPosRef, playerYawRef, currentAnim, map }: Props)
   // Connect / reconnect when username or map changes
   useEffect(() => {
     if (!username) return;
-    connectMMO(username, map, character);
+    connectMMO(username, map, characterId);
     return () => disconnectMMO();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, map]);
@@ -54,9 +56,9 @@ export function MMOSync({ playerPosRef, playerYawRef, currentAnim, map }: Props)
       z: pos.z,
       yaw: playerYawRef.current,
       map,
-      anim: currentAnim,
+      anim: currentAnimRef.current,
       hp: health,
-      characterId: character,
+      characterId,
     });
 
     // Sync wave to server (server keeps highest authoritative wave per map)

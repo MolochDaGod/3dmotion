@@ -689,6 +689,8 @@ export interface PlayerProps {
   onSkillHit:  (payload: SkillHitPayload) => void;
   onDead:      () => void;
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
+  /** Ref updated every time the active AnimKey changes — used by MMOSync to broadcast */
+  currentAnimRef?: React.MutableRefObject<string>;
   /** Y level (world space) below which the character is considered submerged.
    *  Omit or pass Infinity to disable water for a scene (e.g. Graveyard). */
   waterY?:     number;
@@ -699,7 +701,7 @@ export interface PlayerProps {
 
 // ─── Player ───────────────────────────────────────────────────────────────────
 
-export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, waterY, spawnPos }: PlayerProps) {
+export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, currentAnimRef, waterY, spawnPos }: PlayerProps) {
   // ── Active character definition (read once on mount; Game.tsx remounts via key) ──
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const charDef = useCharacterStore.getState().def;
@@ -944,6 +946,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     a.timeScale = timeScale;
     a.reset().fadeIn(fade).play();
     curAnim.current = key;
+    // Broadcast current animation to MMO sync
+    if (currentAnimRef) currentAnimRef.current = key;
   }
 
   // ── Always-fresh skill executor ───────────────────────────────────────────
