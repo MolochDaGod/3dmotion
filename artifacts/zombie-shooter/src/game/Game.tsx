@@ -30,6 +30,11 @@ import { AdminPanel } from "./AdminPanel";
 import { SpawnedObjects } from "./SpawnedObjects";
 import { useAdminStore, SPAWN_CATALOGUE } from "./useAdminStore";
 import { TegunPainter, TegunHUD } from "./TegunPainter";
+import { MMOSync } from "./MMOSync";
+import { GhostPlayers } from "./GhostPlayers";
+import { ChatOverlay } from "./ChatOverlay";
+import { UsernameModal } from "./UsernameModal";
+import { MMOWaveBanner } from "./MMOWaveBanner";
 
 // ── Runtime capability detection ──────────────────────────────────────────────
 // WebGPU is disabled — navigator.gpu exists in modern browsers but the canvas
@@ -111,6 +116,7 @@ function SceneContent({
   zombies,
   bullets,
   playerPosRef,
+  playerYawRef,
   onShoot,
   onMelee,
   onSkillHit,
@@ -126,6 +132,7 @@ function SceneContent({
   zombies: ZombieData[];
   bullets: BulletData[];
   playerPosRef: React.MutableRefObject<THREE.Vector3>;
+  playerYawRef: React.MutableRefObject<number>;
   onShoot:      (pos: THREE.Vector3, dir: THREE.Vector3) => void;
   onMelee:      (pos: THREE.Vector3, dir: THREE.Vector3) => void;
   onSkillHit:   (payload: SkillHitPayload) => void;
@@ -147,6 +154,7 @@ function SceneContent({
 
   const isGraveyard  = ed.activeScene === "graveyard";
   const navObstacles = isGraveyard ? GRAVEYARD_NAV_OBSTACLES : ISLAND_NAV_OBSTACLES;
+  const activeMap    = isGraveyard ? "graveyard" : "island";
 
   return (
     <>
@@ -241,6 +249,15 @@ function SceneContent({
       {/* Airship — orbits the island, not Graveyard */}
       {!isGraveyard && <Airship />}
 
+      {/* ── MMO: ghost players + position sync ─────────────────────────────── */}
+      <GhostPlayers map={activeMap} />
+      <MMOSync
+        playerPosRef={playerPosRef}
+        playerYawRef={playerYawRef}
+        currentAnim="idle"
+        map={activeMap}
+      />
+
       {/* ── Post-processing pipeline ───────────────────────────────────────────
            WebGL 2 path: SMAA (replaces canvas MSAA) + Bloom + Vignette.
            Canvas is created with antialias:false; SMAA in the EffectComposer
@@ -300,6 +317,7 @@ export default function Game({ onGameOver }: GameProps) {
   ]);
   const [bullets, setBullets] = useState<BulletData[]>([]);
   const playerPosRef = useRef(new THREE.Vector3(0, 0, 0));
+  const playerYawRef = useRef(0);
 
   // ── Asset loading state ───────────────────────────────────────────────────
   const [loadProgress,  setLoadProgress]  = useState(0);
@@ -580,6 +598,7 @@ export default function Game({ onGameOver }: GameProps) {
           zombies={zombies}
           bullets={bullets}
           playerPosRef={playerPosRef}
+          playerYawRef={playerYawRef}
           onShoot={handleShoot}
           onMelee={handleMelee}
           onSkillHit={handleSkillHit}
@@ -614,6 +633,11 @@ export default function Game({ onGameOver }: GameProps) {
       <BuildHUD />
       <TegunHUD />
       <AdminPanel />
+
+      {/* ── MMO HTML overlays ─────────────────────────────────────────── */}
+      <UsernameModal />
+      <ChatOverlay />
+      <MMOWaveBanner />
     </div>
   );
 }

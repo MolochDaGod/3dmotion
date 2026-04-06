@@ -147,6 +147,25 @@ Third-person survival shooter built with React Three Fiber + Rapier physics.
 
 **Post-processing:** EffectComposer in Game.tsx with Bloom + DepthOfField + Vignette + ChromaticAberration — all driven by live values from useEditorStore (backtick to open editor panel).
 
+## MMO Systems (all 4 built)
+
+### T001 — Real-time WebSocket player sync
+- `artifacts/api-server/src/mmo/MMOServer.ts`: WS server attached to HTTP server at `/ws/mmo`; handles `join`, `snapshot`, `chat`, `wave_sync`, `ping` messages; broadcasts `welcome`, `snapshot`, `player_left`, `chat`, `wave_update`, `pong`
+- `artifacts/zombie-shooter/src/game/MMOClient.ts`: Singleton WS client; auto-reconnects on close; exposes `connectMMO`, `sendSnapshot`, `sendChat`, `sendWaveSync`
+- `artifacts/zombie-shooter/src/game/useMMOStore.ts`: Zustand store — `remotePlayers`, `chat`, `wave`, `username`, `connected`
+- `artifacts/zombie-shooter/src/game/MMOSync.tsx`: R3F component inside Canvas; sends local player snapshot at ~12 Hz via `useFrame`; wave-syncs to server when wave changes
+- `artifacts/zombie-shooter/src/game/GhostPlayers.tsx`: Renders translucent neon-green capsule + username label for each remote player on same map; lerp-smoothed positions
+- `artifacts/zombie-shooter/vite.config.ts`: Proxy `/ws/mmo` and `/api` → `localhost:8080` (api-server)
+
+### T002 — World chat
+- `artifacts/zombie-shooter/src/game/ChatOverlay.tsx`: Fixed bottom-left overlay; press Enter to open input; sends via WS `chat` message; fades old messages; shows last 8 messages
+
+### T003 — Shared wave events
+- `artifacts/zombie-shooter/src/game/MMOWaveBanner.tsx`: Banner shown when wave changes; displays wave number + online player count
+
+### T004 — Player sessions + accounts  
+- `artifacts/zombie-shooter/src/game/UsernameModal.tsx`: Modal shown on first play to pick display name (2–18 chars); persists to localStorage via `useMMOStore.setUsername`; blocks game until name is set
+
 **In-Game Editor Panel (backtick `):**
 - `src/game/useEditorStore.ts` — Zustand store for all editor-tunable values (postFX, scene lights, gameplay, perf toggle)
 - `src/game/EditorPanel.tsx` — Leva UI controls synced to useEditorStore. 4 folders: Post-FX / Scene / Gameplay / Performance. Always mounted; panel visibility via CSS `#leva__root` injection in App.tsx.

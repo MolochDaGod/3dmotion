@@ -110,6 +110,18 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      // Forward WebSocket upgrade + REST calls to the API server
+      "/ws/mmo": {
+        target: "ws://localhost:8080",
+        ws: true,
+        changeOrigin: true,
+      },
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port,
