@@ -583,6 +583,19 @@ function Ocean() {
 
 // ─── Pirate Island — main export ───────────────────────────────────────────────
 export function PirateIsland() {
+  // Gate all ground-dependent props on the heights binary being ready.
+  // Without this guard every component that calls getIslandHeight() on first
+  // render receives 0 (the load-fallback) and then never re-renders, causing
+  // them to float at y=0 regardless of actual terrain height.
+  const [heightsReady, setHeightsReady] = useState(isGenesisHeightsLoaded);
+  useEffect(() => {
+    if (heightsReady) return;
+    const id = setInterval(() => {
+      if (isGenesisHeightsLoaded()) { setHeightsReady(true); clearInterval(id); }
+    }, 80);
+    return () => clearInterval(id);
+  }, [heightsReady]);
+
   return (
     <group>
       <IslandGround />
@@ -593,33 +606,38 @@ export function PirateIsland() {
 
       <Ocean />
 
-      {/* Trees — positioned on actual island terrain */}
-      <Suspense fallback={null}>
-        {PALM_PLACEMENTS.map((p, i) =>
-          p.h >= 13 ? (
-            <JungleTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
-          ) : (
-            <PalmTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
-          )
-        )}
-      </Suspense>
+      {/* All props below require correct terrain heights — only mount once ready */}
+      {heightsReady && (
+        <>
+          {/* Trees — positioned on actual island terrain */}
+          <Suspense fallback={null}>
+            {PALM_PLACEMENTS.map((p, i) =>
+              p.h >= 13 ? (
+                <JungleTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
+              ) : (
+                <PalmTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
+              )
+            )}
+          </Suspense>
 
-      {/* Rocks — scattered outcrops across the island */}
-      {ROCK_PLACEMENTS.map((r, i) => <RockCluster key={i} {...r} />)}
+          {/* Rocks — scattered outcrops across the island */}
+          {ROCK_PLACEMENTS.map((r, i) => <RockCluster key={i} {...r} />)}
 
-      {/* Ore veins — iron, gold, coal embedded in the terrain */}
-      {ORE_PLACEMENTS.map((o, i) => <OreVein key={i} {...o} />)}
+          {/* Ore veins — iron, gold, coal embedded in the terrain */}
+          {ORE_PLACEMENTS.map((o, i) => <OreVein key={i} {...o} />)}
 
-      {/* Hemp plants — coastal and lowland scrub */}
-      {HEMP_POSITIONS.map(([x, z], i) => <HempPlant key={i} x={x} z={z} />)}
+          {/* Hemp plants — coastal and lowland scrub */}
+          {HEMP_POSITIONS.map(([x, z], i) => <HempPlant key={i} x={x} z={z} />)}
 
-      {/* Wild flowers — colour on the beach and grass slopes */}
-      {FLOWER_DATA.map(([x, z, color], i) => <WildFlower key={i} x={x} z={z} color={color} />)}
+          {/* Wild flowers — colour on the beach and grass slopes */}
+          {FLOWER_DATA.map(([x, z, color], i) => <WildFlower key={i} x={x} z={z} color={color} />)}
 
-      {/* East-shore dock */}
-      <Suspense fallback={null}>
-        <Dock />
-      </Suspense>
+          {/* East-shore dock */}
+          <Suspense fallback={null}>
+            <Dock />
+          </Suspense>
+        </>
+      )}
     </group>
   );
 }
