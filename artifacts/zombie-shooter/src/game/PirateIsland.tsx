@@ -33,24 +33,24 @@ import { CG_WORLD } from "./CollisionLayers";
 import type { NavObstacle } from "./NavGrid";
 
 // ── GLB alignment constants ────────────────────────────────────────────────────
-// X/Z: 30× the raw FBX scale to reach 6000 m footprint.
+// X/Z: 60× the raw FBX scale to reach 12 000 m footprint (2× island).
 // Y:   raw scale × GENESIS_HEIGHT_SCALE so the mountain visual matches physics.
 // GLB_OFFSET_Y: the raw offset (72.105) also scales with GENESIS_HEIGHT_SCALE.
 const GLB_RAW_SCALE  = 2.5e-4;
-const GLB_SCALE_XZ   = GLB_RAW_SCALE * 30;                      // 7.5e-3
-const GLB_SCALE_Y    = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE;    // 2.5e-3
+const GLB_SCALE_XZ   = GLB_RAW_SCALE * 60;                      // 1.5e-2 — 2× footprint = 12 000 m
+const GLB_SCALE_Y    = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE;    // 5e-3 — peak ≈ 2560 m
 const GLB_RAW_OFFSET_Y = 72.105;
-const GLB_OFFSET_Y   = GLB_RAW_OFFSET_Y * GENESIS_HEIGHT_SCALE; // 721.05
-const GLB_OFFSET_X   = -25.000 * 30;                            // −750 m
-const GLB_OFFSET_Z   =  25.000 * 30;                            //  750 m
+const GLB_OFFSET_Y   = GLB_RAW_OFFSET_Y * GENESIS_HEIGHT_SCALE; // 1442.1 m
+const GLB_OFFSET_X   = -25.000 * 60;                            // −1500 m
+const GLB_OFFSET_Z   =  25.000 * 60;                            // +1500 m
 
 // Biome height thresholds (world metres, after GENESIS_HEIGHT_SCALE applied)
-// Raw binary peaks at ~128 m → scaled peak ~1280 m.
-const H_BEACH   =   20;   //   0–20 m  → sand / shoreline
-const H_GRASS   =  100;   //  20–100 m → tropical grass / lowland
-const H_JUNGLE  =  400;   // 100–400 m → dense jungle canopy
-const H_FOREST  =  700;   // 400–700 m → highland misty forest
-const H_ROCK    = 1000;   // 700–1000 m→ bare rock / cliff
+// 2× scale: raw binary peaks at ~128 m → scaled peak ≈ 2560 m.
+const H_BEACH   =   40;   //   0–40 m  → sand / shoreline
+const H_GRASS   =  200;   //  40–200 m → tropical grass / lowland
+const H_JUNGLE  =  800;   // 200–800 m → dense jungle canopy
+const H_FOREST  = 1400;   // 800–1400 m→ highland misty forest
+const H_ROCK    = 2000;   // 1400–2000 m→ bare rock / cliff
 
 // ── Start fetching the height binary as soon as this module loads ─────────────
 preloadGenesisHeights();
@@ -58,51 +58,51 @@ preloadGenesisHeights();
 // ─── Nav obstacles (A* avoidance) ─────────────────────────────────────────────
 interface PalmConfig { x: number; z: number; h: number; ry: number }
 
-// Trees on the actual island (x: -380→+620, z: -430→+1290).
+// Trees on the actual island (2× scale: x: -760→+1240, z: -860→+2580).
 // h >= 13 → JungleTree, h < 13 → PalmTree.
 const PALM_PLACEMENTS: PalmConfig[] = [
-  // ── North beach palms (z 900–1200, the sandy coastal strip) ──────────────
-  { x:   60, z: 1200, h: 12.0, ry:  0.30 },
-  { x: -180, z: 1160, h: 10.5, ry:  1.10 },
-  { x:  260, z: 1120, h: 11.5, ry: -0.50 },
-  { x: -300, z: 1080, h: 12.5, ry:  0.80 },
-  { x:  360, z: 1020, h:  9.5, ry: -1.20 },
-  { x: -100, z:  990, h: 11.0, ry:  2.10 },
-  { x:  420, z:  960, h: 10.0, ry:  0.90 },
-  { x: -340, z:  940, h: 12.0, ry: -0.80 },
-  { x:   90, z:  920, h: 10.5, ry:  1.50 },
-  // ── East coast palms (z 200–780, along the eastern shore) ────────────────
-  { x:  450, z:  780, h: 11.5, ry: -0.20 },
-  { x:  480, z:  600, h: 10.0, ry:  1.80 },
-  { x:  460, z:  420, h: 11.0, ry: -0.40 },
-  { x:  430, z:  220, h: 12.0, ry:  2.20 },
-  // ── West coast palms (z 100–700, western shore) ───────────────────────────
-  { x: -360, z:  700, h:  9.5, ry: -1.00 },
-  { x: -370, z:  480, h: 11.0, ry:  1.30 },
-  { x: -340, z:  260, h: 10.5, ry:  0.40 },
-  // ── South shore (z -300 to -100) ─────────────────────────────────────────
-  { x:  140, z: -140, h: 10.5, ry:  0.70 },
-  { x: -120, z: -200, h:  9.5, ry: -0.90 },
-  { x:  210, z: -280, h: 11.0, ry:  1.60 },
-  // ── Interior jungle trees (z 300–900, dense mid-island canopy) ───────────
-  { x:  110, z:  850, h: 15.0, ry:  0.55 },
-  { x: -150, z:  780, h: 16.0, ry: -0.75 },
-  { x:  210, z:  720, h: 14.5, ry:  1.20 },
-  { x: -210, z:  660, h: 15.5, ry:  2.80 },
-  { x:   70, z:  580, h: 17.0, ry: -1.40 },
-  { x: -110, z:  500, h: 14.0, ry:  0.35 },
-  { x:  280, z:  430, h: 15.0, ry: -0.60 },
-  { x: -270, z:  370, h: 16.5, ry:  1.85 },
-  { x:  160, z:  320, h: 15.5, ry:  0.90 },
-  { x:  -80, z:  290, h: 14.5, ry: -1.10 },
+  // ── North beach palms (z 1800–2400) ──────────────────────────────────────
+  { x:  120, z: 2400, h: 12.0, ry:  0.30 },
+  { x: -360, z: 2320, h: 10.5, ry:  1.10 },
+  { x:  520, z: 2240, h: 11.5, ry: -0.50 },
+  { x: -600, z: 2160, h: 12.5, ry:  0.80 },
+  { x:  720, z: 2040, h:  9.5, ry: -1.20 },
+  { x: -200, z: 1980, h: 11.0, ry:  2.10 },
+  { x:  840, z: 1920, h: 10.0, ry:  0.90 },
+  { x: -680, z: 1880, h: 12.0, ry: -0.80 },
+  { x:  180, z: 1840, h: 10.5, ry:  1.50 },
+  // ── East coast palms ──────────────────────────────────────────────────────
+  { x:  900, z: 1560, h: 11.5, ry: -0.20 },
+  { x:  960, z: 1200, h: 10.0, ry:  1.80 },
+  { x:  920, z:  840, h: 11.0, ry: -0.40 },
+  { x:  860, z:  440, h: 12.0, ry:  2.20 },
+  // ── West coast palms ──────────────────────────────────────────────────────
+  { x: -720, z: 1400, h:  9.5, ry: -1.00 },
+  { x: -740, z:  960, h: 11.0, ry:  1.30 },
+  { x: -680, z:  520, h: 10.5, ry:  0.40 },
+  // ── South shore ───────────────────────────────────────────────────────────
+  { x:  280, z: -280, h: 10.5, ry:  0.70 },
+  { x: -240, z: -400, h:  9.5, ry: -0.90 },
+  { x:  420, z: -560, h: 11.0, ry:  1.60 },
+  // ── Interior jungle trees ─────────────────────────────────────────────────
+  { x:  220, z: 1700, h: 15.0, ry:  0.55 },
+  { x: -300, z: 1560, h: 16.0, ry: -0.75 },
+  { x:  420, z: 1440, h: 14.5, ry:  1.20 },
+  { x: -420, z: 1320, h: 15.5, ry:  2.80 },
+  { x:  140, z: 1160, h: 17.0, ry: -1.40 },
+  { x: -220, z: 1000, h: 14.0, ry:  0.35 },
+  { x:  560, z:  860, h: 15.0, ry: -0.60 },
+  { x: -540, z:  740, h: 16.5, ry:  1.85 },
+  { x:  320, z:  640, h: 15.5, ry:  0.90 },
+  { x: -160, z:  580, h: 14.5, ry: -1.10 },
 ];
 
 export const NAV_OBSTACLES: NavObstacle[] = [
-  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 12.0 })),
-  // Mountain core — passable slopes start outside this radius
-  { x:   80, z:  200, radius: 280.0 },
-  // Dock structure on the east shore
-  { x:  580, z:    0, radius:  60.0 },
+  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 24.0 })),
+  // Mountain core — passable slopes start outside this radius (2×)
+  { x:  160, z:  400, radius: 560.0 },
+  // Dock structure on the east shore (2×)
+  { x: 1160, z:    0, radius: 120.0 },
 ];
 
 // ─── Biome material factory ────────────────────────────────────────────────────
@@ -260,13 +260,13 @@ function JungleTree({ x, z, h = 13.0, ry = 0 }: { x: number; z: number; h?: numb
 // ─── Rock clusters ─────────────────────────────────────────────────────────────
 interface RockConfig { x: number; z: number; s: number; ry: number }
 const ROCK_PLACEMENTS: RockConfig[] = [
-  { x:  220, z:  800, s: 3.2, ry: 0.4 }, { x: -180, z:  750, s: 2.5, ry: 1.2 },
-  { x:  350, z:  620, s: 4.0, ry: 2.1 }, { x: -290, z:  580, s: 3.0, ry: 0.8 },
-  { x:  130, z:  420, s: 5.5, ry: 1.7 }, { x: -220, z:  370, s: 4.8, ry: 0.3 },
-  { x:  380, z:  280, s: 3.6, ry: 2.8 }, { x:  -60, z:  150, s: 2.8, ry: 1.5 },
-  { x:  170, z:  -80, s: 6.0, ry: 0.6 }, { x: -150, z: -120, s: 5.2, ry: 2.2 },
-  { x:   40, z: -250, s: 4.4, ry: 1.0 }, { x:  250, z: -350, s: 3.8, ry: 0.2 },
-  { x: -220, z: 1050, s: 2.0, ry: 0.9 }, { x:  310, z:  980, s: 1.8, ry: 1.6 },
+  { x:  440, z: 1600, s: 3.2, ry: 0.4 }, { x: -360, z: 1500, s: 2.5, ry: 1.2 },
+  { x:  700, z: 1240, s: 4.0, ry: 2.1 }, { x: -580, z: 1160, s: 3.0, ry: 0.8 },
+  { x:  260, z:  840, s: 5.5, ry: 1.7 }, { x: -440, z:  740, s: 4.8, ry: 0.3 },
+  { x:  760, z:  560, s: 3.6, ry: 2.8 }, { x: -120, z:  300, s: 2.8, ry: 1.5 },
+  { x:  340, z: -160, s: 6.0, ry: 0.6 }, { x: -300, z: -240, s: 5.2, ry: 2.2 },
+  { x:   80, z: -500, s: 4.4, ry: 1.0 }, { x:  500, z: -700, s: 3.8, ry: 0.2 },
+  { x: -440, z: 2100, s: 2.0, ry: 0.9 }, { x:  620, z: 1960, s: 1.8, ry: 1.6 },
 ];
 function RockCluster({ x, z, s, ry }: RockConfig) {
   const groundY = getIslandHeight(x, z);
@@ -293,16 +293,16 @@ function RockCluster({ x, z, s, ry }: RockConfig) {
 // ─── Ore veins ─────────────────────────────────────────────────────────────────
 interface OreConfig { x: number; z: number; s: number; ry: number; kind: "iron" | "gold" | "coal" }
 const ORE_PLACEMENTS: OreConfig[] = [
-  { x:  180, z:  680, s: 2.2, ry: 0.5, kind: "iron" },
-  { x: -160, z:  590, s: 1.8, ry: 1.8, kind: "iron" },
-  { x:  300, z:  350, s: 2.5, ry: 0.9, kind: "iron" },
-  { x: -240, z:  200, s: 2.0, ry: 2.3, kind: "iron" },
-  { x:  100, z:  -60, s: 1.9, ry: 0.7, kind: "iron" },
-  { x:  120, z:  320, s: 1.6, ry: 1.3, kind: "gold" },
-  { x: -100, z:  100, s: 1.4, ry: 2.7, kind: "gold" },
-  { x:  380, z:  860, s: 1.5, ry: 0.2, kind: "coal" },
-  { x: -320, z:  820, s: 1.7, ry: 1.1, kind: "coal" },
-  { x:  410, z:  160, s: 1.4, ry: 2.0, kind: "coal" },
+  { x:  360, z: 1360, s: 2.2, ry: 0.5, kind: "iron" },
+  { x: -320, z: 1180, s: 1.8, ry: 1.8, kind: "iron" },
+  { x:  600, z:  700, s: 2.5, ry: 0.9, kind: "iron" },
+  { x: -480, z:  400, s: 2.0, ry: 2.3, kind: "iron" },
+  { x:  200, z: -120, s: 1.9, ry: 0.7, kind: "iron" },
+  { x:  240, z:  640, s: 1.6, ry: 1.3, kind: "gold" },
+  { x: -200, z:  200, s: 1.4, ry: 2.7, kind: "gold" },
+  { x:  760, z: 1720, s: 1.5, ry: 0.2, kind: "coal" },
+  { x: -640, z: 1640, s: 1.7, ry: 1.1, kind: "coal" },
+  { x:  820, z:  320, s: 1.4, ry: 2.0, kind: "coal" },
 ];
 const ORE_COLORS: Record<string, string> = {
   iron: "#9a5a3a", gold: "#d4a820", coal: "#2a2620",
@@ -328,10 +328,10 @@ function OreVein({ x, z, s, ry, kind }: OreConfig) {
 
 // ─── Hemp plants ───────────────────────────────────────────────────────────────
 const HEMP_POSITIONS: Array<[number, number]> = [
-  [  30, 1160], [-140, 1110], [ 190, 1070], [-260, 1040], [ 330, 1000],
-  [ 440, 880],  [-330, 860],  [  80, 840],  [ 410, 700],  [-380, 640],
-  [ 460, 500],  [-350, 420],  [ 430, 300],  [-310, 240],  [ 200, 140],
-  [-170, 100],  [  60, -80],  [ -80, -180], [ 200, -260],
+  [  60, 2320], [-280, 2220], [ 380, 2140], [-520, 2080], [ 660, 2000],
+  [ 880, 1760], [-660, 1720], [ 160, 1680], [ 820, 1400], [-760, 1280],
+  [ 920, 1000], [-700,  840], [ 860,  600], [-620,  480], [ 400,  280],
+  [-340,  200], [ 120, -160], [-160, -360], [ 400, -520],
 ];
 function HempPlant({ x, z }: { x: number; z: number }) {
   const groundY = getIslandHeight(x, z);
@@ -361,12 +361,12 @@ function HempPlant({ x, z }: { x: number; z: number }) {
 
 // ─── Wild flowers ──────────────────────────────────────────────────────────────
 const FLOWER_DATA: Array<[number, number, string]> = [
-  [  20, 1180, "#e84cc0"], [-160, 1140, "#f2c12e"], [ 230, 1090, "#e84cc0"],
-  [-280, 1060, "#f2c12e"], [ 310, 1010, "#ff5e78"], [ -90, 980,  "#f2c12e"],
-  [ 400, 950,  "#e84cc0"], [-330, 920,  "#ff5e78"], [ 110, 900,  "#f2c12e"],
-  [ 460, 760,  "#e84cc0"], [-360, 690,  "#f2c12e"], [ 440, 460,  "#ff5e78"],
-  [-350, 300,  "#e84cc0"], [ 160, 150,  "#f2c12e"], [-130, -150, "#ff5e78"],
-  [ 220, -300, "#e84cc0"],
+  [  40, 2360, "#e84cc0"], [-320, 2280, "#f2c12e"], [ 460, 2180, "#e84cc0"],
+  [-560, 2120, "#f2c12e"], [ 620, 2020, "#ff5e78"], [-180, 1960, "#f2c12e"],
+  [ 800, 1900, "#e84cc0"], [-660, 1840, "#ff5e78"], [ 220, 1800, "#f2c12e"],
+  [ 920, 1520, "#e84cc0"], [-720, 1380, "#f2c12e"], [ 880,  920, "#ff5e78"],
+  [-700,  600, "#e84cc0"], [ 320,  300, "#f2c12e"], [-260, -300, "#ff5e78"],
+  [ 440, -600, "#e84cc0"],
 ];
 function WildFlower({ x, z, color }: { x: number; z: number; color: string }) {
   const groundY = getIslandHeight(x, z);
@@ -390,9 +390,9 @@ function WildFlower({ x, z, color }: { x: number; z: number; color: string }) {
 
 // ─── Wooden dock (east shore — starts on land ~x=520, extends into sea) ──────
 const PLANK_COUNT   = 18;
-const DOCK_START_X  = 520;
+const DOCK_START_X  = 1040;  // 2× — aligned to 2× island east shore
 const DOCK_Z        =    0;
-const PLANK_SPACING = 11.0;
+const PLANK_SPACING = 22.0;  // 2× plank step length
 const OCEAN_Y       = -0.40;
 
 function Dock() {
@@ -407,7 +407,7 @@ function Dock() {
   }, []);
 
   const posts = useMemo(() => {
-    return Array.from({ length: 6 }, (_, i) => ({ px: DOCK_START_X + i * 2.2 }));
+    return Array.from({ length: 6 }, (_, i) => ({ px: DOCK_START_X + i * 4.4 }));
   }, []);
 
   return (

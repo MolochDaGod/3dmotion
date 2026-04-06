@@ -15,9 +15,9 @@ export const TERRAIN_SEGS = 63;    // 63 quad rows/cols → 64×64 vertex grid
 // At 10×: peak = 1280 m on a 6000 m base → 21% ratio (dramatic volcano profile).
 // Both the visual GLB and the Rapier heightfield use this multiplier so physics
 // and rendering stay perfectly in sync.
-export const GENESIS_TERRAIN_SIZE   = 6000;
+export const GENESIS_TERRAIN_SIZE   = 12000; // 2× larger island footprint
 export const GENESIS_TERRAIN_SEGS   = 63;   // same grid density, bigger world
-export const GENESIS_HEIGHT_SCALE   = 10.0; // vertical drama multiplier
+export const GENESIS_HEIGHT_SCALE   = 20.0; // 2× taller — peak ≈ 2560 m
 
 // ─── Legacy graveyard heightmap ───────────────────────────────────────────────
 export function getTerrainHeight(worldX: number, worldZ: number): number {

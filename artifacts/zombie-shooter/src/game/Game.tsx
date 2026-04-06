@@ -63,23 +63,22 @@ const MELEE_RANGE       = 2.6;
 const MELEE_DAMAGE      = 80;
 const MELEE_ARC_DOT     = 0.35;
 
-// Genesis Island (6000 m footprint) — player spawns at north beach (0, _, 1095).
-// Island land mass (from height binary): x ≈ -400→+620, z ≈ -430→+1290.
-// Player spawns on the north face of the island at z≈1095 (28m elevation, solid land). Zombies emerge from the sea
-// just outside the coastline on all four sides and wade ashore.
+// Genesis Island (12000 m footprint — 2× scale) — player spawns at north beach (0, _, 2190).
+// Island land mass (2× binary map): x ≈ -800→+1240, z ≈ -860→+2580.
+// Zombies emerge from the sea just outside the coastline on all four sides and wade ashore.
 const ISLAND_SPAWN: [number, number, number][] = [
-  // North coast — just beyond the beach (player spawns at z≈1190)
-  [    0, 0,  1600], [  500, 0,  1550], [ -500, 0,  1550],
+  // North coast — just beyond the beach
+  [    0, 0,  3200], [ 1000, 0,  3100], [-1000, 0,  3100],
   // NE / NW coast flanks
-  [  900, 0,  1200], [ -900, 0,  1200],
+  [ 1800, 0,  2400], [-1800, 0,  2400],
   // East coast — wade in from the east
-  [  950, 0,   600], [  900, 0,   100], [  850, 0,  -200],
+  [ 1900, 0,  1200], [ 1800, 0,   200], [ 1700, 0,  -400],
   // West coast — mirror flanks
-  [ -950, 0,   600], [ -900, 0,   100], [ -850, 0,  -200],
+  [-1900, 0,  1200], [-1800, 0,   200], [-1700, 0,  -400],
   // South — through the jungle from below
-  [    0, 0,  -700], [  450, 0,  -650], [ -450, 0,  -650],
+  [    0, 0, -1400], [  900, 0, -1300], [ -900, 0, -1300],
   // Far south pressure
-  [  200, 0,  -900], [ -200, 0,  -900],
+  [  400, 0, -1800], [ -400, 0, -1800],
 ];
 // Graveyard: flat centre, spawns ring at ~20–28 m radius
 const GRAVEYARD_SPAWN: [number, number, number][] = [
@@ -210,7 +209,7 @@ function SceneContent({
             waterY={isGraveyard ? undefined : 0}
             spawnPos={isGraveyard
               ? [0, getTerrainHeight(0, 0), 0]
-              : [0, getIslandHeight(0, 1095) || 28, 1095]}
+              : [0, getIslandHeight(0, 2190) || 56, 2190]}
           />
 
           {/* Zombies inside Physics so their Rapier sensor bodies are registered */}

@@ -19,10 +19,10 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 // ── Orbit constants ────────────────────────────────────────────────────────────
-const ORBIT_RADIUS    = 3400;   // metres from island centre
-const ORBIT_ALTITUDE  = 520;    // metres above sea level
-const ORBIT_PERIOD    = 240;    // seconds per full revolution
-const BOB_AMP         = 18;     // altitude bob amplitude (m)
+const ORBIT_RADIUS    = 7200;   // 2× — orbits beyond the expanded 12 000 m island
+const ORBIT_ALTITUDE  = 2000;   // raised well above reachable terrain (~2× 520 m + headroom)
+const ORBIT_PERIOD    = 280;    // slightly slower revolution to match larger orbit
+const BOB_AMP         = 36;     // 2× bob amplitude to stay visually proportional
 const BOB_FREQ        = 0.18;   // altitude bob frequency (rad/s)
 const ROLL_AMP        = 0.07;   // banking roll amplitude (radians ≈ 4°)
 const PROP_RPM        = 80;     // propeller rotation speed (RPM)
