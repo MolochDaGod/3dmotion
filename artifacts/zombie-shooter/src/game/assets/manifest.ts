@@ -78,6 +78,10 @@ export const ANIM_RIFLE = {
   reload:      `${AR}/rifle reload.fbx`,
   turnL:       `${AR}/rifle turn left.fbx`,
   turnR:       `${AR}/rifle turn right.fbx`,
+  /** Hit reaction while holding rifle — already on disk */
+  hit:         `${AR}/rifle hit.fbx`,
+  /** Grenade-throw special ability — already on disk */
+  grenade:     `${AR}/rifle grenade.fbx`,
 } as const;
 
 export const ANIM_MELEE = {
@@ -148,6 +152,39 @@ export const ANIM_SHIELD_SWORD = {
   attack3:     `${ASS}/ssAttack3.fbx`,
   attack4:     `${ASS}/ssAttack4.fbx`,
   drawSword:   `${ASS}/ssDrawSword.fbx`,
+} as const;
+
+// ── Shared / universal reaction animations ─────────────────────────────────────
+// These files do not exist yet — download from Mixamo and save to the paths below.
+// Until they exist, all *HitSmall / *HitLarge / *Death keys fall back to the
+// corresponding staff animations.  Pistol firing also needs a dedicated clip.
+//
+// Download guide (search name → save as):
+//   "Pistol Shooting"       → /models/animations/pistol/pistol fire.fbx
+//   "Hit Reaction Small"    → /models/animations/shared/flinch-small.fbx
+//   "Hit Reaction"          → /models/animations/shared/flinch-large.fbx
+//   "Dying Backwards"       → /models/animations/shared/death-pistol.fbx
+//   "Rifle Aim"             → /models/animations/shared/death-rifle.fbx  (Warrior Dying variant)
+//   "Falling Backwards Dead"→ /models/animations/shared/death-melee.fbx
+//   "Silenced Arrow"        → /models/animations/shared/death-bow.fbx
+//   "Falling Back Death"    → /models/animations/shared/death-sword.fbx
+//   "Sword And Shield Idle" → /models/animations/shared/parry-shield.fbx (Shield Bash variant)
+//   "Great Sword Slash"     → /models/animations/shared/special-melee.fbx
+//   "Sword And Shield Slash"→ /models/animations/shared/special-sword.fbx
+//   "Arrow Trick"           → /models/animations/shared/special-bow.fbx
+//   "Forward Roll"          → /models/animations/traverse/roll-forward.fbx (also needed for rollFwd)
+const AS_SHARED = `${M}/animations/shared`;
+export const ANIM_SHARED = {
+  flinchSmall:   `${AS_SHARED}/flinch-small.fbx`,   // light hit reaction (all stances)
+  flinchLarge:   `${AS_SHARED}/flinch-large.fbx`,   // heavy stagger (all stances)
+  deathPistol:   `${AS_SHARED}/death-pistol.fbx`,   // death — pistol stance
+  deathRifle:    `${AS_SHARED}/death-rifle.fbx`,    // death — rifle stance
+  deathMelee:    `${AS_SHARED}/death-melee.fbx`,    // death — sword/axe stance
+  deathBow:      `${AS_SHARED}/death-bow.fbx`,      // death — bow stance
+  deathSword:    `${AS_SHARED}/death-sword.fbx`,    // death — shield+sword stance
+  specialMelee:  `${AS_SHARED}/special-melee.fbx`,  // spinning finisher — melee
+  specialSword:  `${AS_SHARED}/special-sword.fbx`,  // shield charge / whirlwind — ss
+  specialBow:    `${AS_SHARED}/special-bow.fbx`,    // trick shot — bow
 } as const;
 
 export const ANIM_TRAVERSE = {

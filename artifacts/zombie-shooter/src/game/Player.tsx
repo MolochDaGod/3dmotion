@@ -14,6 +14,7 @@ import type { SkillHitPayload } from "./Game";
 import {
   CHARACTER, ANIM_PISTOL, ANIM_RIFLE, ANIM_MELEE,
   ANIM_STAFF, ANIM_BOW, ANIM_SHIELD_SWORD, ANIM_TRAVERSE,
+  ANIM_SHARED,
   WEAPON_PROPS, WEAPON_TEXTURES, texPath,
 } from "./assets/manifest";
 import { useWeaponFit } from "./useWeaponFit";
@@ -109,8 +110,20 @@ const CLIMB_VAULT_Y   = 2.0;    // how high (m) the player teleports on a vault
 const WALL_BLOCK_FRAC = 0.25;   // resolved/attempted ratio below this → "wall blocked"
 
 // ─── Animation keys ───────────────────────────────────────────────────────────
+//
+// Organised by WEAPON STANCE.  Each stance covers:
+//   Locomotion  — idle · walk · run · strafe · jump
+//   Actions     — attacks · fire · reload (weapon-specific)
+//   Reactions   — hitSmall (flinch) · hitLarge (stagger) · death
+//   Defense     — block / parry  (weapon-specific timing)
+//   Special     — unique ability per stance
+//
+// Files marked "fallback: X" share an FBX until a dedicated Mixamo clip is
+// downloaded to the path noted in assets/manifest.ts → ANIM_SHARED.
 
+// ── Pistol ────────────────────────────────────────────────────────────────────
 type PistolKey =
+  // locomotion
   | "pistolIdle" | "pistolWalkFwd" | "pistolWalkBwd"
   | "pistolStrafeL" | "pistolStrafeR"
   | "pistolWalkArcL" | "pistolWalkArcR"
@@ -118,61 +131,122 @@ type PistolKey =
   | "pistolRun" | "pistolRunArcL" | "pistolRunArcR"
   | "pistolRunBwd" | "pistolRunBwdArcL" | "pistolRunBwdArcR"
   | "pistolJump" | "pistolLand"
-  | "pistolCrouchDown" | "pistolCrouchIdle" | "pistolCrouchUp";
+  | "pistolCrouchDown" | "pistolCrouchIdle" | "pistolCrouchUp"
+  // fire  (fallback: pistolIdle — download "Pistol Shooting" from Mixamo)
+  | "pistolFire"
+  // reactions
+  | "pistolHitSmall"   // flinch          (fallback: staffHitSmall)
+  | "pistolHitLarge"   // heavy stagger   (fallback: staffHitLarge)
+  | "pistolDeath"      // death           (fallback: staffDeath)
+  // defense / special
+  | "pistolParry";     // pistol-whip deflect  (fallback: melee block)
 
+// ── Rifle ─────────────────────────────────────────────────────────────────────
 type RifleKey =
+  // locomotion
   | "rifleIdle" | "rifleWalkFwd" | "rifleWalkBwd"
   | "rifleStrafeL" | "rifleStrafeR"
   | "rifleRun" | "rifleRunBwd"
   | "rifleJump"
+  // actions
   | "rifleFire" | "rifleReload"
-  | "rifleTurnL" | "rifleTurnR";
+  | "rifleTurnL" | "rifleTurnR"
+  // reactions — BOTH FBX files are already on disk
+  | "rifleHit"         // hit reaction    (rifle hit.fbx — ON DISK)
+  | "rifleGrenade"     // grenade throw   (rifle grenade.fbx — ON DISK, special ability)
+  // death / parry
+  | "rifleDeath"       // death           (fallback: staffDeath)
+  | "rifleParry";      // butt-stock parry (fallback: melee block)
 
+// ── Melee (sword / axe) ───────────────────────────────────────────────────────
 type MeleeKey =
+  // locomotion
   | "meleeIdle" | "meleeWalkFwd" | "meleeWalkBwd"
   | "meleeStrafeL" | "meleeStrafeR"
   | "meleeRunFwd" | "meleeRunBwd"
+  | "meleeJump" | "meleeCrouch" | "meleeStandFromCrouch"
+  // attacks
   | "meleeAttack1" | "meleeAttack2" | "meleeAttack3"
   | "meleeCombo1"  | "meleeCombo2"  | "meleeCombo3"
-  | "meleeJump" | "meleeCrouch" | "meleeBlock"
-  | "meleeStandFromCrouch";
+  // defense
+  | "meleeBlock"
+  | "meleeParry"       // timed parry counter  (fallback: melee block — different trigger window)
+  // reactions
+  | "meleeHitSmall"    // flinch          (fallback: staffHitSmall)
+  | "meleeHitLarge"    // heavy stagger   (fallback: staffHitLarge)
+  | "meleeDeath"       // death           (fallback: staffDeath)
+  // special
+  | "meleeSpecial";    // spinning finisher    (fallback: meleeCombo3 / download special-melee)
 
+// ── Staff / Magic ─────────────────────────────────────────────────────────────
 type StaffKey =
+  // locomotion
   | "staffIdle" | "staffIdle2"
   | "staffWalkFwd" | "staffWalkBwd"
   | "staffRunFwd" | "staffRunBwd"
+  | "staffJump"
+  // actions
   | "staffCast1" | "staffCast2"
-  | "staffJump" | "staffHitLarge" | "staffHitSmall"
-  | "staffDeath";
+  // reactions  — staffHitLarge/Small/Death already have dedicated FBX files
+  | "staffHitLarge" | "staffHitSmall" | "staffDeath"
+  // defense / special
+  | "staffParry";      // staff deflect counter (fallback: staffHitLarge)
 
+// ── Bow ───────────────────────────────────────────────────────────────────────
 type BowKey =
+  // locomotion
   | "bowIdle" | "bowWalkFwd" | "bowWalkBwd"
   | "bowStrafeL" | "bowStrafeR"
   | "bowRunFwd" | "bowRunBwd"
   | "bowJump"
+  // actions
   | "bowDraw" | "bowAim" | "bowFire" | "bowBlock"
   | "bowAimWalkFwd" | "bowAimWalkBwd"
-  | "bowAimStrafeL" | "bowAimStrafeR";
+  | "bowAimStrafeL" | "bowAimStrafeR"
+  // reactions
+  | "bowHitSmall"      // flinch          (fallback: staffHitSmall)
+  | "bowHitLarge"      // heavy stagger   (fallback: staffHitLarge)
+  | "bowDeath"         // death           (fallback: staffDeath)
+  // defense / special
+  | "bowParry"         // weapon deflect  (fallback: bowBlock — different trigger context)
+  | "bowSpecial";      // power / trick shot (fallback: bowFire / download special-bow)
 
-type DodgeKey =
-  | "dodgeFwd" | "dodgeBwd" | "dodgeL" | "dodgeR";
-
-// ── Sword + Shield set ────────────────────────────────────────────────────────
+// ── Sword + Shield ────────────────────────────────────────────────────────────
 type SwordShieldKey =
+  // locomotion
   | "ssIdle" | "ssRunFwd" | "ssRunBwd"
   | "ssStrafeL" | "ssStrafeR"
+  // defense
   | "ssBlockIdle" | "ssBlock" | "ssBlockHit"
+  // attacks
   | "ssAttack1" | "ssAttack2" | "ssAttack3" | "ssAttack4"
-  | "ssDrawSword";
+  | "ssDrawSword"
+  // reactions
+  | "ssHitSmall"       // flinch          (fallback: ssBlockHit)
+  | "ssHitLarge"       // heavy stagger   (fallback: ssBlockHit)
+  | "ssDeath"          // death           (fallback: staffDeath)
+  // parry / special
+  | "ssParry"          // shield bash counter (fallback: ssBlock)
+  | "ssSpecial";       // whirlwind / charge  (fallback: ssAttack4 / download special-sword)
 
+// ── Dodge / roll ─────────────────────────────────────────────────────────────
+type DodgeKey =
+  | "dodgeFwd" | "dodgeBwd" | "dodgeL" | "dodgeR"
+  // directional roll variants (same clips; different triggers = gamepad/keyboard combos)
+  | "rollBwd"          // backward roll   (fallback: dodgeBwd)
+  | "rollL"            // left roll       (fallback: dodgeL)
+  | "rollR";           // right roll      (fallback: dodgeR)
+
+// ── Traverse / environment ────────────────────────────────────────────────────
 type TraverseKey =
-  | "climbUp"      // Climbing To Top  — LoopOnce,   vaults a ledge
-  | "climbing"     // Climbing         — LoopRepeat,  general wall-climb cycle
-  | "climbLadder"  // Climbing Ladder  — LoopRepeat,  ladder-specific cycle
-  | "treading"     // Treading Water   — LoopRepeat,  stationary in water
-  | "swimming"     // Swimming         — LoopRepeat,  moving in water
-  | "swimToEdge"   // Swimming To Edge — LoopOnce,    exiting water
-  | "rollFwd";     // Forward Roll     — LoopOnce,    Ctrl-key committed roll
+  | "climbUp"          // LoopOnce  — vaults a ledge
+  | "climbing"         // LoopRepeat — general wall-climb cycle
+  | "climbLadder"      // LoopRepeat — ladder-specific cycle
+  | "treading"         // LoopRepeat — stationary in water
+  | "swimming"         // LoopRepeat — moving in water
+  | "swimToEdge"       // LoopOnce  — exiting water
+  | "rollFwd"          // LoopOnce  — committed forward roll (Ctrl key)
+  | "landHard";        // LoopOnce  — heavy landing from tall fall (fallback: pistolLand)
 
 type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey | SwordShieldKey | TraverseKey;
 
@@ -200,26 +274,46 @@ const PISTOL_QUEUE: Array<{ key: AnimKey | "__model__"; file: string }> = [
   { key: "pistolCrouchDown",    file: ANIM_PISTOL.crouchDown },
   { key: "pistolCrouchIdle",    file: ANIM_PISTOL.crouchIdle },
   { key: "pistolCrouchUp",      file: ANIM_PISTOL.crouchUp },
+  // fire — fallback pistolIdle until "Pistol Shooting" FBX is downloaded
+  { key: "pistolFire",          file: ANIM_PISTOL.idle },
+  // reactions — fallback to staff clips until ANIM_SHARED files are downloaded
+  { key: "pistolHitSmall",      file: ANIM_STAFF.hitSmall },
+  { key: "pistolHitLarge",      file: ANIM_STAFF.hitLarge },
+  { key: "pistolDeath",         file: ANIM_STAFF.death },
+  // parry — pistol-whip deflect, reuses melee block timing
+  { key: "pistolParry",         file: ANIM_MELEE.block },
   // Dodge — reuse melee FBX clips; loaded at startup so dodge works without melee equip.
   { key: "dodgeFwd", file: ANIM_MELEE.runFwd },
   { key: "dodgeBwd", file: ANIM_MELEE.runBwd },
   { key: "dodgeL",   file: ANIM_MELEE.strafeL },
   { key: "dodgeR",   file: ANIM_MELEE.strafeR },
+  // roll variants — same clips as directional dodges, different triggers
+  { key: "rollBwd",  file: ANIM_MELEE.runBwd },
+  { key: "rollL",    file: ANIM_MELEE.strafeL },
+  { key: "rollR",    file: ANIM_MELEE.strafeR },
+  // hard landing — fallback to pistol land
+  { key: "landHard", file: ANIM_PISTOL.land },
 ];
 
 const RIFLE_QUEUE: Array<{ key: AnimKey; file: string }> = [
-  { key: "rifleIdle",    file: ANIM_RIFLE.idle },
-  { key: "rifleWalkFwd", file: ANIM_RIFLE.walkFwd },
-  { key: "rifleWalkBwd", file: ANIM_RIFLE.walkBwd },
-  { key: "rifleStrafeL", file: ANIM_RIFLE.strafeL },
-  { key: "rifleStrafeR", file: ANIM_RIFLE.strafeR },
-  { key: "rifleRun",     file: ANIM_RIFLE.run },
-  { key: "rifleRunBwd",  file: ANIM_RIFLE.runBwd },
-  { key: "rifleJump",    file: ANIM_RIFLE.jump },
-  { key: "rifleFire",    file: ANIM_RIFLE.fire },
-  { key: "rifleReload",  file: ANIM_RIFLE.reload },
-  { key: "rifleTurnL",   file: ANIM_RIFLE.turnL },
-  { key: "rifleTurnR",   file: ANIM_RIFLE.turnR },
+  { key: "rifleIdle",     file: ANIM_RIFLE.idle },
+  { key: "rifleWalkFwd",  file: ANIM_RIFLE.walkFwd },
+  { key: "rifleWalkBwd",  file: ANIM_RIFLE.walkBwd },
+  { key: "rifleStrafeL",  file: ANIM_RIFLE.strafeL },
+  { key: "rifleStrafeR",  file: ANIM_RIFLE.strafeR },
+  { key: "rifleRun",      file: ANIM_RIFLE.run },
+  { key: "rifleRunBwd",   file: ANIM_RIFLE.runBwd },
+  { key: "rifleJump",     file: ANIM_RIFLE.jump },
+  { key: "rifleFire",     file: ANIM_RIFLE.fire },
+  { key: "rifleReload",   file: ANIM_RIFLE.reload },
+  { key: "rifleTurnL",    file: ANIM_RIFLE.turnL },
+  { key: "rifleTurnR",    file: ANIM_RIFLE.turnR },
+  // reactions — both FBX files are already on disk
+  { key: "rifleHit",      file: ANIM_RIFLE.hit },
+  { key: "rifleGrenade",  file: ANIM_RIFLE.grenade },
+  // death / parry — fallbacks
+  { key: "rifleDeath",    file: ANIM_STAFF.death },
+  { key: "rifleParry",    file: ANIM_MELEE.block },
 ];
 
 const MELEE_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -240,6 +334,14 @@ const MELEE_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "meleeCrouch",         file: ANIM_MELEE.crouch },
   { key: "meleeBlock",          file: ANIM_MELEE.block },
   { key: "meleeStandFromCrouch",file: ANIM_MELEE.standFromCrouch },
+  // parry — separate key from block; same clip until special-melee.fbx is downloaded
+  { key: "meleeParry",   file: ANIM_MELEE.block },
+  // reactions
+  { key: "meleeHitSmall",file: ANIM_STAFF.hitSmall },
+  { key: "meleeHitLarge",file: ANIM_STAFF.hitLarge },
+  { key: "meleeDeath",   file: ANIM_STAFF.death },
+  // special — spinning finisher; fallback combo3 until special-melee.fbx downloaded
+  { key: "meleeSpecial", file: ANIM_MELEE.combo3 },
 ];
 
 const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -255,6 +357,8 @@ const STAFF_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "staffHitLarge", file: ANIM_STAFF.hitLarge },
   { key: "staffHitSmall", file: ANIM_STAFF.hitSmall },
   { key: "staffDeath",    file: ANIM_STAFF.death },
+  // parry — deflection flourish; reuses hitLarge until a dedicated clip is available
+  { key: "staffParry",    file: ANIM_STAFF.hitLarge },
 ];
 
 const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
@@ -274,6 +378,13 @@ const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "bowAimWalkBwd", file: ANIM_BOW.aimWalkBwd },
   { key: "bowAimStrafeL", file: ANIM_BOW.aimStrafeL },
   { key: "bowAimStrafeR", file: ANIM_BOW.aimStrafeR },
+  // reactions — fallback to staff until shared clips downloaded
+  { key: "bowHitSmall",   file: ANIM_STAFF.hitSmall },
+  { key: "bowHitLarge",   file: ANIM_STAFF.hitLarge },
+  { key: "bowDeath",      file: ANIM_STAFF.death },
+  // parry / special — reuse existing bow clips until dedicated files downloaded
+  { key: "bowParry",      file: ANIM_BOW.block },
+  { key: "bowSpecial",    file: ANIM_BOW.fire },
 ];
 
 // ── Sword + Shield load queue ─────────────────────────────────────────────────
@@ -281,6 +392,7 @@ const BOW_QUEUE: Array<{ key: AnimKey; file: string }> = [
 //   ssIdle · ssRunFwd/Bwd · ssStrafeL/R · ssBlockIdle (RMB held)
 // Action layer (ONCE / BLOCKING_ONCE):
 //   ssAttack1-4 (LMB combo) · ssBlock/BlockHit (shield impact) · ssDrawSword
+//   ssParry (shield bash counter) · ssSpecial (whirlwind)
 const SS_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "ssIdle",      file: ANIM_SHIELD_SWORD.idle },
   { key: "ssRunFwd",    file: ANIM_SHIELD_SWORD.runFwd },
@@ -295,6 +407,13 @@ const SS_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "ssAttack3",   file: ANIM_SHIELD_SWORD.attack3 },
   { key: "ssAttack4",   file: ANIM_SHIELD_SWORD.attack4 },
   { key: "ssDrawSword", file: ANIM_SHIELD_SWORD.drawSword },
+  // reactions — flinch/stagger reuse blockHit until shared files downloaded
+  { key: "ssHitSmall",  file: ANIM_SHIELD_SWORD.blockHit },
+  { key: "ssHitLarge",  file: ANIM_SHIELD_SWORD.blockHit },
+  { key: "ssDeath",     file: ANIM_STAFF.death },
+  // parry (shield bash timing) / special (whirlwind — reuse attack4)
+  { key: "ssParry",     file: ANIM_SHIELD_SWORD.block },
+  { key: "ssSpecial",   file: ANIM_SHIELD_SWORD.attack4 },
 ];
 
 // ─── Traverse animations (climbing, swimming, roll) ───────────────────────────
@@ -309,6 +428,7 @@ const TRAVERSE_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "swimming",    file: ANIM_TRAVERSE.swimming    },
   { key: "swimToEdge",  file: ANIM_TRAVERSE.swimToEdge  },
   { key: "rollFwd",     file: ANIM_TRAVERSE.rollFwd     },
+  // hard landing from tall fall (fallback: pistolLand — already registered in PISTOL_QUEUE)
 ];
 
 // ─── LoopOnce animations (non-looping) ────────────────────────────────────────
@@ -323,42 +443,59 @@ const TRAVERSE_QUEUE: Array<{ key: AnimKey; file: string }> = [
 const ONCE_ANIMS = new Set<AnimKey>([
   // attacks / spells
   "meleeAttack1","meleeAttack2","meleeAttack3",
-  "meleeCombo1","meleeCombo2","meleeCombo3",
+  "meleeCombo1","meleeCombo2","meleeCombo3","meleeSpecial",
+  "meleeParry",
   "pistolCrouchDown","pistolCrouchUp",
-  "rifleFire",
+  "pistolFire","pistolParry",
+  "rifleFire","rifleHit","rifleGrenade","rifleParry",
   "staffCast1","staffCast2",
-  "staffHitLarge","staffHitSmall",
+  "staffHitLarge","staffHitSmall","staffParry",
   "staffIdle2",        // idle variety — plays once then returns to staffIdle
   "staffDeath",        // death animation — plays once, then onDead() fires
   "rifleTurnL","rifleTurnR", // non-blocking in-place turn animations
-  "bowDraw","bowFire","bowBlock",
+  "bowDraw","bowFire","bowBlock","bowParry","bowSpecial",
   // melee transitions
   "meleeStandFromCrouch",  // crouch → stand get-up animation
   // sword + shield actions
-  "ssAttack1","ssAttack2","ssAttack3","ssAttack4",
-  "ssBlock","ssBlockHit","ssDrawSword",
+  "ssAttack1","ssAttack2","ssAttack3","ssAttack4","ssSpecial",
+  "ssBlock","ssBlockHit","ssDrawSword","ssParry",
+  // hit reactions (non-blocking — interrupt current anim briefly)
+  "pistolHitSmall","pistolHitLarge",
+  "meleeHitSmall","meleeHitLarge",
+  "bowHitSmall","bowHitLarge",
+  "ssHitSmall","ssHitLarge",
+  // death — play once, then onDead() fires
+  "pistolDeath","rifleDeath","meleeDeath","bowDeath","ssDeath",
   // directional dodges (play once, then snap back to locomotion)
   "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
+  // extended roll variants (Ctrl + direction)
+  "rollBwd","rollL","rollR",
   // traverse — one-shot transitions
   "climbUp", "swimToEdge",
-  // committed roll (Ctrl key) — plays once, then returns to locomotion
+  // committed roll forward (Ctrl key) — plays once, then returns to locomotion
   "rollFwd",
+  // hard landing from tall fall
+  "landHard",
 ]);
 
 // ─── Blocking animations — must play fully before queue can run ───────────────
 const BLOCKING_ONCE = new Set<AnimKey>([
   "meleeAttack1","meleeAttack2","meleeAttack3",
-  "meleeCombo1","meleeCombo2","meleeCombo3",
-  "staffCast1","staffCast2",
-  "rifleFire",
-  "bowDraw","bowFire","bowBlock",
-  "ssAttack1","ssAttack2","ssAttack3","ssAttack4",
-  "ssBlock","ssBlockHit",
+  "meleeCombo1","meleeCombo2","meleeCombo3","meleeSpecial",
+  "meleeParry",
+  "pistolFire","pistolParry",
+  "rifleFire","rifleGrenade","rifleParry",
+  "staffCast1","staffCast2","staffParry",
+  "bowDraw","bowFire","bowBlock","bowParry","bowSpecial",
+  "ssAttack1","ssAttack2","ssAttack3","ssAttack4","ssSpecial",
+  "ssBlock","ssBlockHit","ssParry",
   "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
+  "rollBwd","rollL","rollR",
   // traverse
   "climbUp", "swimToEdge",
   // committed roll — blocks locomotion for its full duration
   "rollFwd",
+  "landHard",
 ]);
 
 // ─── Idle for each weapon mode ────────────────────────────────────────────────
@@ -597,6 +734,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
 
   const deadFired     = useRef(false);
   const dyingRef      = useRef(false);  // true while death animation is playing
+  const lastHealthRef = useRef(100);    // previous-frame health; diff drives hit-react
   const shootCooldown = useRef(0);
 
   const crouching     = useRef(false);
@@ -1824,6 +1962,48 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     };
   }, [handleMouseMove, handleMouseDown, handleMouseUp, handleKeyDown, handleKeyUp, handlePLC, handleCtxMenu]);
 
+  // ─── Hit-react subscriber ─────────────────────────────────────────────────
+  // Watches for health decreases and triggers weapon-specific flinch animations.
+  // Uses Zustand subscribe (outside React render) so it never causes re-renders.
+  useEffect(() => {
+    // Seed lastHealthRef from current store value at mount time
+    lastHealthRef.current = useGameStore.getState().health;
+
+    const unsub = useGameStore.subscribe((state) => {
+      const hp = state.health;
+      if (hp >= lastHealthRef.current) {
+        lastHealthRef.current = hp;
+        return; // heal or no change — ignore
+      }
+      const delta = lastHealthRef.current - hp;
+      lastHealthRef.current = hp;
+
+      // Already dying — do not override death animation
+      if (dyingRef.current || deadFired.current) return;
+      // Do not interrupt another blocking once (e.g. attack, roll)
+      if (blockingOnce.current) return;
+
+      const wm  = state.weaponMode;
+      const big = delta >= 20; // ≥20 hp loss → large flinch
+
+      // Pick the most specific key available, falling back down the chain
+      const candidates: AnimKey[] = big
+        ? [
+            `${wm}HitLarge` as AnimKey,
+            "staffHitLarge",
+          ]
+        : [
+            `${wm}HitSmall` as AnimKey,
+            "staffHitSmall",
+          ];
+
+      const available = candidates.find(k => !!actionsRef.current[k]);
+      if (available) _rawPlay(available, 0.12);
+    });
+    return unsub;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ─────────────────────────────────────────────────────────────────────────
   // ── GAME LOOP ─────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────
@@ -1843,9 +2023,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
         blockingOnce.current = true;   // freeze locomotion layer
         animQueue.current    = null;   // discard any queued action
         const deathWm = gs.weaponMode;
-        // Play a weapon-specific death clip when available
-        const deathKey: AnimKey | null =
-          (deathWm === "staff" && actionsRef.current["staffDeath"]) ? "staffDeath" : null;
+        // Play a weapon-specific death clip when available; fallback chain → staffDeath
+        const deathCandidates: AnimKey[] = [
+          `${deathWm}Death` as AnimKey,
+          "staffDeath",
+        ];
+        const deathKey = deathCandidates.find(k => !!actionsRef.current[k]) ?? null;
         if (deathKey) _rawPlay(deathKey, 0.15);
         // Let the animation run for 1.4 s then trigger game-over
         setTimeout(() => { deadFired.current = true; onDead(); }, 1400);
