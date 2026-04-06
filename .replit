@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "lua-5.2", "web"]
+modules = ["nodejs-24", "lua-5.2", "web", "python-base-3.13", "typescript-language-server", "angular-node-24"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -24,3 +24,5 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[nix]

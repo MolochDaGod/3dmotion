@@ -58,46 +58,51 @@ preloadGenesisHeights();
 // ─── Nav obstacles (A* avoidance) ─────────────────────────────────────────────
 interface PalmConfig { x: number; z: number; h: number; ry: number }
 
-// Palms scattered over the 6000 m island (all positions ×3 from original 2000 m layout).
+// Trees on the actual island (x: -380→+620, z: -430→+1290).
+// h >= 13 → JungleTree, h < 13 → PalmTree.
 const PALM_PLACEMENTS: PalmConfig[] = [
-  { x:  1800, z:   450, h: 12.0, ry:  0.30 },
-  { x: -1650, z:   750, h: 10.5, ry:  1.10 },
-  { x:   450, z:  1950, h: 14.0, ry: -0.50 },
-  { x: -1200, z: -1740, h: 11.0, ry:  2.10 },
-  { x:  2100, z:  -900, h:  9.5, ry: -1.20 },
-  { x: -1950, z:  1140, h: 13.0, ry:  0.80 },
-  { x:   840, z: -2100, h: 11.0, ry:  3.00 },
-  { x: -2160, z:  -660, h: 10.5, ry:  1.50 },
-  { x:  1350, z:  1740, h: 12.5, ry: -0.20 },
-  { x:  -960, z:  1860, h:  9.0, ry:  2.50 },
-  { x:  2250, z:   300, h: 13.5, ry:  0.90 },
-  { x:  -540, z: -2040, h: 10.0, ry: -0.80 },
-  { x:  1440, z: -1800, h: 11.5, ry:  0.60 },
-  { x: -1500, z: -1650, h: 10.5, ry: -0.40 },
-  { x:   600, z:  2250, h: 12.0, ry:  1.80 },
-  { x:  -750, z:  2160, h:  9.5, ry: -1.00 },
-  { x:  2460, z:   600, h: 12.0, ry:  2.20 },
-  { x: -2400, z:   450, h: 10.5, ry:  0.40 },
-  { x:  1140, z:  2400, h: 11.5, ry: -0.90 },
-  { x: -1260, z:  2340, h:  9.0, ry:  1.30 },
-  // Tall jungle canopy trees (×3 positions)
-  { x:   360, z:   900, h: 15.0, ry:  0.55 },
-  { x:  -600, z:  1050, h: 16.0, ry: -0.75 },
-  { x:   990, z:  -750, h: 14.5, ry:  1.20 },
-  { x: -1140, z:   540, h: 15.5, ry:  2.80 },
-  { x:   750, z:  1260, h: 17.0, ry: -1.40 },
-  { x:  -480, z:  -960, h: 14.0, ry:  0.35 },
-  { x:  1230, z:  1050, h: 15.0, ry: -0.60 },
-  { x: -1320, z:  1260, h: 16.5, ry:  1.85 },
+  // ── North beach palms (z 900–1200, the sandy coastal strip) ──────────────
+  { x:   60, z: 1200, h: 12.0, ry:  0.30 },
+  { x: -180, z: 1160, h: 10.5, ry:  1.10 },
+  { x:  260, z: 1120, h: 11.5, ry: -0.50 },
+  { x: -300, z: 1080, h: 12.5, ry:  0.80 },
+  { x:  360, z: 1020, h:  9.5, ry: -1.20 },
+  { x: -100, z:  990, h: 11.0, ry:  2.10 },
+  { x:  420, z:  960, h: 10.0, ry:  0.90 },
+  { x: -340, z:  940, h: 12.0, ry: -0.80 },
+  { x:   90, z:  920, h: 10.5, ry:  1.50 },
+  // ── East coast palms (z 200–780, along the eastern shore) ────────────────
+  { x:  450, z:  780, h: 11.5, ry: -0.20 },
+  { x:  480, z:  600, h: 10.0, ry:  1.80 },
+  { x:  460, z:  420, h: 11.0, ry: -0.40 },
+  { x:  430, z:  220, h: 12.0, ry:  2.20 },
+  // ── West coast palms (z 100–700, western shore) ───────────────────────────
+  { x: -360, z:  700, h:  9.5, ry: -1.00 },
+  { x: -370, z:  480, h: 11.0, ry:  1.30 },
+  { x: -340, z:  260, h: 10.5, ry:  0.40 },
+  // ── South shore (z -300 to -100) ─────────────────────────────────────────
+  { x:  140, z: -140, h: 10.5, ry:  0.70 },
+  { x: -120, z: -200, h:  9.5, ry: -0.90 },
+  { x:  210, z: -280, h: 11.0, ry:  1.60 },
+  // ── Interior jungle trees (z 300–900, dense mid-island canopy) ───────────
+  { x:  110, z:  850, h: 15.0, ry:  0.55 },
+  { x: -150, z:  780, h: 16.0, ry: -0.75 },
+  { x:  210, z:  720, h: 14.5, ry:  1.20 },
+  { x: -210, z:  660, h: 15.5, ry:  2.80 },
+  { x:   70, z:  580, h: 17.0, ry: -1.40 },
+  { x: -110, z:  500, h: 14.0, ry:  0.35 },
+  { x:  280, z:  430, h: 15.0, ry: -0.60 },
+  { x: -270, z:  370, h: 16.5, ry:  1.85 },
+  { x:  160, z:  320, h: 15.5, ry:  0.90 },
+  { x:  -80, z:  290, h: 14.5, ry: -1.10 },
 ];
 
 export const NAV_OBSTACLES: NavObstacle[] = [
-  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 60.0 })),
-  { x:     0, z:     0, radius: 1260.0 },
-  { x:   450, z:  -150, radius:  240.0 },
-  { x:  -450, z:  -150, radius:  240.0 },
-  { x:  2400, z:     0, radius:  240.0 },
-  { x:     0, z:  2400, radius:  180.0 },
+  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 12.0 })),
+  // Mountain core — passable slopes start outside this radius
+  { x:   80, z:  200, radius: 280.0 },
+  // Dock structure on the east shore
+  { x:  580, z:    0, radius:  60.0 },
 ];
 
 // ─── Biome material factory ────────────────────────────────────────────────────
@@ -252,9 +257,141 @@ function JungleTree({ x, z, h = 13.0, ry = 0 }: { x: number; z: number; h?: numb
   );
 }
 
-// ─── Wooden dock (east shore, ~x=680 on the 2000 m island) ──────────────────
-const PLANK_COUNT   = 14;
-const DOCK_START_X  = 680;
+// ─── Rock clusters ─────────────────────────────────────────────────────────────
+interface RockConfig { x: number; z: number; s: number; ry: number }
+const ROCK_PLACEMENTS: RockConfig[] = [
+  { x:  220, z:  800, s: 3.2, ry: 0.4 }, { x: -180, z:  750, s: 2.5, ry: 1.2 },
+  { x:  350, z:  620, s: 4.0, ry: 2.1 }, { x: -290, z:  580, s: 3.0, ry: 0.8 },
+  { x:  130, z:  420, s: 5.5, ry: 1.7 }, { x: -220, z:  370, s: 4.8, ry: 0.3 },
+  { x:  380, z:  280, s: 3.6, ry: 2.8 }, { x:  -60, z:  150, s: 2.8, ry: 1.5 },
+  { x:  170, z:  -80, s: 6.0, ry: 0.6 }, { x: -150, z: -120, s: 5.2, ry: 2.2 },
+  { x:   40, z: -250, s: 4.4, ry: 1.0 }, { x:  250, z: -350, s: 3.8, ry: 0.2 },
+  { x: -220, z: 1050, s: 2.0, ry: 0.9 }, { x:  310, z:  980, s: 1.8, ry: 1.6 },
+];
+function RockCluster({ x, z, s, ry }: RockConfig) {
+  const groundY = getIslandHeight(x, z);
+  return (
+    <RigidBody type="fixed" colliders="hull" collisionGroups={CG_WORLD}>
+      <group position={[x, groundY, z]} rotation-y={ry}>
+        <mesh castShadow receiveShadow position={[0, s * 0.38, 0]}>
+          <dodecahedronGeometry args={[s * 0.52, 0]} />
+          <meshStandardMaterial color="#7a7060" roughness={0.97} metalness={0.04} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[s * 0.58, s * 0.22, s * 0.28]}>
+          <dodecahedronGeometry args={[s * 0.35, 0]} />
+          <meshStandardMaterial color="#6e6555" roughness={0.98} metalness={0.03} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[-s * 0.42, s * 0.18, -s * 0.22]}>
+          <dodecahedronGeometry args={[s * 0.30, 0]} />
+          <meshStandardMaterial color="#807268" roughness={0.96} metalness={0.05} />
+        </mesh>
+      </group>
+    </RigidBody>
+  );
+}
+
+// ─── Ore veins ─────────────────────────────────────────────────────────────────
+interface OreConfig { x: number; z: number; s: number; ry: number; kind: "iron" | "gold" | "coal" }
+const ORE_PLACEMENTS: OreConfig[] = [
+  { x:  180, z:  680, s: 2.2, ry: 0.5, kind: "iron" },
+  { x: -160, z:  590, s: 1.8, ry: 1.8, kind: "iron" },
+  { x:  300, z:  350, s: 2.5, ry: 0.9, kind: "iron" },
+  { x: -240, z:  200, s: 2.0, ry: 2.3, kind: "iron" },
+  { x:  100, z:  -60, s: 1.9, ry: 0.7, kind: "iron" },
+  { x:  120, z:  320, s: 1.6, ry: 1.3, kind: "gold" },
+  { x: -100, z:  100, s: 1.4, ry: 2.7, kind: "gold" },
+  { x:  380, z:  860, s: 1.5, ry: 0.2, kind: "coal" },
+  { x: -320, z:  820, s: 1.7, ry: 1.1, kind: "coal" },
+  { x:  410, z:  160, s: 1.4, ry: 2.0, kind: "coal" },
+];
+const ORE_COLORS: Record<string, string> = {
+  iron: "#9a5a3a", gold: "#d4a820", coal: "#2a2620",
+};
+function OreVein({ x, z, s, ry, kind }: OreConfig) {
+  const groundY = getIslandHeight(x, z);
+  const color   = ORE_COLORS[kind];
+  return (
+    <RigidBody type="fixed" colliders="hull" collisionGroups={CG_WORLD}>
+      <group position={[x, groundY, z]} rotation-y={ry}>
+        <mesh castShadow receiveShadow position={[0, s * 0.28, 0]}>
+          <dodecahedronGeometry args={[s * 0.55, 0]} />
+          <meshStandardMaterial color="#6a6050" roughness={0.99} metalness={0.02} />
+        </mesh>
+        <mesh castShadow position={[s * 0.12, s * 0.55, s * 0.08]}>
+          <octahedronGeometry args={[s * 0.28, 0]} />
+          <meshStandardMaterial color={color} roughness={0.70} metalness={kind === "gold" ? 0.6 : 0.1} />
+        </mesh>
+      </group>
+    </RigidBody>
+  );
+}
+
+// ─── Hemp plants ───────────────────────────────────────────────────────────────
+const HEMP_POSITIONS: Array<[number, number]> = [
+  [  30, 1160], [-140, 1110], [ 190, 1070], [-260, 1040], [ 330, 1000],
+  [ 440, 880],  [-330, 860],  [  80, 840],  [ 410, 700],  [-380, 640],
+  [ 460, 500],  [-350, 420],  [ 430, 300],  [-310, 240],  [ 200, 140],
+  [-170, 100],  [  60, -80],  [ -80, -180], [ 200, -260],
+];
+function HempPlant({ x, z }: { x: number; z: number }) {
+  const groundY = getIslandHeight(x, z);
+  const angles  = [0, 0.9, 1.8, 2.7, 3.6, 4.5, 5.4];
+  return (
+    <group position={[x, groundY, z]}>
+      {angles.map((a, i) => {
+        const lean = (i % 3 - 1) * 0.18;
+        return (
+          <group key={i} rotation-y={a}>
+            <mesh castShadow position={[lean * 0.8, 0.55, 0]}>
+              <cylinderGeometry args={[0.03, 0.04, 1.1, 4]} />
+              <meshStandardMaterial color="#5a7a2a" roughness={0.85} />
+            </mesh>
+            {[-0.3, 0, 0.3].map((rot, j) => (
+              <mesh key={j} position={[lean, 1.0, 0]} rotation={[0.35 + Math.abs(lean), 0, rot]}>
+                <planeGeometry args={[0.15, 0.65]} />
+                <meshStandardMaterial color="#4a8a1e" side={THREE.DoubleSide} roughness={0.78} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+// ─── Wild flowers ──────────────────────────────────────────────────────────────
+const FLOWER_DATA: Array<[number, number, string]> = [
+  [  20, 1180, "#e84cc0"], [-160, 1140, "#f2c12e"], [ 230, 1090, "#e84cc0"],
+  [-280, 1060, "#f2c12e"], [ 310, 1010, "#ff5e78"], [ -90, 980,  "#f2c12e"],
+  [ 400, 950,  "#e84cc0"], [-330, 920,  "#ff5e78"], [ 110, 900,  "#f2c12e"],
+  [ 460, 760,  "#e84cc0"], [-360, 690,  "#f2c12e"], [ 440, 460,  "#ff5e78"],
+  [-350, 300,  "#e84cc0"], [ 160, 150,  "#f2c12e"], [-130, -150, "#ff5e78"],
+  [ 220, -300, "#e84cc0"],
+];
+function WildFlower({ x, z, color }: { x: number; z: number; color: string }) {
+  const groundY = getIslandHeight(x, z);
+  return (
+    <group position={[x, groundY, z]}>
+      {[0, 1.2, 2.4].map((a, i) => (
+        <group key={i} rotation-y={a + i * 0.4}>
+          <mesh position={[0.12, 0.28, 0]}>
+            <cylinderGeometry args={[0.018, 0.022, 0.56, 4]} />
+            <meshStandardMaterial color="#5a7a2a" roughness={0.9} />
+          </mesh>
+          <mesh position={[0.12, 0.58, 0]}>
+            <sphereGeometry args={[0.07, 5, 4]} />
+            <meshStandardMaterial color={color} roughness={0.65} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+// ─── Wooden dock (east shore — starts on land ~x=520, extends into sea) ──────
+const PLANK_COUNT   = 18;
+const DOCK_START_X  = 520;
+const DOCK_Z        =    0;
 const PLANK_SPACING = 11.0;
 const OCEAN_Y       = -0.40;
 
@@ -262,7 +399,7 @@ function Dock() {
   const planks = useMemo(() => {
     return Array.from({ length: PLANK_COUNT }, (_, i) => {
       const px       = DOCK_START_X + i * PLANK_SPACING;
-      const terrainY = Math.max(OCEAN_Y + 0.10, getIslandHeight(px, 0));
+      const terrainY = Math.max(OCEAN_Y + 0.10, getIslandHeight(px, DOCK_Z));
       const t  = i / (PLANK_COUNT - 1);
       const py = terrainY * (1 - t) + (OCEAN_Y + 0.10) * t;
       return { px, py };
@@ -284,7 +421,7 @@ function Dock() {
         ))}
 
         {posts.map(({ px }, i) => {
-          const terrainY = Math.max(OCEAN_Y + 0.10, getIslandHeight(px, 0));
+          const terrainY = Math.max(OCEAN_Y + 0.10, getIslandHeight(px, DOCK_Z));
           const t  = (px - DOCK_START_X) / ((PLANK_COUNT - 1) * PLANK_SPACING);
           const py = terrainY * (1 - t) + (OCEAN_Y + 0.10) * t + 6.5;
           return (
@@ -456,6 +593,7 @@ export function PirateIsland() {
 
       <Ocean />
 
+      {/* Trees — positioned on actual island terrain */}
       <Suspense fallback={null}>
         {PALM_PLACEMENTS.map((p, i) =>
           p.h >= 13 ? (
@@ -466,6 +604,19 @@ export function PirateIsland() {
         )}
       </Suspense>
 
+      {/* Rocks — scattered outcrops across the island */}
+      {ROCK_PLACEMENTS.map((r, i) => <RockCluster key={i} {...r} />)}
+
+      {/* Ore veins — iron, gold, coal embedded in the terrain */}
+      {ORE_PLACEMENTS.map((o, i) => <OreVein key={i} {...o} />)}
+
+      {/* Hemp plants — coastal and lowland scrub */}
+      {HEMP_POSITIONS.map(([x, z], i) => <HempPlant key={i} x={x} z={z} />)}
+
+      {/* Wild flowers — colour on the beach and grass slopes */}
+      {FLOWER_DATA.map(([x, z, color], i) => <WildFlower key={i} x={x} z={z} color={color} />)}
+
+      {/* East-shore dock */}
       <Suspense fallback={null}>
         <Dock />
       </Suspense>
