@@ -18,6 +18,7 @@ import {
   WEAPON_PROPS, WEAPON_TEXTURES, texPath,
 } from "./assets/manifest";
 import { useWeaponFit } from "./useWeaponFit";
+import { useTegunStore } from "./useTegunStore";
 
 // ─── Weapon-scale normalisation ───────────────────────────────────────────────
 // FBX files may be authored in centimetres, inches, or metres.
@@ -1693,6 +1694,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
       const isBow    = wm === "bow";
       const isShield = wm === "shield";
 
+      // TEGUN — terrain-editor weapon: LMB = paint / place spawner
+      if (wm === "tegun") {
+        window.dispatchEvent(new CustomEvent("tegun:fire"));
+        return;
+      }
+
       if (isStaff) {
         doStaffCast("staffCast1", STAFF_CAST1_COST, STAFF_CAST1_DMS);
       } else if (isShield) {
@@ -1829,6 +1836,16 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
       if (meleeBlocking.current) { meleeBlocking.current = false; setMeleeBlocking(false); }
       ssAttackPhase.current   = 0;
       transitionTo(idleForMode(newWm), 0.25);
+    }
+
+    // [ / ] — TEGUN brush radius
+    if (e.code === "BracketLeft"  && useGameStore.getState().weaponMode === "tegun") {
+      const br = Math.max(1, useTegunStore.getState().brushRadius - 1);
+      useTegunStore.getState().setBrushRadius(br);
+    }
+    if (e.code === "BracketRight" && useGameStore.getState().weaponMode === "tegun") {
+      const br = Math.min(30, useTegunStore.getState().brushRadius + 1);
+      useTegunStore.getState().setBrushRadius(br);
     }
 
     // C — character panel
@@ -2234,7 +2251,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     if (swordObj)      swordObj.visible      = isMelee && wm === "sword";
     if (axeObj)        axeObj.visible        = isMelee && wm === "axe";
     if (caneObj)       caneObj.visible       = isStaffWm;
-    if (pistolPropObj) pistolPropObj.visible = wm === "pistol";
+    if (pistolPropObj) pistolPropObj.visible = wm === "pistol" || wm === "tegun";
     if (riflePropObj)  riflePropObj.visible  = wm === "rifle";
     if (bowPropObj)    bowPropObj.visible    = isBowWm;
     if (shieldPropObj) shieldPropObj.visible = isSSWm;

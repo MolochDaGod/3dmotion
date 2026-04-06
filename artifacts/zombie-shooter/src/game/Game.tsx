@@ -29,6 +29,7 @@ import { useEditorStore } from "./useEditorStore";
 import { AdminPanel } from "./AdminPanel";
 import { SpawnedObjects } from "./SpawnedObjects";
 import { useAdminStore, SPAWN_CATALOGUE } from "./useAdminStore";
+import { TegunPainter, TegunHUD } from "./TegunPainter";
 
 // ── Runtime capability detection ──────────────────────────────────────────────
 // WebGPU is disabled — navigator.gpu exists in modern browsers but the canvas
@@ -234,6 +235,9 @@ function SceneContent({
 
       {/* Admin-spawned objects (FBX props placed via Admin Panel Build tool) */}
       <SpawnedObjects />
+
+      {/* TEGUN terrain-editor weapon — paint strokes + pointer plane */}
+      <TegunPainter />
 
       {/* Airship — orbits the island, not Graveyard */}
       {!isGraveyard && <Airship />}
@@ -609,6 +613,7 @@ export default function Game({ onGameOver }: GameProps) {
       <HUD />
       <SpellRadial />
       <BuildHUD />
+      <TegunHUD />
       <AdminPanel />
     </div>
   );

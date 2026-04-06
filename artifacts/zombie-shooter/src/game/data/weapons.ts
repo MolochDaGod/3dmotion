@@ -22,10 +22,11 @@ export type WeaponMode =
   | "axe"
   | "staff"
   | "bow"
-  | "shield";
+  | "shield"
+  | "tegun";
 
 export const WEAPON_CYCLE: readonly WeaponMode[] = [
-  "pistol", "rifle", "sword", "axe", "staff", "bow", "shield",
+  "pistol", "rifle", "sword", "axe", "staff", "bow", "shield", "tegun",
 ] as const;
 
 // ─── Per-weapon definition ────────────────────────────────────────────────────
@@ -106,6 +107,12 @@ export const WEAPON_DEFS: readonly WeaponDef[] = [
     color: "#c0c8d8", border: "rgba(180,200,230,0.9)", bg: "rgba(60,80,120,0.55)",
     shootCooldown: 0.45, ammoCapacity: 0,
     isMelee: true, isRanged: false,
+  },
+  {
+    mode: "tegun", label: "TEGUN", icon: "🖌",
+    color: "#ff9922", border: "rgba(255,160,40,0.9)", bg: "rgba(160,80,10,0.55)",
+    shootCooldown: 0.08, ammoCapacity: 0,
+    isMelee: false, isRanged: false,
   },
 ] as const;
 
