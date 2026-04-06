@@ -788,14 +788,15 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
   // twice in a row) must start fresh.
   // ── timeScale = 1 by default; pass <1 to slow (crouch-walk), >1 to speed up ─
   function _rawPlay(key: AnimKey, fade: number, timeScale = 1) {
+    const a = actionsRef.current[key];
+    // Guard: if the animation clip isn't registered yet (lazy pack still loading)
+    // do NOT fade out the current anim — keep it playing so we never hit T-pose.
+    if (!a) return;
     const prev = actionsRef.current[curAnim.current];
     if (prev && curAnim.current !== key) prev.fadeOut(fade);
-    const a = actionsRef.current[key];
-    if (a) {
-      a.timeScale = timeScale;
-      a.reset().fadeIn(fade).play();
-      curAnim.current = key;
-    }
+    a.timeScale = timeScale;
+    a.reset().fadeIn(fade).play();
+    curAnim.current = key;
   }
 
   // ── Always-fresh skill executor ───────────────────────────────────────────
@@ -1005,6 +1006,11 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
       });
 
       setModelObj(modelGroup);
+
+      // Start loading traverse animations (climb, swim) now that the mixer exists.
+      // These MUST start after setupModel so mixer is non-null when registerClip runs.
+      // Running them in parallel earlier caused a race where mixer === null → silent drop.
+      loadSeq(TRAVERSE_QUEUE as typeof PISTOL_QUEUE, 0);
     }
 
     function loadSeq(
@@ -1072,10 +1078,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     };
 
     loadSeq(PISTOL_QUEUE, 0);
-    // Traverse animations loaded in parallel — they work regardless of weapon mode.
-    // FBXLoader is NOT shared here (loader is const above), so serial within this pack,
-    // but concurrent with the pistol queue.
-    loadSeq(TRAVERSE_QUEUE as typeof PISTOL_QUEUE, 0);
+    // NOTE: traverse animations (climb/swim) are started inside setupModel once the
+    // mixer exists — see loadSeq(TRAVERSE_QUEUE) call there. Starting them here
+    // caused a race: traverse FBX files are small and often finish before the character
+    // model, hitting registerClip while mixer === null → silent drop.
 
     return () => {
       cancelled = true;
@@ -1290,19 +1296,21 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
   const transitionTo = useCallback((next: AnimKey, fade = FADE_LOCO) => {
     if (blockingOnce.current) return;         // never interrupt an attack
     if (curAnim.current === next) return;
-    actionsRef.current[curAnim.current]?.fadeOut(fade);
     const a = actionsRef.current[next];
-    if (a) {
-      if (!a.isRunning()) {
-        // Not playing yet — start cleanly from the top
-        a.reset().fadeIn(fade).play();
-      } else {
-        // Already playing (e.g. returning to walk from sprint mid-stride)
-        // — just cross-fade in without restarting the phase.
-        a.fadeIn(fade);
-      }
-      curAnim.current = next;
+    // Guard: if the target clip hasn't been registered yet (lazy pack still loading)
+    // do NOT fade out the current animation — keep it playing until the new one is ready.
+    // This is the primary defence against T-pose on weapon switch or traverse entry.
+    if (!a) return;
+    actionsRef.current[curAnim.current]?.fadeOut(fade);
+    if (!a.isRunning()) {
+      // Not playing yet — start cleanly from the top
+      a.reset().fadeIn(fade).play();
+    } else {
+      // Already playing (e.g. returning to walk from sprint mid-stride)
+      // — just cross-fade in without restarting the phase.
+      a.fadeIn(fade);
     }
+    curAnim.current = next;
   }, []);
 
   // requestBlockingAnim — the core of the 1-slot queue system.
@@ -1315,6 +1323,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
       // Queue it — replaces any existing queued animation
       animQueue.current = slot;
     } else {
+      // Guard: if the attack clip isn't loaded yet, bail out completely.
+      // Never set blockingOnce = true without a clip to play — doing so locks
+      // the locomotion state machine permanently (the "finished" event never fires).
+      if (!actionsRef.current[slot.key]) return;
       // Play immediately — consume mana now if required
       if (slot.manaCost !== undefined) {
         const ok = useMana(slot.manaCost);
