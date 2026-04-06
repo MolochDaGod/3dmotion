@@ -1,8 +1,8 @@
-import { useRef, useState, useCallback, useEffect, useMemo } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import {
-  EffectComposer, Bloom, Vignette, DepthOfField, ChromaticAberration,
+  EffectComposer, Bloom, Vignette, SMAA,
 } from "@react-three/postprocessing";
 import { Sky } from "@react-three/drei";
 import { Perf } from "r3f-perf";
@@ -149,12 +149,6 @@ function SceneContent({
   const isGraveyard  = ed.activeScene === "graveyard";
   const navObstacles = isGraveyard ? GRAVEYARD_NAV_OBSTACLES : ISLAND_NAV_OBSTACLES;
 
-  // ChromaticAberration expects a THREE.Vector2 — rebuild only when strength changes
-  const caOffset = useMemo(
-    () => new THREE.Vector2(ed.chromaticStrength, ed.chromaticStrength),
-    [ed.chromaticStrength]
-  );
-
   return (
     <>
       {/* ── Performance overlay (F2 or toggle from editor panel) ── */}
@@ -243,31 +237,25 @@ function SceneContent({
       <SpawnedObjects />
 
       {/* ── Post-processing pipeline ───────────────────────────────────────────
-           WebGL 2 path: full @react-three/postprocessing stack.
-           WebGPU path:  @react-three/postprocessing is skipped because it uses
-           WebGL-specific APIs (getContext, capabilities, extensions) that do not
-           exist on WebGPURenderer.  The renderer's built-in ACES tone mapping
-           and emissive materials provide equivalent visual quality in that path.
-           Bloom / Vignette / DOF / ChromaticAberration only on WebGL 2.        */}
+           WebGL 2 path: SMAA (replaces canvas MSAA) + Bloom + Vignette.
+           Canvas is created with antialias:false; SMAA in the EffectComposer
+           with multisampling:0 provides sharper, cost-equivalent anti-aliasing.
+           WebGPU path: postprocessing skipped (WebGL-specific APIs missing);
+           the renderer's built-in ACES tone mapping carries visual quality.   */}
       {!useWebGPU && (
-        <EffectComposer>
+        <EffectComposer multisampling={0}>
+          <SMAA />
           <Bloom
             luminanceThreshold={ed.bloomThreshold}
             luminanceSmoothing={ed.bloomSmoothing}
             intensity={ed.bloomIntensity}
             mipmapBlur
           />
-          <DepthOfField
-            focusDistance={ed.dofFocusDistance}
-            focalLength={ed.dofFocalLength}
-            bokehScale={ed.dofBokehScale}
-          />
           <Vignette
             eskil={false}
             offset={ed.vignetteOffset}
             darkness={ed.vignetteDarkness}
           />
-          <ChromaticAberration offset={caOffset} />
         </EffectComposer>
       )}
 
@@ -512,7 +500,7 @@ export default function Game({ onGameOver }: GameProps) {
         ───────────────────────────────────────────────────────────────────────── */}
       <Canvas
         shadows={{ type: SUPPORTS_WEBGPU ? THREE_TYPES.PCFSoftShadowMap : THREE_TYPES.PCFShadowMap }}
-        camera={{ fov: 70, near: 0.05, far: 500 }}
+        camera={{ fov: 70, near: 0.1, far: 2500 }}
         gl={SUPPORTS_WEBGPU
           ? async (canvas) => {
               // Dynamic import keeps WebGPU out of Vite's static scan graph.
@@ -535,7 +523,7 @@ export default function Game({ onGameOver }: GameProps) {
               await renderer.init();
               return renderer as unknown as THREE_TYPES.WebGLRenderer;
             }
-          : { antialias: true, powerPreference: "high-performance" }
+          : { antialias: false, powerPreference: "high-performance" }
         }
         dpr={[1, 2]}
         style={{ width: "100%", height: "100%" }}

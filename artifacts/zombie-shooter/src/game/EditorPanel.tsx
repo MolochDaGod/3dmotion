@@ -30,15 +30,11 @@ export function EditorPanel() {
   const postFX = useControls(
     "🎨  Post-FX",
     {
-      bloomIntensity:    { value: 0.50, min: 0,     max: 4,    step: 0.05,  label: "Bloom intensity" },
-      bloomThreshold:    { value: 0.75, min: 0,     max: 1,    step: 0.05,  label: "Bloom threshold" },
-      bloomSmoothing:    { value: 0.50, min: 0,     max: 1,    step: 0.05,  label: "Bloom smoothing" },
-      vignetteDarkness:  { value: 0.55, min: 0,     max: 1.5,  step: 0.05,  label: "Vignette dark" },
-      vignetteOffset:    { value: 0.35, min: 0,     max: 1,    step: 0.05,  label: "Vignette offset" },
-      dofFocusDistance:  { value: 0.00, min: 0,     max: 0.1,  step: 0.001, label: "DOF focus dist" },
-      dofFocalLength:    { value: 0.02, min: 0.005, max: 0.1,  step: 0.005, label: "DOF focal length" },
-      dofBokehScale:     { value: 1.50, min: 0,     max: 8,    step: 0.25,  label: "DOF bokeh scale" },
-      chromaticStrength: { value: 0.00, min: 0,     max: 0.01, step: 0.001, label: "Chromatic aber." },
+      bloomIntensity:   { value: 0.50, min: 0, max: 4,   step: 0.05, label: "Bloom intensity" },
+      bloomThreshold:   { value: 0.75, min: 0, max: 1,   step: 0.05, label: "Bloom threshold" },
+      bloomSmoothing:   { value: 0.50, min: 0, max: 1,   step: 0.05, label: "Bloom smoothing" },
+      vignetteDarkness: { value: 0.55, min: 0, max: 1.5, step: 0.05, label: "Vignette dark" },
+      vignetteOffset:   { value: 0.35, min: 0, max: 1,   step: 0.05, label: "Vignette offset" },
     },
     { collapsed: false }
   );
