@@ -15,7 +15,7 @@ import { getIslandHeight, getTerrainHeight, GENESIS_TERRAIN_SIZE } from "./terra
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
-import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES } from "./PirateIsland";
+import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES, TOWN_CX, TOWN_CZ } from "./PirateIsland";
 import { Airship } from "./Airship";
 import { Graveyard,   NAV_OBSTACLES as GRAVEYARD_NAV_OBSTACLES } from "./Graveyard";
 import { NavWorkerProvider } from "./NavWorkerContext";
@@ -221,7 +221,7 @@ function SceneContent({
             waterY={isGraveyard ? undefined : 0}
             spawnPos={isGraveyard
               ? [0, getTerrainHeight(0, 0), 0]
-              : [0, getIslandHeight(0, 2190) || 56, 2190]}
+              : [TOWN_CX, getIslandHeight(TOWN_CX, TOWN_CZ + 80) || 56, TOWN_CZ + 80]}
           />
 
           {/* Zombies inside Physics so their Rapier sensor bodies are registered */}
