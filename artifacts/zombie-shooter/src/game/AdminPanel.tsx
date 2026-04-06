@@ -291,9 +291,9 @@ function WorldTab() {
         display={`${maxZombies}`} onChange={(v) => patch({ maxZombies: v })} />
 
       <SectionLabel>Environment</SectionLabel>
-      <AdminSlider label="Fog near" value={fogNear} min={10} max={300} step={5}
+      <AdminSlider label="Fog near" value={fogNear} min={100} max={6000} step={50}
         display={`${fogNear}m`} onChange={(v) => patch({ fogNear: v })} />
-      <AdminSlider label="Fog far" value={fogFar} min={50} max={800} step={10}
+      <AdminSlider label="Fog far" value={fogFar} min={500} max={12000} step={100}
         display={`${fogFar}m`} onChange={(v) => patch({ fogFar: v })} />
       <AdminSlider label="Ambient light" value={ambientIntensity} min={0} max={3} step={0.05}
         display={ambientIntensity.toFixed(2)} onChange={(v) => patch({ ambientIntensity: v })} />
@@ -301,9 +301,9 @@ function WorldTab() {
         display={sunIntensity.toFixed(1)} onChange={(v) => patch({ sunIntensity: v })} />
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <AdminBtn label="Night" onClick={() => patch({ ambientIntensity: 0.05, sunIntensity: 0.1, fogNear: 20, fogFar: 80 })} />
-        <AdminBtn label="Dusk" onClick={() => patch({ ambientIntensity: 0.3, sunIntensity: 0.8, fogNear: 60, fogFar: 180 })} />
-        <AdminBtn label="Day" onClick={() => patch({ ambientIntensity: 0.55, sunIntensity: 2.8, fogNear: 90, fogFar: 230 })} />
+        <AdminBtn label="Night" onClick={() => patch({ ambientIntensity: 0.05, sunIntensity: 0.1, fogNear: 200, fogFar: 1200 })} />
+        <AdminBtn label="Dusk" onClick={() => patch({ ambientIntensity: 0.3, sunIntensity: 0.8, fogNear: 800, fogFar: 3500 })} />
+        <AdminBtn label="Day" onClick={() => patch({ ambientIntensity: 0.55, sunIntensity: 2.8, fogNear: 2700, fogFar: 8000 })} />
       </div>
     </div>
   );

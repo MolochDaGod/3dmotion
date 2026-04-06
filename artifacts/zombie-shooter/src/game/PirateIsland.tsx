@@ -6,13 +6,13 @@
  * Pathfinding:    NavGrid 100×100 cells @ 2 m/cell over 200 m footprint
  *
  * Coordinate system: 1 Three.js unit = 1 metre.
- * Island footprint: 2000 m × 2000 m (centred on origin).
- * Height range: 0 m (shoreline / ocean level) → ~256 m (peak, after 2× scale).
+ * Island footprint: 6000 m × 6000 m (centred on origin).
+ * Height range: 0 m (shoreline / ocean level) → ~1280 m (peak, after 10× scale).
  *
  * Conversion constants (FBX cm → game metres):
- *   GLB_SCALE_Y  = 5e-4   (Y only, 2× the raw 2.5e-4 to give dramatic peaks)
- *   GLB_SCALE_XZ = 2.5e-3 (X/Z, 10× for 2000 m footprint)
- *   GLB_OFFSET_Y = 144.21 (aligns visual mesh min with physics ground = 0)
+ *   GLB_SCALE_Y  = 2.5e-3  (Y only, 10× the raw 2.5e-4 to give volcano peaks)
+ *   GLB_SCALE_XZ = 7.5e-3  (X/Z, 30× for 6000 m footprint)
+ *   GLB_OFFSET_Y = 721.05  (aligns visual mesh min with physics ground = 0)
  */
 
 import { Suspense, useMemo, useRef, useState, useEffect } from "react";
@@ -33,24 +33,24 @@ import { CG_WORLD } from "./CollisionLayers";
 import type { NavObstacle } from "./NavGrid";
 
 // ── GLB alignment constants ────────────────────────────────────────────────────
-// X/Z: 10× the raw FBX scale to reach 2000 m footprint.
+// X/Z: 30× the raw FBX scale to reach 6000 m footprint.
 // Y:   raw scale × GENESIS_HEIGHT_SCALE so the mountain visual matches physics.
 // GLB_OFFSET_Y: the raw offset (72.105) also scales with GENESIS_HEIGHT_SCALE.
 const GLB_RAW_SCALE  = 2.5e-4;
-const GLB_SCALE_XZ   = GLB_RAW_SCALE * 10;                      // 2.5e-3
-const GLB_SCALE_Y    = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE;    // 5e-4
+const GLB_SCALE_XZ   = GLB_RAW_SCALE * 30;                      // 7.5e-3
+const GLB_SCALE_Y    = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE;    // 2.5e-3
 const GLB_RAW_OFFSET_Y = 72.105;
-const GLB_OFFSET_Y   = GLB_RAW_OFFSET_Y * GENESIS_HEIGHT_SCALE; // 144.21
-const GLB_OFFSET_X   = -25.000 * 10;                            // −250 m
-const GLB_OFFSET_Z   =  25.000 * 10;                            //  250 m
+const GLB_OFFSET_Y   = GLB_RAW_OFFSET_Y * GENESIS_HEIGHT_SCALE; // 721.05
+const GLB_OFFSET_X   = -25.000 * 30;                            // −750 m
+const GLB_OFFSET_Z   =  25.000 * 30;                            //  750 m
 
 // Biome height thresholds (world metres, after GENESIS_HEIGHT_SCALE applied)
-// Raw binary peaks at ~128 m → scaled peak ~256 m.
-const H_BEACH   =   4;   // 0–4 m   → sand
-const H_GRASS   =  20;   // 4–20 m  → tropical grass / lowland
-const H_JUNGLE  =  80;   // 20–80 m → dense jungle canopy
-const H_FOREST  = 140;   // 80–140m → highland misty forest
-const H_ROCK    = 200;   // 140–200m→ bare rock / cliff
+// Raw binary peaks at ~128 m → scaled peak ~1280 m.
+const H_BEACH   =   20;   //   0–20 m  → sand / shoreline
+const H_GRASS   =  100;   //  20–100 m → tropical grass / lowland
+const H_JUNGLE  =  400;   // 100–400 m → dense jungle canopy
+const H_FOREST  =  700;   // 400–700 m → highland misty forest
+const H_ROCK    = 1000;   // 700–1000 m→ bare rock / cliff
 
 // ── Start fetching the height binary as soon as this module loads ─────────────
 preloadGenesisHeights();
@@ -58,46 +58,46 @@ preloadGenesisHeights();
 // ─── Nav obstacles (A* avoidance) ─────────────────────────────────────────────
 interface PalmConfig { x: number; z: number; h: number; ry: number }
 
-// Palms scattered over the 2000 m island.
+// Palms scattered over the 6000 m island (all positions ×3 from original 2000 m layout).
 const PALM_PLACEMENTS: PalmConfig[] = [
-  { x:  600, z:  150, h: 12.0, ry:  0.30 },
-  { x: -550, z:  250, h: 10.5, ry:  1.10 },
-  { x:  150, z:  650, h: 14.0, ry: -0.50 },
-  { x: -400, z: -580, h: 11.0, ry:  2.10 },
-  { x:  700, z: -300, h:  9.5, ry: -1.20 },
-  { x: -650, z:  380, h: 13.0, ry:  0.80 },
-  { x:  280, z: -700, h: 11.0, ry:  3.00 },
-  { x: -720, z: -220, h: 10.5, ry:  1.50 },
-  { x:  450, z:  580, h: 12.5, ry: -0.20 },
-  { x: -320, z:  620, h:  9.0, ry:  2.50 },
-  { x:  750, z:  100, h: 13.5, ry:  0.90 },
-  { x: -180, z: -680, h: 10.0, ry: -0.80 },
-  { x:  480, z: -600, h: 11.5, ry:  0.60 },
-  { x: -500, z: -550, h: 10.5, ry: -0.40 },
-  { x:  200, z:  750, h: 12.0, ry:  1.80 },
-  { x: -250, z:  720, h:  9.5, ry: -1.00 },
-  { x:  820, z:  200, h: 12.0, ry:  2.20 },
-  { x: -800, z:  150, h: 10.5, ry:  0.40 },
-  { x:  380, z:  800, h: 11.5, ry: -0.90 },
-  { x: -420, z:  780, h:  9.0, ry:  1.30 },
-  // Tall jungle canopy trees (40 ft = 12.2 m trunk + crown)
-  { x:  120, z:  300, h: 15.0, ry:  0.55 },
-  { x: -200, z:  350, h: 16.0, ry: -0.75 },
-  { x:  330, z: -250, h: 14.5, ry:  1.20 },
-  { x: -380, z:  180, h: 15.5, ry:  2.80 },
-  { x:  250, z:  420, h: 17.0, ry: -1.40 },
-  { x: -160, z: -320, h: 14.0, ry:  0.35 },
-  { x:  410, z:  350, h: 15.0, ry: -0.60 },
-  { x: -440, z:  420, h: 16.5, ry:  1.85 },
+  { x:  1800, z:   450, h: 12.0, ry:  0.30 },
+  { x: -1650, z:   750, h: 10.5, ry:  1.10 },
+  { x:   450, z:  1950, h: 14.0, ry: -0.50 },
+  { x: -1200, z: -1740, h: 11.0, ry:  2.10 },
+  { x:  2100, z:  -900, h:  9.5, ry: -1.20 },
+  { x: -1950, z:  1140, h: 13.0, ry:  0.80 },
+  { x:   840, z: -2100, h: 11.0, ry:  3.00 },
+  { x: -2160, z:  -660, h: 10.5, ry:  1.50 },
+  { x:  1350, z:  1740, h: 12.5, ry: -0.20 },
+  { x:  -960, z:  1860, h:  9.0, ry:  2.50 },
+  { x:  2250, z:   300, h: 13.5, ry:  0.90 },
+  { x:  -540, z: -2040, h: 10.0, ry: -0.80 },
+  { x:  1440, z: -1800, h: 11.5, ry:  0.60 },
+  { x: -1500, z: -1650, h: 10.5, ry: -0.40 },
+  { x:   600, z:  2250, h: 12.0, ry:  1.80 },
+  { x:  -750, z:  2160, h:  9.5, ry: -1.00 },
+  { x:  2460, z:   600, h: 12.0, ry:  2.20 },
+  { x: -2400, z:   450, h: 10.5, ry:  0.40 },
+  { x:  1140, z:  2400, h: 11.5, ry: -0.90 },
+  { x: -1260, z:  2340, h:  9.0, ry:  1.30 },
+  // Tall jungle canopy trees (×3 positions)
+  { x:   360, z:   900, h: 15.0, ry:  0.55 },
+  { x:  -600, z:  1050, h: 16.0, ry: -0.75 },
+  { x:   990, z:  -750, h: 14.5, ry:  1.20 },
+  { x: -1140, z:   540, h: 15.5, ry:  2.80 },
+  { x:   750, z:  1260, h: 17.0, ry: -1.40 },
+  { x:  -480, z:  -960, h: 14.0, ry:  0.35 },
+  { x:  1230, z:  1050, h: 15.0, ry: -0.60 },
+  { x: -1320, z:  1260, h: 16.5, ry:  1.85 },
 ];
 
 export const NAV_OBSTACLES: NavObstacle[] = [
-  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 20.0 })),
-  { x:    0, z:    0, radius: 420.0 },
-  { x:  150, z:  -50, radius:  80.0 },
-  { x: -150, z:  -50, radius:  80.0 },
-  { x:  800, z:    0, radius:  80.0 },
-  { x:    0, z:  800, radius:  60.0 },
+  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 60.0 })),
+  { x:     0, z:     0, radius: 1260.0 },
+  { x:   450, z:  -150, radius:  240.0 },
+  { x:  -450, z:  -150, radius:  240.0 },
+  { x:  2400, z:     0, radius:  240.0 },
+  { x:     0, z:  2400, radius:  180.0 },
 ];
 
 // ─── Biome material factory ────────────────────────────────────────────────────

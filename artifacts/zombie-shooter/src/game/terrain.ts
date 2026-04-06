@@ -9,15 +9,15 @@ export const TERRAIN_SEGS = 63;    // 63 quad rows/cols → 64×64 vertex grid
 
 // ── Genesis Island constants ───────────────────────────────────────────────────
 // Baked from Terrain_1774999201051.fbx (800 000 cm → 200 m FBX world).
-// Island is rendered at 10× horizontal scale so the playable footprint is 2000 m.
+// Island is rendered at 30× horizontal scale so the playable footprint is 6000 m.
 // GENESIS_HEIGHT_SCALE amplifies the raw binary heights (0–128 m) to give the
 // mountain the dramatic silhouette a real tropical island peak deserves.
-// At 2×: peak = 256 m on a 2000 m base → 12.8% ratio (similar to Martinique / Bali).
+// At 10×: peak = 1280 m on a 6000 m base → 21% ratio (dramatic volcano profile).
 // Both the visual GLB and the Rapier heightfield use this multiplier so physics
 // and rendering stay perfectly in sync.
-export const GENESIS_TERRAIN_SIZE   = 2000;
+export const GENESIS_TERRAIN_SIZE   = 6000;
 export const GENESIS_TERRAIN_SEGS   = 63;   // same grid density, bigger world
-export const GENESIS_HEIGHT_SCALE   = 2.0;  // vertical drama multiplier
+export const GENESIS_HEIGHT_SCALE   = 10.0; // vertical drama multiplier
 
 // ─── Legacy graveyard heightmap ───────────────────────────────────────────────
 export function getTerrainHeight(worldX: number, worldZ: number): number {

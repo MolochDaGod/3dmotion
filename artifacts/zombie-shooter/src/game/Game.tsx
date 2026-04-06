@@ -60,26 +60,27 @@ const MELEE_RANGE       = 2.6;
 const MELEE_DAMAGE      = 80;
 const MELEE_ARC_DOT     = 0.35;
 
-// Genesis Island (2000 m footprint) — player spawns at north beach (0, _, 500).
+// Genesis Island (6000 m footprint) — player spawns at north beach (0, _, 1500).
 // Zombie ring is centred on that beach area so they can navigate there.
-// Primary ring: radius ~300–550 m from player (beach / slope area).
+// All spawn positions are 3× the original to match the scaled-up island.
+// Primary ring: radius ~900–1650 m from player (beach / slope area).
 // Secondary ring: east/west coasts for flanking threats.
 const ISLAND_SPAWN: [number, number, number][] = [
-  // North coast — directly behind player (player spawns at z≈500)
-  [   0, 0,  820], [ 280, 0,  780], [-280, 0,  780],
+  // North coast — directly behind player (player spawns at z≈1500)
+  [    0, 0,  2460], [  840, 0,  2340], [ -840, 0,  2340],
   // NE / NW coast flanks
-  [ 550, 0,  650], [-550, 0,  650],
+  [ 1650, 0,  1950], [-1650, 0,  1950],
   // East / West coasts (medium range, beach paths to player)
-  [ 800, 0,  300], [-800, 0,  300],
-  [ 780, 0,  -50], [-780, 0,  -50],
+  [ 2400, 0,   900], [-2400, 0,   900],
+  [ 2340, 0,  -150], [-2340, 0,  -150],
   // South-east / south-west — longer flanking routes
-  [ 650, 0, -450], [-650, 0, -450],
+  [ 1950, 0, -1350], [-1950, 0, -1350],
   // Far south — arrives last, keeps pressure escalating
-  [   0, 0, -780], [ 380, 0, -700], [-380, 0, -700],
-  // Dock area (east shore, x≈680)
-  [ 700, 0,  180], [ 700, 0, -180],
+  [    0, 0, -2340], [ 1140, 0, -2100], [-1140, 0, -2100],
+  // Dock area (east shore, x≈2100)
+  [ 2100, 0,   540], [ 2100, 0,  -540],
   // Inland south (small jitter from south mountain base)
-  [ 200, 0, -600], [-200, 0, -600],
+  [  600, 0, -1800], [ -600, 0, -1800],
 ];
 // Graveyard: flat centre, spawns ring at ~20–28 m radius
 const GRAVEYARD_SPAWN: [number, number, number][] = [
@@ -160,7 +161,7 @@ function SceneContent({
           <fog attach="fog" args={["#1a1c22", ed.fogNear * 0.55, ed.fogFar * 0.55]} />
           <color attach="background" args={["#0d0e12"]} />
           {/* Overcast midnight — pale moonlight */}
-          <Sky distance={4500} sunPosition={[0, -1, 0]} turbidity={18} rayleigh={0.1}
+          <Sky distance={20000} sunPosition={[0, -1, 0]} turbidity={18} rayleigh={0.1}
                mieCoefficient={0.001} mieDirectionalG={0.9} />
           <ambientLight intensity={ed.ambientIntensity * 0.35} color="#b0c8e0" />
           <directionalLight position={[-20, 60, 30]} intensity={ed.sunIntensity * 0.4}
@@ -175,7 +176,7 @@ function SceneContent({
           <fog attach="fog" args={["#b8dde8", ed.fogNear, ed.fogFar]} />
           <color attach="background" args={["#6db3cc"]} />
           {/* Procedural sky — sun low in the east-southeast (morning over the sea) */}
-          <Sky distance={4500} sunPosition={[60, 18, -55]} inclination={0.56}
+          <Sky distance={20000} sunPosition={[60, 18, -55]} inclination={0.56}
                azimuth={0.14} turbidity={9} rayleigh={1.9}
                mieCoefficient={0.006} mieDirectionalG={0.88} />
           {/* Warm golden morning angle */}
@@ -210,7 +211,7 @@ function SceneContent({
             waterY={isGraveyard ? undefined : 0}
             spawnPos={isGraveyard
               ? [0, getTerrainHeight(0, 0), 0]
-              : [0, getIslandHeight(0, 500) || 3, 500]}
+              : [0, getIslandHeight(0, 1500) || 3, 1500]}
           />
 
           {/* Zombies inside Physics so their Rapier sensor bodies are registered */}
@@ -500,7 +501,7 @@ export default function Game({ onGameOver }: GameProps) {
         ───────────────────────────────────────────────────────────────────────── */}
       <Canvas
         shadows={{ type: SUPPORTS_WEBGPU ? THREE_TYPES.PCFSoftShadowMap : THREE_TYPES.PCFShadowMap }}
-        camera={{ fov: 70, near: 0.1, far: 2500 }}
+        camera={{ fov: 70, near: 0.1, far: 12000 }}
         gl={SUPPORTS_WEBGPU
           ? async (canvas) => {
               // Dynamic import keeps WebGPU out of Vite's static scan graph.
