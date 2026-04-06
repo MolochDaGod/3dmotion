@@ -16,6 +16,7 @@ import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
 import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES } from "./PirateIsland";
+import { Airship } from "./Airship";
 import { Graveyard,   NAV_OBSTACLES as GRAVEYARD_NAV_OBSTACLES } from "./Graveyard";
 import { NavWorkerProvider } from "./NavWorkerContext";
 import { useCharacterStore } from "./useCharacterStore";
@@ -60,27 +61,23 @@ const MELEE_RANGE       = 2.6;
 const MELEE_DAMAGE      = 80;
 const MELEE_ARC_DOT     = 0.35;
 
-// Genesis Island (6000 m footprint) — player spawns at north beach (0, _, 1500).
-// Zombie ring is centred on that beach area so they can navigate there.
-// All spawn positions are 3× the original to match the scaled-up island.
-// Primary ring: radius ~900–1650 m from player (beach / slope area).
-// Secondary ring: east/west coasts for flanking threats.
+// Genesis Island (6000 m footprint) — player spawns at north beach (0, _, 1095).
+// Island land mass (from height binary): x ≈ -400→+620, z ≈ -430→+1290.
+// Player spawns on the north face of the island at z≈1095 (28m elevation, solid land). Zombies emerge from the sea
+// just outside the coastline on all four sides and wade ashore.
 const ISLAND_SPAWN: [number, number, number][] = [
-  // North coast — directly behind player (player spawns at z≈1500)
-  [    0, 0,  2460], [  840, 0,  2340], [ -840, 0,  2340],
+  // North coast — just beyond the beach (player spawns at z≈1190)
+  [    0, 0,  1600], [  500, 0,  1550], [ -500, 0,  1550],
   // NE / NW coast flanks
-  [ 1650, 0,  1950], [-1650, 0,  1950],
-  // East / West coasts (medium range, beach paths to player)
-  [ 2400, 0,   900], [-2400, 0,   900],
-  [ 2340, 0,  -150], [-2340, 0,  -150],
-  // South-east / south-west — longer flanking routes
-  [ 1950, 0, -1350], [-1950, 0, -1350],
-  // Far south — arrives last, keeps pressure escalating
-  [    0, 0, -2340], [ 1140, 0, -2100], [-1140, 0, -2100],
-  // Dock area (east shore, x≈2100)
-  [ 2100, 0,   540], [ 2100, 0,  -540],
-  // Inland south (small jitter from south mountain base)
-  [  600, 0, -1800], [ -600, 0, -1800],
+  [  900, 0,  1200], [ -900, 0,  1200],
+  // East coast — wade in from the east
+  [  950, 0,   600], [  900, 0,   100], [  850, 0,  -200],
+  // West coast — mirror flanks
+  [ -950, 0,   600], [ -900, 0,   100], [ -850, 0,  -200],
+  // South — through the jungle from below
+  [    0, 0,  -700], [  450, 0,  -650], [ -450, 0,  -650],
+  // Far south pressure
+  [  200, 0,  -900], [ -200, 0,  -900],
 ];
 // Graveyard: flat centre, spawns ring at ~20–28 m radius
 const GRAVEYARD_SPAWN: [number, number, number][] = [
@@ -211,7 +208,7 @@ function SceneContent({
             waterY={isGraveyard ? undefined : 0}
             spawnPos={isGraveyard
               ? [0, getTerrainHeight(0, 0), 0]
-              : [143, getIslandHeight(143, 2714) || 7, 2714]}
+              : [0, getIslandHeight(0, 1095) || 28, 1095]}
           />
 
           {/* Zombies inside Physics so their Rapier sensor bodies are registered */}
@@ -236,6 +233,9 @@ function SceneContent({
 
       {/* Admin-spawned objects (FBX props placed via Admin Panel Build tool) */}
       <SpawnedObjects />
+
+      {/* Airship — orbits the island, not Graveyard */}
+      {!isGraveyard && <Airship />}
 
       {/* ── Post-processing pipeline ───────────────────────────────────────────
            WebGL 2 path: SMAA (replaces canvas MSAA) + Bloom + Vignette.
