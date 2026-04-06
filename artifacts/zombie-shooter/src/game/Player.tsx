@@ -989,7 +989,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     }
 
     // ── Shared model-setup after any mesh format is loaded ───────────────────
-    function setupModel(modelGroup: THREE.Group) {
+    function setupModel(modelGroup: THREE.Group, embeddedClips?: THREE.AnimationClip[]) {
       if (cancelled || !modelGroup) return;
       modelGroup.scale.setScalar(charDef.scale);
       modelGroup.traverse((c) => {
@@ -1013,12 +1013,43 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
         }
       });
 
+      // ── Embedded-animation characters (non-Mixamo GLB) ──────────────────────
+      // When charDef.embeddedAnims is set the GLB carries its own clips.
+      // Build a name→clip lookup, then register each mapped AnimKey by cloning
+      // the source clip (so each key gets independent loop/clamp settings).
+      if (embeddedClips?.length && charDef.embeddedAnims) {
+        const clipByName = new Map<string, THREE.AnimationClip>(
+          embeddedClips.map((c) => [c.name, c])
+        );
+        for (const [animKey, clipName] of Object.entries(charDef.embeddedAnims)) {
+          const src = clipByName.get(clipName);
+          if (!src || !mixer) continue;
+          const clip   = src.clone();
+          clip.name    = animKey;
+          const action = mixer.clipAction(clip);
+          if (ONCE_ANIMS.has(animKey as AnimKey)) {
+            action.setLoop(THREE.LoopOnce, 1);
+            action.clampWhenFinished = true;
+          }
+          actionsRef.current[animKey as AnimKey] = action;
+        }
+        // Start the gun idle (first-person default weapon mode is pistol).
+        const startKey: AnimKey =
+          actionsRef.current["pistolIdle"] ? "pistolIdle" : "meleeIdle";
+        actionsRef.current[startKey]?.play();
+        curAnim.current = startKey;
+      }
+
       setModelObj(modelGroup);
 
       // Start loading traverse animations (climb, swim) now that the mixer exists.
       // These MUST start after setupModel so mixer is non-null when registerClip runs.
       // Running them in parallel earlier caused a race where mixer === null → silent drop.
-      loadSeq(TRAVERSE_QUEUE as typeof PISTOL_QUEUE, 0);
+      // Embedded-anim characters skip external FBX traversal too — traverse clips are
+      // already covered by their embeddedAnims mapping (Roll, Interact, Run, etc.).
+      if (!charDef.embeddedAnims) {
+        loadSeq(TRAVERSE_QUEUE as typeof PISTOL_QUEUE, 0);
+      }
     }
 
     function loadSeq(
@@ -1028,6 +1059,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     ) {
       if (cancelled || i >= queue.length) { done?.(); return; }
       const { key, file } = queue[i];
+      // Embedded-anim characters carry all clips in the GLB itself — skip every
+      // external FBX animation entry (only the __model__ load is still needed).
+      if (key !== "__model__" && charDef.embeddedAnims) {
+        loadSeq(queue, i + 1, done);
+        return;
+      }
       // For the base-mesh slot, honour the active CharacterDef.
       const loadFile = key === "__model__" ? charDef.mesh : file;
 
@@ -1041,8 +1078,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
           loadFile,
           (gltf) => {
             if (cancelled) return;
-            // gltf.scene is the root THREE.Group (equivalent to the FBX group)
-            setupModel(gltf.scene as THREE.Group);
+            // gltf.scene is the root THREE.Group (equivalent to the FBX group).
+            // Pass gltf.animations so setupModel can register embedded clips for
+            // characters that use their own GLB animation set (charDef.embeddedAnims).
+            setupModel(gltf.scene as THREE.Group, gltf.animations);
             loadSeq(queue, i + 1, done);
           },
           undefined,
@@ -1076,6 +1115,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
     };
 
     loadPackRef.current = (mode: WeaponMode) => {
+      // Embedded-anim characters have all clips already registered from the GLB.
+      // Never attempt to load Mixamo FBX packs for them.
+      if (charDef.embeddedAnims) return;
       // sword/axe → melee pack; shield → shield/SS pack
       const key = (mode === "sword" || mode === "axe") ? "melee"
                 : mode === "shield" ? "shield"

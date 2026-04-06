@@ -45,6 +45,14 @@ export interface CharacterDef {
   footIK?: boolean;
   /** "meshy" for AI-generated characters, undefined for built-in roster */
   source?: "meshy";
+  /**
+   * When set, this character uses animations embedded in the GLB itself rather
+   * than loading the separate Mixamo FBX animation packs.
+   * Keys are AnimKey strings (from Player.tsx); values are the GLB clip names.
+   * Player.tsx will skip all external FBX animation loading and instead register
+   * these clips directly from the GLTF result.
+   */
+  embeddedAnims?: Record<string, string>;
 }
 
 // ─── Built-in roster ──────────────────────────────────────────────────────────
@@ -128,6 +136,131 @@ export const CHARACTER_REGISTRY: CharacterDef[] = [
     capsuleHH: 0.47,
     capsuleR:  0.34,
     color: "#b0bec5",
+  },
+
+  {
+    // Astronaut — self-contained GLB with 24 embedded animations.
+    // Uses CharacterArmature rig (NOT Mixamo) so external FBX packs are skipped.
+    // All gameplay AnimKeys are mapped below to embedded clip names.
+    // GLB is in metres; character is ~1.80 m tall → scale 1.0.
+    id: "astronaut",
+    name: "Astronaut",
+    mesh: "/models/character/astronaut.glb",
+    format: "glb",
+    scale: 1.0,
+    capsuleHH: 0.44,
+    capsuleR:  0.30,
+    color: "#78c8ff",
+    embeddedAnims: {
+      // ── Pistol / gun stance ────────────────────────────────────────────────
+      pistolIdle:        "CharacterArmature|Idle_Gun",
+      pistolWalkFwd:     "CharacterArmature|Walk",
+      pistolWalkBwd:     "CharacterArmature|Run_Back",
+      pistolStrafeL:     "CharacterArmature|Run_Left",
+      pistolStrafeR:     "CharacterArmature|Run_Right",
+      pistolWalkArcL:    "CharacterArmature|Run_Left",
+      pistolWalkArcR:    "CharacterArmature|Run_Right",
+      pistolWalkBwdArcL: "CharacterArmature|Run_Back",
+      pistolWalkBwdArcR: "CharacterArmature|Run_Back",
+      pistolRun:         "CharacterArmature|Run",
+      pistolRunArcL:     "CharacterArmature|Run_Left",
+      pistolRunArcR:     "CharacterArmature|Run_Right",
+      pistolRunBwd:      "CharacterArmature|Run_Back",
+      pistolRunBwdArcL:  "CharacterArmature|Run_Back",
+      pistolRunBwdArcR:  "CharacterArmature|Run_Back",
+      pistolJump:        "CharacterArmature|Run",
+      pistolLand:        "CharacterArmature|Idle_Gun",
+      pistolCrouchDown:  "CharacterArmature|Idle_Neutral",
+      pistolCrouchIdle:  "CharacterArmature|Idle_Neutral",
+      pistolCrouchUp:    "CharacterArmature|Idle_Gun",
+      // ── Rifle stance (reuse gun anims) ────────────────────────────────────
+      rifleIdle:    "CharacterArmature|Idle_Gun",
+      rifleWalkFwd: "CharacterArmature|Walk",
+      rifleWalkBwd: "CharacterArmature|Run_Back",
+      rifleStrafeL: "CharacterArmature|Run_Left",
+      rifleStrafeR: "CharacterArmature|Run_Right",
+      rifleRun:     "CharacterArmature|Run",
+      rifleRunBwd:  "CharacterArmature|Run_Back",
+      rifleJump:    "CharacterArmature|Run",
+      rifleFire:    "CharacterArmature|Gun_Shoot",
+      rifleReload:  "CharacterArmature|Interact",
+      rifleTurnL:   "CharacterArmature|Run_Left",
+      rifleTurnR:   "CharacterArmature|Run_Right",
+      // ── Melee stance ──────────────────────────────────────────────────────
+      meleeIdle:           "CharacterArmature|Idle",
+      meleeWalkFwd:        "CharacterArmature|Walk",
+      meleeWalkBwd:        "CharacterArmature|Run_Back",
+      meleeStrafeL:        "CharacterArmature|Run_Left",
+      meleeStrafeR:        "CharacterArmature|Run_Right",
+      meleeRunFwd:         "CharacterArmature|Run",
+      meleeRunBwd:         "CharacterArmature|Run_Back",
+      meleeAttack1:        "CharacterArmature|Punch_Left",
+      meleeAttack2:        "CharacterArmature|Punch_Right",
+      meleeAttack3:        "CharacterArmature|Kick_Left",
+      meleeCombo1:         "CharacterArmature|Kick_Right",
+      meleeCombo2:         "CharacterArmature|Sword_Slash",
+      meleeCombo3:         "CharacterArmature|Punch_Left",
+      meleeJump:           "CharacterArmature|Run",
+      meleeCrouch:         "CharacterArmature|Idle_Neutral",
+      meleeBlock:          "CharacterArmature|Idle_Sword",
+      meleeStandFromCrouch:"CharacterArmature|Idle",
+      // ── Staff / magic stance ──────────────────────────────────────────────
+      staffIdle:     "CharacterArmature|Idle",
+      staffIdle2:    "CharacterArmature|Wave",
+      staffWalkFwd:  "CharacterArmature|Walk",
+      staffWalkBwd:  "CharacterArmature|Run_Back",
+      staffRunFwd:   "CharacterArmature|Run",
+      staffRunBwd:   "CharacterArmature|Run_Back",
+      staffCast1:    "CharacterArmature|Interact",
+      staffCast2:    "CharacterArmature|Wave",
+      staffJump:     "CharacterArmature|Run",
+      staffHitLarge: "CharacterArmature|HitRecieve",
+      staffHitSmall: "CharacterArmature|HitRecieve_2",
+      staffDeath:    "CharacterArmature|Death",
+      // ── Bow stance ────────────────────────────────────────────────────────
+      bowIdle:       "CharacterArmature|Idle_Gun_Pointing",
+      bowWalkFwd:    "CharacterArmature|Walk",
+      bowWalkBwd:    "CharacterArmature|Run_Back",
+      bowStrafeL:    "CharacterArmature|Run_Left",
+      bowStrafeR:    "CharacterArmature|Run_Right",
+      bowRunFwd:     "CharacterArmature|Run",
+      bowRunBwd:     "CharacterArmature|Run_Back",
+      bowJump:       "CharacterArmature|Run",
+      bowDraw:       "CharacterArmature|Idle_Gun_Shoot",
+      bowAim:        "CharacterArmature|Idle_Gun_Pointing",
+      bowFire:       "CharacterArmature|Gun_Shoot",
+      bowBlock:      "CharacterArmature|Idle",
+      bowAimWalkFwd: "CharacterArmature|Walk",
+      bowAimWalkBwd: "CharacterArmature|Run_Back",
+      bowAimStrafeL: "CharacterArmature|Run_Left",
+      bowAimStrafeR: "CharacterArmature|Run_Right",
+      // ── Sword + Shield stance ─────────────────────────────────────────────
+      ssIdle:      "CharacterArmature|Idle_Sword",
+      ssRunFwd:    "CharacterArmature|Run",
+      ssRunBwd:    "CharacterArmature|Run_Back",
+      ssStrafeL:   "CharacterArmature|Run_Left",
+      ssStrafeR:   "CharacterArmature|Run_Right",
+      ssBlockIdle: "CharacterArmature|Idle_Sword",
+      ssBlock:     "CharacterArmature|Idle_Sword",
+      ssBlockHit:  "CharacterArmature|HitRecieve",
+      ssAttack1:   "CharacterArmature|Sword_Slash",
+      ssAttack2:   "CharacterArmature|Punch_Right",
+      ssAttack3:   "CharacterArmature|Kick_Right",
+      ssAttack4:   "CharacterArmature|Kick_Left",
+      ssDrawSword: "CharacterArmature|Interact",
+      // ── Traverse / movement specials ──────────────────────────────────────
+      dodgeFwd:    "CharacterArmature|Roll",
+      dodgeBwd:    "CharacterArmature|Roll",
+      dodgeL:      "CharacterArmature|Roll",
+      dodgeR:      "CharacterArmature|Roll",
+      rollFwd:     "CharacterArmature|Roll",
+      climbUp:     "CharacterArmature|Interact",
+      climbing:    "CharacterArmature|Run",
+      climbLadder: "CharacterArmature|Run",
+      treading:    "CharacterArmature|Idle",
+      swimming:    "CharacterArmature|Run",
+      swimToEdge:  "CharacterArmature|Run",
+    },
   },
 ];
 
