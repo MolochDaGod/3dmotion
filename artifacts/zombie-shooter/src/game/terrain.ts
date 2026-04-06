@@ -10,9 +10,14 @@ export const TERRAIN_SEGS = 63;    // 63 quad rows/cols → 64×64 vertex grid
 // ── Genesis Island constants ───────────────────────────────────────────────────
 // Baked from Terrain_1774999201051.fbx (800 000 cm → 200 m FBX world).
 // Island is rendered at 10× horizontal scale so the playable footprint is 2000 m.
-// Heights are unchanged (mountain peak still ~128 m) — only X/Z expand.
-export const GENESIS_TERRAIN_SIZE = 2000;
-export const GENESIS_TERRAIN_SEGS = 63;   // same grid density, bigger world
+// GENESIS_HEIGHT_SCALE amplifies the raw binary heights (0–128 m) to give the
+// mountain the dramatic silhouette a real tropical island peak deserves.
+// At 2×: peak = 256 m on a 2000 m base → 12.8% ratio (similar to Martinique / Bali).
+// Both the visual GLB and the Rapier heightfield use this multiplier so physics
+// and rendering stay perfectly in sync.
+export const GENESIS_TERRAIN_SIZE   = 2000;
+export const GENESIS_TERRAIN_SEGS   = 63;   // same grid density, bigger world
+export const GENESIS_HEIGHT_SCALE   = 2.0;  // vertical drama multiplier
 
 // ─── Legacy graveyard heightmap ───────────────────────────────────────────────
 export function getTerrainHeight(worldX: number, worldZ: number): number {
@@ -53,7 +58,7 @@ export function buildTerrainHeightArray(): Float32Array {
 // Rapier heightfield collider is built with real data on first mount.
 
 const _GN    = GENESIS_TERRAIN_SEGS;       // 63 quads → 64 vertices per axis
-const _GSIZE = GENESIS_TERRAIN_SIZE;       // 200 m
+const _GSIZE = GENESIS_TERRAIN_SIZE;       // 2000 m
 const _GHALF = _GSIZE / 2;
 
 let _gHeights: Float32Array | null = null; // null until the binary loads
@@ -97,10 +102,11 @@ export function getIslandHeight(worldX: number, worldZ: number): number {
   const v01 = _gHeights[row1 * stride + col0];
   const v11 = _gHeights[row1 * stride + col1];
 
-  return v00 * (1 - fx) * (1 - fz)
-       + v10 * fx       * (1 - fz)
-       + v01 * (1 - fx) * fz
-       + v11 * fx       * fz;
+  const raw = v00 * (1 - fx) * (1 - fz)
+            + v10 * fx       * (1 - fz)
+            + v01 * (1 - fx) * fz
+            + v11 * fx       * fz;
+  return raw * GENESIS_HEIGHT_SCALE;
 }
 
 export function isGenesisHeightsLoaded(): boolean { return _gHeights !== null; }

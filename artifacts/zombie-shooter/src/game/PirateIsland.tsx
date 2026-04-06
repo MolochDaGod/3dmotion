@@ -6,12 +6,13 @@
  * Pathfinding:    NavGrid 100×100 cells @ 2 m/cell over 200 m footprint
  *
  * Coordinate system: 1 Three.js unit = 1 metre.
- * Island footprint: 200 m × 200 m (centred on origin).
- * Height range: 0 m (shoreline / ocean level) → ~128 m (peak).
+ * Island footprint: 2000 m × 2000 m (centred on origin).
+ * Height range: 0 m (shoreline / ocean level) → ~256 m (peak, after 2× scale).
  *
  * Conversion constants (FBX cm → game metres):
- *   GLB_SCALE    = 2.5e-4   (800 000 cm → 200 m)
- *   GLB_OFFSET_Y = 72.105   (aligns visual mesh min with physics ground = 0)
+ *   GLB_SCALE_Y  = 5e-4   (Y only, 2× the raw 2.5e-4 to give dramatic peaks)
+ *   GLB_SCALE_XZ = 2.5e-3 (X/Z, 10× for 2000 m footprint)
+ *   GLB_OFFSET_Y = 144.21 (aligns visual mesh min with physics ground = 0)
  */
 
 import { Suspense, useMemo, useRef, useState, useEffect } from "react";
@@ -26,19 +27,30 @@ import {
   isGenesisHeightsLoaded,
   GENESIS_TERRAIN_SIZE,
   GENESIS_TERRAIN_SEGS,
+  GENESIS_HEIGHT_SCALE,
 } from "./terrain";
 import { CG_WORLD } from "./CollisionLayers";
 import type { NavObstacle } from "./NavGrid";
 
 // ── GLB alignment constants ────────────────────────────────────────────────────
-// The GLB was authored at 200 m (2.5e-4 × 800 000 cm).
-// We keep Y scale identical so the mountain stays ~128 m tall, but stretch
-// X and Z by 10× to make the playable footprint 2000 m × 2000 m.
-const GLB_SCALE    = 2.5e-4;             // Y (height) scale — unchanged
-const GLB_SCALE_XZ = GLB_SCALE * 10;    // X/Z (horizontal) scale — 10×
-const GLB_OFFSET_X = -25.000;           // 10× the original −2.5
-const GLB_OFFSET_Y =  72.105;           // lifts mesh so ground vertex sits at y=0
-const GLB_OFFSET_Z =  25.000;           // 10× the original +2.5
+// X/Z: 10× the raw FBX scale to reach 2000 m footprint.
+// Y:   raw scale × GENESIS_HEIGHT_SCALE so the mountain visual matches physics.
+// GLB_OFFSET_Y: the raw offset (72.105) also scales with GENESIS_HEIGHT_SCALE.
+const GLB_RAW_SCALE  = 2.5e-4;
+const GLB_SCALE_XZ   = GLB_RAW_SCALE * 10;                      // 2.5e-3
+const GLB_SCALE_Y    = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE;    // 5e-4
+const GLB_RAW_OFFSET_Y = 72.105;
+const GLB_OFFSET_Y   = GLB_RAW_OFFSET_Y * GENESIS_HEIGHT_SCALE; // 144.21
+const GLB_OFFSET_X   = -25.000 * 10;                            // −250 m
+const GLB_OFFSET_Z   =  25.000 * 10;                            //  250 m
+
+// Biome height thresholds (world metres, after GENESIS_HEIGHT_SCALE applied)
+// Raw binary peaks at ~128 m → scaled peak ~256 m.
+const H_BEACH   =   4;   // 0–4 m   → sand
+const H_GRASS   =  20;   // 4–20 m  → tropical grass / lowland
+const H_JUNGLE  =  80;   // 20–80 m → dense jungle canopy
+const H_FOREST  = 140;   // 80–140m → highland misty forest
+const H_ROCK    = 200;   // 140–200m→ bare rock / cliff
 
 // ── Start fetching the height binary as soon as this module loads ─────────────
 preloadGenesisHeights();
@@ -46,75 +58,196 @@ preloadGenesisHeights();
 // ─── Nav obstacles (A* avoidance) ─────────────────────────────────────────────
 interface PalmConfig { x: number; z: number; h: number; ry: number }
 
-// Palms scattered over the 2000 m island — positions are 10× the original values.
-// Heights stay at real-world scale (9–10 m trunks) since the island is horizontally
-// stretched, not vertically.
+// Palms scattered over the 2000 m island.
 const PALM_PLACEMENTS: PalmConfig[] = [
-  { x:  600, z:  150, h: 9.0, ry:  0.30 },
-  { x: -550, z:  250, h: 8.5, ry:  1.10 },
-  { x:  150, z:  650, h:10.0, ry: -0.50 },
-  { x: -400, z: -580, h: 9.0, ry:  2.10 },
-  { x:  700, z: -300, h: 8.5, ry: -1.20 },
-  { x: -650, z:  380, h:10.0, ry:  0.80 },
-  { x:  280, z: -700, h: 9.0, ry:  3.00 },
-  { x: -720, z: -220, h: 8.5, ry:  1.50 },
-  { x:  450, z:  580, h: 9.0, ry: -0.20 },
-  { x: -320, z:  620, h: 8.0, ry:  2.50 },
-  { x:  750, z:  100, h: 9.5, ry:  0.90 },
-  { x: -180, z: -680, h: 8.0, ry: -0.80 },
-  // Extra palms to fill the larger shoreline
-  { x:  480, z: -600, h: 9.5, ry:  0.60 },
-  { x: -500, z: -550, h: 8.5, ry: -0.40 },
-  { x:  200, z:  750, h: 9.0, ry:  1.80 },
-  { x: -250, z:  720, h: 8.5, ry: -1.00 },
-  { x:  820, z:  200, h: 9.0, ry:  2.20 },
-  { x: -800, z:  150, h: 8.5, ry:  0.40 },
-  { x:  380, z:  800, h: 9.5, ry: -0.90 },
-  { x: -420, z:  780, h: 8.0, ry:  1.30 },
+  { x:  600, z:  150, h: 12.0, ry:  0.30 },
+  { x: -550, z:  250, h: 10.5, ry:  1.10 },
+  { x:  150, z:  650, h: 14.0, ry: -0.50 },
+  { x: -400, z: -580, h: 11.0, ry:  2.10 },
+  { x:  700, z: -300, h:  9.5, ry: -1.20 },
+  { x: -650, z:  380, h: 13.0, ry:  0.80 },
+  { x:  280, z: -700, h: 11.0, ry:  3.00 },
+  { x: -720, z: -220, h: 10.5, ry:  1.50 },
+  { x:  450, z:  580, h: 12.5, ry: -0.20 },
+  { x: -320, z:  620, h:  9.0, ry:  2.50 },
+  { x:  750, z:  100, h: 13.5, ry:  0.90 },
+  { x: -180, z: -680, h: 10.0, ry: -0.80 },
+  { x:  480, z: -600, h: 11.5, ry:  0.60 },
+  { x: -500, z: -550, h: 10.5, ry: -0.40 },
+  { x:  200, z:  750, h: 12.0, ry:  1.80 },
+  { x: -250, z:  720, h:  9.5, ry: -1.00 },
+  { x:  820, z:  200, h: 12.0, ry:  2.20 },
+  { x: -800, z:  150, h: 10.5, ry:  0.40 },
+  { x:  380, z:  800, h: 11.5, ry: -0.90 },
+  { x: -420, z:  780, h:  9.0, ry:  1.30 },
+  // Tall jungle canopy trees (40 ft = 12.2 m trunk + crown)
+  { x:  120, z:  300, h: 15.0, ry:  0.55 },
+  { x: -200, z:  350, h: 16.0, ry: -0.75 },
+  { x:  330, z: -250, h: 14.5, ry:  1.20 },
+  { x: -380, z:  180, h: 15.5, ry:  2.80 },
+  { x:  250, z:  420, h: 17.0, ry: -1.40 },
+  { x: -160, z: -320, h: 14.0, ry:  0.35 },
+  { x:  410, z:  350, h: 15.0, ry: -0.60 },
+  { x: -440, z:  420, h: 16.5, ry:  1.85 },
 ];
 
 export const NAV_OBSTACLES: NavObstacle[] = [
   ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 20.0 })),
-  // ── Mountain — island peak at (0,0), steep cliffs extend to ~450 m radius.
-  { x:    0, z:    0, radius: 420.0 },  // main summit + upper cliffs
-  { x:  150, z:  -50, radius:  80.0 },  // south-east cliff spur
-  { x: -150, z:  -50, radius:  80.0 },  // south-west cliff spur
-  { x:  800, z:    0, radius:  80.0 },  // dock area
-  { x:    0, z:  800, radius:  60.0 },  // northern shore rocky area
+  { x:    0, z:    0, radius: 420.0 },
+  { x:  150, z:  -50, radius:  80.0 },
+  { x: -150, z:  -50, radius:  80.0 },
+  { x:  800, z:    0, radius:  80.0 },
+  { x:    0, z:  800, radius:  60.0 },
 ];
+
+// ─── Biome material factory ────────────────────────────────────────────────────
+function biomeMaterial(worldY: number, idx: number): THREE.MeshStandardMaterial {
+  // Stagger polygon offset per mesh index to prevent inter-mesh z-fighting
+  const polyFactor = 1 + (idx % 8);
+
+  if (worldY < H_BEACH) {
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color("#e8c97a"),
+      roughness: 0.88,
+      metalness: 0.01,
+      polygonOffset: true,
+      polygonOffsetFactor: polyFactor,
+      polygonOffsetUnits: polyFactor,
+    });
+  }
+  if (worldY < H_GRASS) {
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color("#4eaa3a"),
+      roughness: 0.84,
+      metalness: 0.01,
+      polygonOffset: true,
+      polygonOffsetFactor: polyFactor,
+      polygonOffsetUnits: polyFactor,
+    });
+  }
+  if (worldY < H_JUNGLE) {
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color("#2d7e22"),
+      roughness: 0.88,
+      metalness: 0.01,
+      polygonOffset: true,
+      polygonOffsetFactor: polyFactor,
+      polygonOffsetUnits: polyFactor,
+    });
+  }
+  if (worldY < H_FOREST) {
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color("#4a6e35"),
+      roughness: 0.92,
+      metalness: 0.01,
+      polygonOffset: true,
+      polygonOffsetFactor: polyFactor,
+      polygonOffsetUnits: polyFactor,
+    });
+  }
+  if (worldY < H_ROCK) {
+    return new THREE.MeshStandardMaterial({
+      color: new THREE.Color("#8b7050"),
+      roughness: 0.97,
+      metalness: 0.02,
+      polygonOffset: true,
+      polygonOffsetFactor: polyFactor,
+      polygonOffsetUnits: polyFactor,
+    });
+  }
+  return new THREE.MeshStandardMaterial({
+    color: new THREE.Color("#5c4840"),
+    roughness: 1.0,
+    metalness: 0.02,
+    polygonOffset: true,
+    polygonOffsetFactor: polyFactor,
+    polygonOffsetUnits: polyFactor,
+  });
+}
 
 // ─── Palm tree ─────────────────────────────────────────────────────────────────
 const LEAF_ANGLES = [0, 51, 103, 154, 205, 257, 308];
 
-function PalmTree({ x, z, h = 8.0, ry = 0 }: { x: number; z: number; h?: number; ry?: number }) {
-  const groundY = getIslandHeight(x, z);
-  const trunkH  = h * 0.82;
+function PalmTree({ x, z, h = 10.0, ry = 0 }: { x: number; z: number; h?: number; ry?: number }) {
+  const groundY  = getIslandHeight(x, z);
+  const trunkH   = h * 0.78;
+  const leafSize = h * 0.24;     // crown scales with tree height
+  const crownR   = h * 0.06;     // trunk radius at top
 
   return (
     <group position={[x, groundY, z]} rotation-y={ry}>
       <RigidBody type="fixed" colliders="hull" collisionGroups={CG_WORLD}>
         <mesh castShadow position={[0, trunkH / 2, 0]}>
-          <cylinderGeometry args={[0.14, 0.28, trunkH, 8]} />
+          <cylinderGeometry args={[crownR, crownR * 2, trunkH, 8]} />
           <meshStandardMaterial color="#7a5523" roughness={0.96} metalness={0} />
         </mesh>
       </RigidBody>
 
+      {/* Crown fronds */}
       {LEAF_ANGLES.map((deg, i) => (
         <mesh
           key={i}
           position={[0, trunkH + 0.05, 0]}
-          rotation={[0.58, (deg * Math.PI) / 180, 0]}
+          rotation={[0.55, (deg * Math.PI) / 180, 0]}
           castShadow
         >
-          <planeGeometry args={[0.45, 3.8]} />
+          <planeGeometry args={[leafSize * 0.4, leafSize * 3.5]} />
           <meshStandardMaterial
-            color={i % 2 === 0 ? "#2d7a32" : "#3d9940"}
+            color={i % 2 === 0 ? "#2d8a32" : "#3dad40"}
             side={THREE.DoubleSide}
-            roughness={0.75}
+            roughness={0.72}
             metalness={0}
           />
         </mesh>
       ))}
+
+      {/* Coconuts */}
+      {h > 11 && [0, 1.8, 3.6].map((a, i) => (
+        <mesh key={i} position={[Math.cos(a) * 0.4, trunkH - 0.4, Math.sin(a) * 0.4]} castShadow>
+          <sphereGeometry args={[0.22, 6, 5]} />
+          <meshStandardMaterial color="#5c3a14" roughness={0.95} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ─── Jungle tree (broad canopy, 40ft class) ────────────────────────────────────
+function JungleTree({ x, z, h = 13.0, ry = 0 }: { x: number; z: number; h?: number; ry?: number }) {
+  const groundY = getIslandHeight(x, z);
+  const trunkH  = h * 0.65;
+  const crownY  = trunkH + h * 0.18;
+
+  return (
+    <group position={[x, groundY, z]} rotation-y={ry}>
+      <RigidBody type="fixed" colliders="hull" collisionGroups={CG_WORLD}>
+        {/* Buttress roots */}
+        {[0, 1.26, 2.51, 3.77].map((a, i) => (
+          <mesh key={i} position={[Math.cos(a) * 0.45, 0.6, Math.sin(a) * 0.45]} rotation-y={a} castShadow>
+            <boxGeometry args={[0.22, 1.2, 0.55]} />
+            <meshStandardMaterial color="#5a3e20" roughness={1} />
+          </mesh>
+        ))}
+        {/* Main trunk */}
+        <mesh castShadow position={[0, trunkH / 2, 0]}>
+          <cylinderGeometry args={[0.22, 0.38, trunkH, 7]} />
+          <meshStandardMaterial color="#4a3318" roughness={0.98} metalness={0} />
+        </mesh>
+      </RigidBody>
+
+      {/* Layered canopy spheres */}
+      <mesh castShadow position={[0, crownY, 0]}>
+        <sphereGeometry args={[h * 0.22, 7, 5]} />
+        <meshStandardMaterial color="#1e6e18" roughness={0.80} metalness={0} />
+      </mesh>
+      <mesh castShadow position={[h * 0.14, crownY - h * 0.06, h * 0.08]}>
+        <sphereGeometry args={[h * 0.16, 6, 4]} />
+        <meshStandardMaterial color="#257a1f" roughness={0.82} metalness={0} />
+      </mesh>
+      <mesh castShadow position={[-h * 0.12, crownY - h * 0.04, -h * 0.10]}>
+        <sphereGeometry args={[h * 0.15, 6, 4]} />
+        <meshStandardMaterial color="#1c6015" roughness={0.85} metalness={0} />
+      </mesh>
     </group>
   );
 }
@@ -168,7 +301,6 @@ function Dock() {
           );
         })}
 
-        {/* Dock rails */}
         {[-15.5, 15.5].map((side, i) => (
           <mesh
             key={i}
@@ -189,32 +321,28 @@ function TerrainModel() {
 
   const clone = useMemo(() => {
     const c = scene.clone(true);
+    let meshIdx = 0;
     c.traverse((obj: THREE.Object3D) => {
       if (!(obj as THREE.Mesh).isMesh) return;
       const mesh = obj as THREE.Mesh;
       mesh.castShadow    = true;
       mesh.receiveShadow = true;
 
-      // Replace any material that survived conversion with a multi-texture PBR look.
-      // We blend sand, grass, and rock based on height and slope procedurally in JS
-      // by assigning different materials per mesh (FBX often separates by material slot).
-      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      mesh.material = mats.map((m: THREE.Material) => {
-        if (m instanceof THREE.MeshStandardMaterial) {
-          // Terrain was exported with vertex colours stripped; give it a lush palette
-          const col = (m as THREE.MeshStandardMaterial).color;
-          const lum = col.r * 0.299 + col.g * 0.587 + col.b * 0.114;
-          if (lum < 0.25) {
-            // Dark material → rocky peak / cliff
-            return new THREE.MeshStandardMaterial({ color: "#6b5c4a", roughness: 0.95, metalness: 0.02 });
-          }
-          // Mid-range → tropical forest / grass
-          return new THREE.MeshStandardMaterial({ color: "#4a7c40", roughness: 0.88, metalness: 0.01 });
-        }
-        // Default fallback → sandy beach
-        return new THREE.MeshStandardMaterial({ color: "#c8a96e", roughness: 0.90, metalness: 0.01 });
-      }) as any;
-      if (mats.length === 1) mesh.material = (mesh.material as THREE.Material[])[0];
+      // Compute height of this mesh section in world metres.
+      // mesh.position is in the GLB's local space (FBX centimetre scale).
+      // Applying the same formula as the group transform:
+      //   worldY = localY * GLB_SCALE_Y + GLB_OFFSET_Y
+      // We use the mesh's own position.y as the representative height;
+      // for very wide meshes we clamp to H_BEACH minimum so flat shoreline
+      // sections always get beach colour.
+      mesh.geometry.computeBoundingBox();
+      const bbox     = mesh.geometry.boundingBox ?? new THREE.Box3();
+      const localCY  = (bbox.min.y + bbox.max.y) * 0.5 + mesh.position.y;
+      const worldY   = localCY * GLB_SCALE_Y + GLB_OFFSET_Y;
+
+      const idx = meshIdx++;
+      const mat = biomeMaterial(worldY, idx);
+      mesh.material = mat;
     });
     return c;
   }, [scene]);
@@ -222,7 +350,7 @@ function TerrainModel() {
   return (
     <group
       position={[GLB_OFFSET_X, GLB_OFFSET_Y, GLB_OFFSET_Z]}
-      scale={[GLB_SCALE_XZ, GLB_SCALE, GLB_SCALE_XZ]}
+      scale={[GLB_SCALE_XZ, GLB_SCALE_Y, GLB_SCALE_XZ]}
     >
       <primitive object={clone} />
     </group>
@@ -231,8 +359,6 @@ function TerrainModel() {
 
 // ─── Island terrain + physics ─────────────────────────────────────────────────
 function IslandGround() {
-  // Defer HeightfieldCollider until the 16 KB binary is fetched.
-  // On localhost it loads in <50 ms — on CDN < 150 ms.
   const [heightsReady, setHeightsReady] = useState(isGenesisHeightsLoaded);
 
   useEffect(() => {
@@ -243,10 +369,11 @@ function IslandGround() {
     return () => clearInterval(id);
   }, [heightsReady]);
 
-  // Rebuild heights array once binary is loaded; stays stable thereafter
   const { heights, skirtGeo } = useMemo(() => {
     const heights  = buildIslandHeightArray();
-    const skirtGeo = new THREE.BoxGeometry(GENESIS_TERRAIN_SIZE, 20, GENESIS_TERRAIN_SIZE);
+    // Skirt height must cover the full peak so no gaps are visible
+    const skirtH   = 30 * GENESIS_HEIGHT_SCALE;
+    const skirtGeo = new THREE.BoxGeometry(GENESIS_TERRAIN_SIZE, skirtH, GENESIS_TERRAIN_SIZE);
     return { heights, skirtGeo };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heightsReady]);
@@ -255,7 +382,7 @@ function IslandGround() {
 
   return (
     <>
-      {/* Physics heightfield — deferred until heights are ready */}
+      {/* Physics heightfield — heights already include GENESIS_HEIGHT_SCALE */}
       {heightsReady && (
         <RigidBody type="fixed" colliders={false} friction={0.88} restitution={0.05}>
           <HeightfieldCollider
@@ -270,22 +397,22 @@ function IslandGround() {
         </RigidBody>
       )}
 
-      {/* Earth skirt — hides gap between GLB terrain and the ocean */}
-      <mesh geometry={skirtGeo} position={[0, -12, 0]}>
+      {/* Earth skirt — hides gap between GLB terrain edge and ocean */}
+      <mesh geometry={skirtGeo} position={[0, -15 * GENESIS_HEIGHT_SCALE, 0]}>
         <meshStandardMaterial color="#b8955a" roughness={1} metalness={0} />
       </mesh>
 
-      {/* Safety net — catches anything that falls through */}
+      {/* Safety net */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[1200, 0.5, 1200]} position={[0, -40, 0]} collisionGroups={CG_WORLD} />
       </RigidBody>
 
-      {/* Invisible boundary walls at the ocean edge (2000 m footprint → ±1000 m) */}
+      {/* Boundary walls */}
       <RigidBody type="fixed" colliders={false} friction={0.05} restitution={0}>
-        <CuboidCollider args={[1000, 14, 0.5]} position={[    0, 4, -1000]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[1000, 14, 0.5]} position={[    0, 4,  1000]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[0.5, 14, 1000]} position={[-1000, 4,     0]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[0.5, 14, 1000]} position={[ 1000, 4,     0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[1000, 20, 0.5]} position={[    0, 8, -1000]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[1000, 20, 0.5]} position={[    0, 8,  1000]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 20, 1000]} position={[-1000, 8,     0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 20, 1000]} position={[ 1000, 8,     0]} collisionGroups={CG_WORLD} />
       </RigidBody>
     </>
   );
@@ -304,14 +431,13 @@ function Ocean() {
 
   return (
     <>
-      {/* Main ocean plane — large enough to fill the horizon beyond 2000 m island */}
       <mesh ref={meshRef} rotation-x={-Math.PI / 2} position={[0, OCEAN_Y, 0]} receiveShadow>
         <planeGeometry args={[60000, 60000, 1, 1]} />
         <meshStandardMaterial ref={matRef} color="#005f73" metalness={0.28} roughness={0.08} />
       </mesh>
-      {/* Shoreline glow ring — centred at ~r=800 m (10× the original 80 m) */}
+      {/* Shoreline foam ring */}
       <mesh rotation-x={-Math.PI / 2} position={[0, OCEAN_Y + 0.01, 0]}>
-        <ringGeometry args={[700, 900, 96]} />
+        <ringGeometry args={[700, 920, 96]} />
         <meshStandardMaterial color="#0a8f9e" transparent opacity={0.45} metalness={0.1} roughness={0.15} />
       </mesh>
     </>
@@ -322,25 +448,24 @@ function Ocean() {
 export function PirateIsland() {
   return (
     <group>
-      {/* Physics terrain + boundary walls */}
       <IslandGround />
 
-      {/* GLB terrain visual — Genesis Island from converted FBX */}
       <Suspense fallback={null}>
         <TerrainModel />
       </Suspense>
 
-      {/* Ocean */}
       <Ocean />
 
-      {/* Palm trees around the island */}
       <Suspense fallback={null}>
-        {PALM_PLACEMENTS.map((p, i) => (
-          <PalmTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
-        ))}
+        {PALM_PLACEMENTS.map((p, i) =>
+          p.h >= 13 ? (
+            <JungleTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
+          ) : (
+            <PalmTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
+          )
+        )}
       </Suspense>
 
-      {/* Dock on the east shore */}
       <Suspense fallback={null}>
         <Dock />
       </Suspense>
