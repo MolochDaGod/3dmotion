@@ -171,7 +171,8 @@ type TraverseKey =
   | "climbLadder"  // Climbing Ladder  — LoopRepeat,  ladder-specific cycle
   | "treading"     // Treading Water   — LoopRepeat,  stationary in water
   | "swimming"     // Swimming         — LoopRepeat,  moving in water
-  | "swimToEdge";  // Swimming To Edge — LoopOnce,    exiting water
+  | "swimToEdge"   // Swimming To Edge — LoopOnce,    exiting water
+  | "rollFwd";     // Forward Roll     — LoopOnce,    Ctrl-key committed roll
 
 type AnimKey = PistolKey | RifleKey | MeleeKey | StaffKey | BowKey | DodgeKey | SwordShieldKey | TraverseKey;
 
@@ -296,8 +297,10 @@ const SS_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "ssDrawSword", file: ANIM_SHIELD_SWORD.drawSword },
 ];
 
-// ─── Traverse animations (climbing + swimming) ────────────────────────────────
-// Loaded eagerly alongside the pistol pack so they work from any weapon mode.
+// ─── Traverse animations (climbing, swimming, roll) ───────────────────────────
+// Loaded eagerly (inside setupModel, after mixer exists) so they work from any weapon mode.
+// rollFwd: place public/models/animations/traverse/roll-forward.fbx (Mixamo "Forward Roll")
+//          to get the proper roll animation; until then the Ctrl handler falls back to dodgeFwd.
 const TRAVERSE_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "climbUp",     file: ANIM_TRAVERSE.climbUp     },
   { key: "climbing",    file: ANIM_TRAVERSE.climbing    },
@@ -305,6 +308,7 @@ const TRAVERSE_QUEUE: Array<{ key: AnimKey; file: string }> = [
   { key: "treading",    file: ANIM_TRAVERSE.treading    },
   { key: "swimming",    file: ANIM_TRAVERSE.swimming    },
   { key: "swimToEdge",  file: ANIM_TRAVERSE.swimToEdge  },
+  { key: "rollFwd",     file: ANIM_TRAVERSE.rollFwd     },
 ];
 
 // ─── LoopOnce animations (non-looping) ────────────────────────────────────────
@@ -337,6 +341,8 @@ const ONCE_ANIMS = new Set<AnimKey>([
   "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
   // traverse — one-shot transitions
   "climbUp", "swimToEdge",
+  // committed roll (Ctrl key) — plays once, then returns to locomotion
+  "rollFwd",
 ]);
 
 // ─── Blocking animations — must play fully before queue can run ───────────────
@@ -351,6 +357,8 @@ const BLOCKING_ONCE = new Set<AnimKey>([
   "dodgeFwd","dodgeBwd","dodgeL","dodgeR",
   // traverse
   "climbUp", "swimToEdge",
+  // committed roll — blocks locomotion for its full duration
+  "rollFwd",
 ]);
 
 // ─── Idle for each weapon mode ────────────────────────────────────────────────
@@ -1721,14 +1729,17 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, wat
       const rightBias = rollDir.current.dot(rgtV);
       rollCamZ.current = -rightBias * 0.18;
 
-      // Determine dominant direction for animation selection
+      // Determine dominant direction for the fallback dodge animation.
+      // When roll-forward.fbx is present "rollFwd" is used instead — a single
+      // forward-roll clip that always looks correct regardless of physics direction.
       const dotFwd  = rollDir.current.dot(fwdV);
       const dotRgt  = rollDir.current.dot(rgtV);
-      const rollKey: AnimKey =
+      const fallbackKey: AnimKey =
         Math.abs(dotFwd) >= Math.abs(dotRgt)
           ? (dotFwd >= 0 ? "dodgeFwd" : "dodgeBwd")
           : (dotRgt >= 0 ? "dodgeR"   : "dodgeL");
-      _rawPlay(rollKey, 0.08, 1.3);
+      const rollAnimKey: AnimKey = actionsRef.current["rollFwd"] ? "rollFwd" : fallbackKey;
+      _rawPlay(rollAnimKey, 0.1, 1.0);
       if (setInvincible) setInvincible(true);
     }
   }, [

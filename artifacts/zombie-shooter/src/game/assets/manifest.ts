@@ -163,6 +163,13 @@ export const ANIM_TRAVERSE = {
   swimming:     `${ATV}/swimming.fbx`,
   /** Mixamo "Swimming To Edge" — LoopOnce,   transition out of water */
   swimToEdge:   `${ATV}/swim-to-edge.fbx`,
+  /**
+   * Mixamo "Forward Roll" — LoopOnce, triggered by Ctrl key.
+   * Download from Mixamo: search "Forward Roll", export FBX for Three.js (no skin),
+   * save as public/models/animations/traverse/roll-forward.fbx
+   * Until the file exists the Ctrl roll falls back to the dodge animation.
+   */
+  rollFwd:      `${ATV}/roll-forward.fbx`,
 } as const;
 
 // ── Weapon props ──────────────────────────────────────────────────────────────
