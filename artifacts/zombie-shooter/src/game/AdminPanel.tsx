@@ -124,22 +124,32 @@ function PlayerTab() {
 
 // ─── Spawn tab ────────────────────────────────────────────────────────────────
 function SpawnTab() {
-  const { spawnObject } = useAdminStore();
+  const { spawnObject, buildTool, activeSpawnIdx, setActiveSpawn } = useAdminStore();
   const { adminPanelOpen } = useGameStore();
   const [filter, setFilter] = useState<SpawnCategory | "all">("all");
   const [scale, setScale] = useState(1.0);
   const [lastMsg, setLastMsg] = useState("");
 
+  const isPlaceMode = buildTool === "place";
   const filtered = SPAWN_CATALOGUE.filter((s) => filter === "all" || s.category === filter);
 
-  function doSpawn(idx: number) {
-    const entry = filtered[idx];
+  // Find what index in the full catalogue the active item is
+  const activeCatalogueEntry = SPAWN_CATALOGUE[activeSpawnIdx];
+
+  function doItem(catalogueIdx: number) {
+    const entry = SPAWN_CATALOGUE[catalogueIdx];
     if (!entry) return;
-    // Dispatch to SpawnedObjects – position TBD by Player.tsx intercept (default 0,1,0)
-    window.dispatchEvent(new CustomEvent("admin:spawn", {
-      detail: { ...entry, scale: entry.scale * scale, x: 0, y: 1, z: 0 },
-    }));
-    setLastMsg(`Spawned: ${entry.label}`);
+    if (isPlaceMode) {
+      // In PLACE mode: arm this prop — it will be placed by clicking the terrain
+      setActiveSpawn(catalogueIdx);
+      setLastMsg(`Armed: ${entry.label}`);
+    } else {
+      // Not in place mode: drop at default position
+      window.dispatchEvent(new CustomEvent("admin:spawn", {
+        detail: { ...entry, scale: entry.scale * scale, x: 0, y: 1, z: 0 },
+      }));
+      setLastMsg(`Spawned: ${entry.label}`);
+    }
     setTimeout(() => setLastMsg(""), 2000);
   }
 
@@ -163,32 +173,53 @@ function SpawnTab() {
       <AdminSlider label="Scale multiplier" value={scale} min={0.1} max={5} step={0.1}
         display={`${scale.toFixed(1)}×`} onChange={setScale} />
 
+      {/* Armed prop indicator */}
+      {isPlaceMode && activeCatalogueEntry && (
+        <div style={{
+          marginBottom: 10, padding: "6px 10px", borderRadius: 3,
+          background: "rgba(17,204,85,0.08)", border: "1px solid #1a4a1a",
+          fontFamily: mono, fontSize: 10,
+        }}>
+          <span style={{ color: "#3a6a3a" }}>ARMED  </span>
+          <span style={{ color: green }}>{CATEGORY_ICONS[activeCatalogueEntry.category]} {activeCatalogueEntry.label}</span>
+          <span style={{ float: "right", color: "#2a4a2a" }}>scroll wheel to cycle</span>
+        </div>
+      )}
+
       {lastMsg && (
         <div style={{ fontFamily: mono, fontSize: 10, color: green, marginBottom: 8, letterSpacing: 1 }}>
           ✓ {lastMsg}
         </div>
       )}
 
-      <div style={{ maxHeight: 300, overflowY: "auto", border: "1px solid #0d1a0d", borderRadius: 3 }}>
-        {filtered.map((entry, i) => (
-          <button key={i} onClick={() => doSpawn(i)}
-            style={{
-              display: "flex", alignItems: "center", gap: 8,
-              width: "100%", padding: "6px 12px", textAlign: "left", cursor: "pointer",
-              background: "transparent", border: "none", borderBottom: "1px solid #0a120a",
-              fontFamily: mono, fontSize: 10, color: "#556655",
-              transition: "background 0.1s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(17,204,85,0.06)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-          >
-            <span style={{ color: "#2a5a2a", width: 12 }}>{CATEGORY_ICONS[entry.category]}</span>
-            <span>{entry.label}</span>
-            <span style={{ marginLeft: "auto", color: "#2a3a2a", fontSize: 9 }}>
-              {entry.meshPath.split("/").pop()?.substring(0, 20)}
-            </span>
-          </button>
-        ))}
+      <div data-admin-panel style={{ maxHeight: 300, overflowY: "auto", border: "1px solid #0d1a0d", borderRadius: 3 }}>
+        {filtered.map((entry) => {
+          // Find the index of this entry in the full catalogue
+          const catIdx = SPAWN_CATALOGUE.indexOf(entry);
+          const isArmed = isPlaceMode && catIdx === activeSpawnIdx;
+          return (
+            <button key={catIdx} onClick={() => doItem(catIdx)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                width: "100%", padding: "6px 12px", textAlign: "left", cursor: "pointer",
+                background: isArmed ? "rgba(17,204,85,0.12)" : "transparent",
+                border: "none", borderBottom: "1px solid #0a120a",
+                fontFamily: mono, fontSize: 10,
+                color: isArmed ? green : "#556655",
+                transition: "background 0.1s",
+              }}
+              onMouseEnter={(e) => { if (!isArmed) e.currentTarget.style.background = "rgba(17,204,85,0.06)"; }}
+              onMouseLeave={(e) => { if (!isArmed) e.currentTarget.style.background = "transparent"; }}
+            >
+              <span style={{ color: isArmed ? green : "#2a5a2a", width: 12 }}>{CATEGORY_ICONS[entry.category]}</span>
+              <span>{entry.label}</span>
+              {isArmed && <span style={{ marginLeft: 6, fontSize: 8, color: green }}>◀ ARMED</span>}
+              <span style={{ marginLeft: "auto", color: "#2a3a2a", fontSize: 9 }}>
+                {entry.meshPath.split("/").pop()?.substring(0, 20)}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -253,11 +284,12 @@ function BuildTab() {
 
       <AdminBtn color={red} label="CLEAR ALL" onClick={() => { if (confirm("Clear all placed objects?")) clearAll(); }} />
 
-      <div style={{ marginTop: 12, fontFamily: mono, fontSize: 9, color: "#2a3a2a", lineHeight: 1.8 }}>
-        // PLACE: click terrain to place selected spawn item<br />
-        // SELECT: click objects to select / reposition<br />
-        // DELETE: click objects to remove<br />
-        // In build mode: R to rotate, Del to remove selected
+      <div style={{ marginTop: 12, fontFamily: mono, fontSize: 9, color: "#2a3a2a", lineHeight: 2.0 }}>
+        PLACE  — arm prop in SPAWN tab, then click terrain<br />
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scroll wheel cycles armed prop<br />
+        SELECT — click objects to select / reposition<br />
+        DELETE — click objects to remove<br />
+        R key  — rotate selected 45°&nbsp;&nbsp;Del — remove selected
       </div>
     </div>
   );
@@ -335,7 +367,7 @@ export function AdminPanel() {
   ];
 
   return (
-    <div style={{
+    <div data-admin-panel style={{
       position: "fixed", top: 60, left: 16, width: 340, zIndex: 9000,
       background: "rgba(4,10,5,0.97)", border: "1px solid #1a3a1a",
       borderRadius: 4, overflow: "hidden", userSelect: "none",

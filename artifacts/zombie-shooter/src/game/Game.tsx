@@ -28,6 +28,7 @@ import { ProgressBridge, LoadingScreen } from "./LoadingScreen";
 import { useEditorStore } from "./useEditorStore";
 import { AdminPanel } from "./AdminPanel";
 import { SpawnedObjects } from "./SpawnedObjects";
+import { useAdminStore, SPAWN_CATALOGUE } from "./useAdminStore";
 
 // ── Runtime capability detection ──────────────────────────────────────────────
 // WebGPU is disabled — navigator.gpu exists in modern browsers but the canvas
@@ -263,6 +264,30 @@ function SceneContent({
       {/* ── Asset load progress bridge (must be inside Canvas) ── */}
       <ProgressBridge onProgress={onLoadProgress} onLoaded={onLoaded} />
     </>
+  );
+}
+
+// ─── Build-mode HUD badge ─────────────────────────────────────────────────────
+function BuildHUD() {
+  const { buildTool, activeSpawnIdx } = useAdminStore();
+  const { adminPanelOpen } = useGameStore();
+  if (!adminPanelOpen || buildTool !== "place") return null;
+  const entry = SPAWN_CATALOGUE[activeSpawnIdx];
+  if (!entry) return null;
+  return (
+    <div style={{
+      position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+      zIndex: 8500, pointerEvents: "none",
+      background: "rgba(4,10,5,0.85)", border: "1px solid #1a5a1a",
+      borderRadius: 4, padding: "5px 18px",
+      fontFamily: "'Courier New', monospace", fontSize: 11, letterSpacing: 2,
+      color: "#11cc55", whiteSpace: "nowrap",
+      display: "flex", alignItems: "center", gap: 10,
+    }}>
+      <span style={{ color: "#2a5a2a", fontSize: 9 }}>BUILD PLACE</span>
+      <span style={{ color: "#11cc55" }}>⬛ {entry.label}</span>
+      <span style={{ color: "#2a4a2a", fontSize: 9 }}>scroll to cycle · LMB to place</span>
+    </div>
   );
 }
 
@@ -583,6 +608,7 @@ export default function Game({ onGameOver }: GameProps) {
 
       <HUD />
       <SpellRadial />
+      <BuildHUD />
       <AdminPanel />
     </div>
   );
