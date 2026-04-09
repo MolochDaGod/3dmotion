@@ -238,7 +238,7 @@ function SceneContent({
               waterY={isGraveyard ? undefined : 0}
               spawnPos={isGraveyard
                 ? [0, getTerrainHeight(0, 0) + 5, 0]
-                : [900, getIslandHeight(900, 0) + 20, 0]}
+                : [760, getIslandHeight(760, 100) + 20, 100]}
             />
           )}
 
