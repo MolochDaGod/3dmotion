@@ -221,7 +221,7 @@ function SceneContent({
             waterY={isGraveyard ? undefined : 0}
             spawnPos={isGraveyard
               ? [0, getTerrainHeight(0, 0), 0]
-              : [TOWN_CX, getIslandHeight(TOWN_CX, TOWN_CZ + 80) || 56, TOWN_CZ + 80]}
+              : [900, getIslandHeight(900, 0) || 56, 0]}
           />
 
           {/* Zombies inside Physics so their Rapier sensor bodies are registered */}

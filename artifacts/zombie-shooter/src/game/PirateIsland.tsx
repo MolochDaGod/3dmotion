@@ -48,9 +48,9 @@ const H_JUNGLE  =  800;
 const H_FOREST  = 1400;
 const H_ROCK    = 2000;
 
-// ── Township location (east lowland, south of dock, grass biome) ──────────────
-export const TOWN_CX       = 480;
-export const TOWN_CZ       = 280;
+// ── Township location — east shore, inland from dock (x=1040, z=0) ────────────
+export const TOWN_CX       = 760;
+export const TOWN_CZ       = 80;
 const        TOWN_FENCE_W  = 150;   // palisade east-west span
 const        TOWN_FENCE_D  = 130;   // palisade north-south span
 
@@ -828,7 +828,7 @@ function VillagePalisade({ cx, cz, w, d }: { cx: number; cz: number; w: number; 
   const eastPosts  = posts("z", cx + hw,  cz - hd, cz + hd);
   const westPosts  = posts("z", cx - hw,  cz - hd, cz + hd);
 
-  // Leave a 6m gate gap in the north fence (entrance)
+  // Leave a 6m gate gap in the SOUTH fence (entrance facing dock)
   const gateLo = cx - 4, gateHi = cx + 4;
 
   function renderSide(
@@ -836,8 +836,8 @@ function VillagePalisade({ cx, cz, w, d }: { cx: number; cz: number; w: number; 
     side: "N" | "S" | "E" | "W",
   ) {
     return arr.map(({ px, py, pz }, i) => {
-      // Skip gate posts
-      if (side === "N" && px > gateLo && px < gateHi) return null;
+      // Skip gate posts — south wall faces the dock / spawn
+      if (side === "S" && px > gateLo && px < gateHi) return null;
       const isSharpened = true;
       return (
         <group key={i}>
@@ -867,7 +867,7 @@ function VillagePalisade({ cx, cz, w, d }: { cx: number; cz: number; w: number; 
   ) {
     return arr.slice(0, -1).map(({ px, py, pz }, i) => {
       const next = arr[i + 1];
-      if (side === "N" && (px > gateLo || next.px > gateLo) && (px < gateHi || next.px < gateHi)) return null;
+      if (side === "S" && (px > gateLo || next.px > gateLo) && (px < gateHi || next.px < gateHi)) return null;
       const mx = (px + next.px) / 2;
       const my = (py + next.py) / 2;
       const mz = (pz + next.pz) / 2;
