@@ -11,11 +11,11 @@ import * as THREE from "three";
 // WebGPURenderer is lazy-loaded at runtime so Vite never eagerly traverses the
 // Three.js node-graph during the dev-server scan phase.  The dynamic import()
 // below runs only in browsers that actually have navigator.gpu.
-import { getIslandHeight, getTerrainHeight, GENESIS_TERRAIN_SIZE } from "./terrain";
+import { getIslandHeight, getTerrainHeight, GENESIS_TERRAIN_SIZE, isGenesisHeightsLoaded } from "./terrain";
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
-import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES, TOWN_CX, TOWN_CZ } from "./PirateIsland";
+import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES } from "./PirateIsland";
 import { Airship } from "./Airship";
 import { Graveyard,   NAV_OBSTACLES as GRAVEYARD_NAV_OBSTACLES } from "./Graveyard";
 import { NavWorkerProvider } from "./NavWorkerContext";
@@ -156,6 +156,20 @@ function SceneContent({
   const currentAnimRef = useRef<string>("pistolIdle");
 
   const isGraveyard  = ed.activeScene === "graveyard";
+
+  // ── Wait for island height binary before spawning the player.
+  // The HeightfieldCollider is only registered in Rapier after this loads,
+  // so mounting Player before it's ready causes the player to fall through. ──
+  const [islandReady, setIslandReady] = useState(() => isGenesisHeightsLoaded());
+  useEffect(() => {
+    if (islandReady || isGraveyard) return;
+    const id = setInterval(() => {
+      if (isGenesisHeightsLoaded()) { setIslandReady(true); clearInterval(id); }
+    }, 80);
+    return () => clearInterval(id);
+  }, [islandReady, isGraveyard]);
+
+  const canSpawn = isGraveyard || islandReady;
   const navObstacles = isGraveyard ? GRAVEYARD_NAV_OBSTACLES : ISLAND_NAV_OBSTACLES;
   const activeMap    = isGraveyard ? "graveyard" : "island";
 
@@ -209,20 +223,24 @@ function SceneContent({
       >
         <Physics gravity={[0, -22, 0]} timeStep="vary">
           {isGraveyard ? <Graveyard /> : <PirateIsland />}
-          {/* key remounts when character OR scene changes — resets spawn pos */}
-          <Player
-            key={`${activeId}-${ed.activeScene}`}
-            onShoot={onShoot}
-            onMelee={onMelee}
-            onSkillHit={onSkillHit}
-            onDead={onPlayerDead}
-            playerPosRef={playerPosRef}
-            currentAnimRef={currentAnimRef}
-            waterY={isGraveyard ? undefined : 0}
-            spawnPos={isGraveyard
-              ? [0, getTerrainHeight(0, 0), 0]
-              : [900, getIslandHeight(900, 0) || 56, 0]}
-          />
+          {/* Only mount Player after island height binary is confirmed loaded —
+              HeightfieldCollider is not in Rapier until then, so spawning early
+              causes the player to fall straight through the terrain. */}
+          {canSpawn && (
+            <Player
+              key={`${activeId}-${ed.activeScene}`}
+              onShoot={onShoot}
+              onMelee={onMelee}
+              onSkillHit={onSkillHit}
+              onDead={onPlayerDead}
+              playerPosRef={playerPosRef}
+              currentAnimRef={currentAnimRef}
+              waterY={isGraveyard ? undefined : 0}
+              spawnPos={isGraveyard
+                ? [0, getTerrainHeight(0, 0) + 5, 0]
+                : [900, getIslandHeight(900, 0) + 20, 0]}
+            />
+          )}
 
           {/* Zombies inside Physics so their Rapier sensor bodies are registered */}
           {zombies.map((z) => (
