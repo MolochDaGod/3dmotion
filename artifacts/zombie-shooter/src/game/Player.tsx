@@ -1852,6 +1852,15 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
       useTegunStore.getState().setBrushRadius(br);
     }
 
+    // M — minimap
+    if (e.code === "KeyM") {
+      const gs = useGameStore.getState();
+      const show = !gs.showMinimap;
+      gs.setShowMinimap(show);
+      if (show) document.exitPointerLock();
+      else      document.body.requestPointerLock();
+    }
+
     // C — character panel
     if (e.code === "KeyC") {
       const show = !useGameStore.getState().showCharacterPanel;
