@@ -100,6 +100,20 @@ interface GameStore {
   skillCooldowns:     Record<string, number>;
   setSkillCooldown:   (id: string, cd: number) => void;
   tickSkillCooldowns: (dt: number) => void;
+
+  // ── Minimap ────────────────────────────────────────────────────────────────
+  showMinimap:            boolean;
+  setShowMinimap:         (v: boolean) => void;
+  playerWorldPos:         [number, number];
+  setPlayerWorldPos:      (p: [number, number]) => void;
+  zombieWorldPositions:   [number, number][];
+  setZombieWorldPositions:(p: [number, number][]) => void;
+  customSpawners:         [number, number][];
+  addCustomSpawner:       (p: [number, number]) => void;
+  removeCustomSpawner:    (i: number) => void;
+  pendingTeleport:        [number, number, number] | null;
+  teleportTo:             (p: [number, number, number]) => void;
+  clearTeleport:          () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -242,4 +256,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     return changed ? { skillCooldowns: next } : s;
   }),
+
+  // ── Minimap ─────────────────────────────────────────────────────────────────
+  showMinimap:            false,
+  playerWorldPos:         [0, 0],
+  zombieWorldPositions:   [],
+  customSpawners:         [],
+  pendingTeleport:        null,
+
+  setShowMinimap:          (v) => set({ showMinimap: v }),
+  setPlayerWorldPos:       (p) => set({ playerWorldPos: p }),
+  setZombieWorldPositions: (p) => set({ zombieWorldPositions: p }),
+  addCustomSpawner:        (p) => set((s) => ({ customSpawners: [...s.customSpawners, p] })),
+  removeCustomSpawner:     (i) => set((s) => ({ customSpawners: s.customSpawners.filter((_, idx) => idx !== i) })),
+  teleportTo:              (p) => set({ pendingTeleport: p }),
+  clearTeleport:           ()  => set({ pendingTeleport: null }),
 }));

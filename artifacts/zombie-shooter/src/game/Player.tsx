@@ -2035,6 +2035,23 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     // ── Single store snapshot per frame — avoids repeated getState() calls ──
     const gs = useGameStore.getState();
 
+    // ── Minimap: sync player world position every frame ───────────────────────
+    {
+      const p = playerPosRef.current;
+      gs.setPlayerWorldPos([p.x, p.z]);
+    }
+
+    // ── Minimap: apply pending teleport ───────────────────────────────────────
+    {
+      const tp = gs.pendingTeleport;
+      if (tp && playerRBRef.current && !rapierPanicked.current) {
+        gs.clearTeleport();
+        try {
+          playerRBRef.current.setNextKinematicTranslation({ x: tp[0], y: tp[1], z: tp[2] });
+        } catch (_) { /* ignore if rapier not ready */ }
+      }
+    }
+
     // ── Death system: play death animation before handing off to game-over ───
     // We must NOT return immediately here — the mixer still needs to update so
     // the death clip plays. dyingRef gates setup to one frame only.

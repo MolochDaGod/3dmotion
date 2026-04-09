@@ -95,7 +95,11 @@ const GRAVEYARD_SPAWN: [number, number, number][] = [
 function spawnZombie(wave: number): ZombieData {
   const { activeScene } = useEditorStore.getState();
   const isIsland = activeScene !== "graveyard";
-  const pool = isIsland ? ISLAND_SPAWN : GRAVEYARD_SPAWN;
+  // Merge in any custom spawner positions placed via the minimap
+  const customPool = isIsland
+    ? useGameStore.getState().customSpawners.map(([sx, sz]) => [sx, 0, sz] as [number, number, number])
+    : [];
+  const pool = isIsland ? [...ISLAND_SPAWN, ...customPool] : GRAVEYARD_SPAWN;
   const getH = isIsland ? getIslandHeight : getTerrainHeight;
   const pos = pool[Math.floor(Math.random() * pool.length)];
   const jitter = () => (Math.random() - 0.5) * 4;
@@ -341,6 +345,13 @@ export default function Game({ onGameOver }: GameProps) {
   const [bullets, setBullets] = useState<BulletData[]>([]);
   const playerPosRef = useRef(new THREE.Vector3(0, 0, 0));
   const playerYawRef = useRef(0);
+
+  // ── Minimap: sync live zombie positions to store ──────────────────────────
+  useEffect(() => {
+    useGameStore.getState().setZombieWorldPositions(
+      zombies.filter(z => !z.isDead).map(z => [z.position.x, z.position.z] as [number, number])
+    );
+  }, [zombies]);
 
   // ── Asset loading state ───────────────────────────────────────────────────
   const [loadProgress,  setLoadProgress]  = useState(0);

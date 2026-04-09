@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useGameStore, SPELLS, CAMERA_CYCLE, type CameraViewMode } from "./useGameStore";
 import { WEAPON_SKILLS } from "./SkillSystem";
 import { CharacterPanel } from "./CharacterPanel";
+import { MinimapPanel } from "./MinimapPanel";
 
 // ─── CSS Crosshair ────────────────────────────────────────────────────────────
 
@@ -427,6 +428,7 @@ export function HUD() {
 
   return (
     <>
+      <MinimapPanel />
       {showCharacterPanel && <CharacterPanel />}
       {showCameraSettings && !showCharacterPanel && <CameraSettingsPanel />}
 
