@@ -1716,7 +1716,17 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
 
   const handleMouseDown = useCallback((e: MouseEvent) => {
     if (e.button === 0) {
-      if (!locked.current) { document.body.requestPointerLock(); return; }
+      if (!locked.current) {
+        // Never compete with open UI panels for pointer lock.
+        // MinimapPanel / CharacterPanel / CameraSettings each call
+        // exitPointerLock on open and requestPointerLock on close — let them
+        // manage the lock themselves.  If we grabbed it here the cursor would
+        // snap to centre while the panel was still visible.
+        const gs = useGameStore.getState();
+        if (gs.showMinimap || gs.showCharacterPanel || gs.showCameraSettings) return;
+        document.body.requestPointerLock();
+        return;
+      }
       const wm       = useGameStore.getState().weaponMode;
       const isMelee  = wm === "sword" || wm === "axe";
       const isStaff  = wm === "staff";
