@@ -32,21 +32,26 @@ import {
 import { CG_WORLD } from "./CollisionLayers";
 import type { NavObstacle } from "./NavGrid";
 
-// ── GLB alignment constants ────────────────────────────────────────────────────
-const GLB_RAW_SCALE  = 2.5e-4;
-const GLB_SCALE_XZ   = GLB_RAW_SCALE * 60;
-const GLB_SCALE_Y    = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE;
-const GLB_RAW_OFFSET_Y = 72.105;
-const GLB_OFFSET_Y   = GLB_RAW_OFFSET_Y * GENESIS_HEIGHT_SCALE;
-const GLB_OFFSET_X   = -25.000 * 60;
-const GLB_OFFSET_Z   =  25.000 * 60;
+// ── GLB alignment constants ─────────────────────────────────────────────────────
+// The source FBX uses cm units; 1 unit = 0.01 m = raw scale 2.5e-4 after /40 export.
+// 6000 m footprint = 30× horizontal expansion.
+// Height aligned so physics ground (heightfield = 0) matches visual mesh bottom.
+const GLB_RAW_SCALE    = 2.5e-4;
+const GLB_SCALE_XZ     = GLB_RAW_SCALE * 30;        // 7.5e-3 → 6000 m footprint
+const GLB_SCALE_Y      = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE; // 2.5e-3 → 10× height
+const GLB_RAW_OFFSET_Y = 72.105;                    // raw mesh min (units before scale)
+const GLB_OFFSET_Y     = GLB_RAW_OFFSET_Y * GENESIS_HEIGHT_SCALE; // lifts visual base to y=0
+const GLB_OFFSET_X     = -25.000 * 30;              // centre mesh on world origin X
+const GLB_OFFSET_Z     =  25.000 * 30;              // centre mesh on world origin Z
 
-// Biome height thresholds (world metres, after GENESIS_HEIGHT_SCALE applied)
-const H_BEACH   =   40;
-const H_GRASS   =  200;
-const H_JUNGLE  =  800;
-const H_FOREST  = 1400;
-const H_ROCK    = 2000;
+// Biome height thresholds (world metres, after 10× GENESIS_HEIGHT_SCALE)
+// Raw binary max = 128.3 → world max ≈ 1283 m
+const H_BEACH   =   25;   // 0–25 m  : sandy beach
+const H_GRASS   =  100;   // 25–100 m: coastal grass
+const H_JUNGLE  =  400;   // 100–400 m: dense jungle
+const H_FOREST  =  750;   // 400–750 m: highland forest
+const H_ROCK    = 1100;   // 750–1100 m: bare rock
+                           // 1100+ m: snow/ice peak
 
 // ── Township location — east shore, inland from dock (x=1040, z=0) ────────────
 export const TOWN_CX       = 760;
@@ -72,43 +77,84 @@ preloadGenesisHeights();
 // ─── Nav obstacles (A* avoidance) ─────────────────────────────────────────────
 interface PalmConfig { x: number; z: number; h: number; ry: number }
 
+// All placements generated from the actual 64×64 heightmap at 6 km scale.
+// Every position has getIslandHeight > 0 (verified with convert script).
 const PALM_PLACEMENTS: PalmConfig[] = [
-  { x:  120, z: 2400, h: 12.0, ry:  0.30 },
-  { x: -360, z: 2320, h: 10.5, ry:  1.10 },
-  { x:  520, z: 2240, h: 11.5, ry: -0.50 },
-  { x: -600, z: 2160, h: 12.5, ry:  0.80 },
-  { x:  720, z: 2040, h:  9.5, ry: -1.20 },
-  { x: -200, z: 1980, h: 11.0, ry:  2.10 },
-  { x:  840, z: 1920, h: 10.0, ry:  0.90 },
-  { x: -680, z: 1880, h: 12.0, ry: -0.80 },
-  { x:  180, z: 1840, h: 10.5, ry:  1.50 },
-  { x:  900, z: 1560, h: 11.5, ry: -0.20 },
-  { x:  960, z: 1200, h: 10.0, ry:  1.80 },
-  { x:  920, z:  840, h: 11.0, ry: -0.40 },
-  { x:  860, z:  440, h: 12.0, ry:  2.20 },
-  { x: -720, z: 1400, h:  9.5, ry: -1.00 },
-  { x: -740, z:  960, h: 11.0, ry:  1.30 },
-  { x: -680, z:  520, h: 10.5, ry:  0.40 },
-  { x:  280, z: -280, h: 10.5, ry:  0.70 },
-  { x: -240, z: -400, h:  9.5, ry: -0.90 },
-  { x:  420, z: -560, h: 11.0, ry:  1.60 },
-  { x:  220, z: 1700, h: 15.0, ry:  0.55 },
-  { x: -300, z: 1560, h: 16.0, ry: -0.75 },
-  { x:  420, z: 1440, h: 14.5, ry:  1.20 },
-  { x: -420, z: 1320, h: 15.5, ry:  2.80 },
-  { x:  140, z: 1160, h: 17.0, ry: -1.40 },
-  { x: -220, z: 1000, h: 14.0, ry:  0.35 },
-  { x:  560, z:  860, h: 15.0, ry: -0.60 },
-  { x: -540, z:  740, h: 16.5, ry:  1.85 },
-  { x:  320, z:  640, h: 15.5, ry:  0.90 },
-  { x: -160, z:  580, h: 14.5, ry: -1.10 },
+  { x:  463, z: 1061, h:14.0, ry:4.51 },
+  { x:  562, z: 1068, h:13.0, ry:1.32 },
+  { x: -400, z: 1334, h:13.0, ry:0.29 },
+  { x:  505, z: 1084, h:13.0, ry:3.79 },
+  { x: -441, z: 2354, h:11.0, ry:5.78 },
+  { x:  346, z: 1001, h:10.0, ry:2.13 },
+  { x: -219, z: 1438, h:16.0, ry:0.24 },
+  { x:  653, z: 1538, h:10.0, ry:3.41 },
+  { x: -796, z:  407, h:13.0, ry:0.19 },
+  { x: -377, z: 2564, h:14.0, ry:3.76 },
+  { x: -749, z: 1082, h:12.0, ry:5.75 },
+  { x: -317, z: 1503, h:14.0, ry:5.20 },
+  { x:  477, z:   89, h:14.0, ry:0.05 },
+  { x:  386, z: 2316, h:11.0, ry:0.96 },
+  { x:  657, z:  411, h:15.0, ry:4.78 },
+  { x: -268, z: 1390, h:11.0, ry:0.91 },
+  { x: -666, z:   62, h:12.0, ry:1.38 },
+  { x: -153, z: -310, h:15.0, ry:2.46 },
+  { x:  238, z: 2020, h:12.0, ry:3.75 },
+  { x: -458, z: 1471, h:16.0, ry:3.53 },
+  { x:  303, z:  896, h:11.0, ry:5.08 },
+  { x:  303, z: 1237, h:15.0, ry:2.10 },
+  { x: -233, z: 2180, h:12.0, ry:5.40 },
+  { x:  603, z:  457, h:15.0, ry:5.77 },
+  { x: -108, z: 1938, h:15.0, ry:3.89 },
+  { x: -812, z:  272, h:16.0, ry:2.29 },
+  { x:  269, z:  621, h:15.0, ry:6.09 },
+  { x:  -98, z: 1695, h:13.0, ry:3.32 },
+  { x:    8, z: 1285, h:13.0, ry:3.32 },
+  { x: -850, z:  517, h:13.0, ry:5.59 },
+  { x: -237, z: 2407, h:12.0, ry:3.96 },
+  { x:  432, z:  -80, h:14.0, ry:2.45 },
+  { x:  561, z:  184, h:13.0, ry:1.80 },
+  { x: -548, z: 1578, h:12.0, ry:1.82 },
+  { x:  531, z:  954, h:12.0, ry:3.65 },
+  { x: -719, z:  620, h:10.0, ry:6.26 },
+];
+
+const JUNGLE_PLACEMENTS: PalmConfig[] = [
+  { x:  -35, z:  562, h:13.0, ry:5.49 },
+  { x:  -53, z:  390, h:14.0, ry:2.58 },
+  { x:  187, z:  546, h:15.0, ry:6.03 },
+  { x: -416, z: -177, h:16.0, ry:5.72 },
+  { x:  192, z:  408, h:15.0, ry:3.63 },
+  { x: -181, z: -277, h:18.0, ry:2.51 },
+  { x:  134, z: -158, h:17.0, ry:5.67 },
+  { x: -489, z:  151, h:19.0, ry:2.83 },
+  { x:   83, z:  253, h:16.0, ry:4.11 },
+  { x: -462, z: -254, h:17.0, ry:3.09 },
+  { x: -270, z: -165, h:20.0, ry:2.83 },
+  { x:  291, z:   31, h:19.0, ry:3.80 },
+  { x: -582, z:  228, h:18.0, ry:0.03 },
+  { x:  263, z:  -38, h:13.0, ry:6.08 },
+  { x: -398, z: -207, h:13.0, ry:0.34 },
+  { x: -369, z:  513, h:17.0, ry:2.13 },
+  { x: -194, z:  547, h:13.0, ry:4.82 },
+  { x:  198, z: -200, h:20.0, ry:6.11 },
+  { x: -551, z:  117, h:16.0, ry:3.16 },
+  { x: -563, z:  -87, h:15.0, ry:1.94 },
+  { x:  -95, z:  684, h:19.0, ry:1.88 },
+  { x:  338, z:  542, h:15.0, ry:1.79 },
+  { x: -297, z:  387, h:17.0, ry:3.02 },
+  { x:  -64, z:  369, h:18.0, ry:5.09 },
+  { x: -145, z: -244, h:19.0, ry:5.56 },
+  { x:  301, z:   61, h:19.0, ry:4.29 },
+  { x:  317, z:    8, h:19.0, ry:5.74 },
+  { x:  283, z:   47, h:20.0, ry:0.92 },
 ];
 
 export const NAV_OBSTACLES: NavObstacle[] = [
-  ...PALM_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 24.0 })),
-  { x:  160, z:  400, radius: 560.0 },
-  { x: 1160, z:    0, radius: 120.0 },
-  { x: TOWN_CX, z: TOWN_CZ, radius: 110.0 },   // township — no zombie spawns inside
+  ...PALM_PLACEMENTS.map((p)   => ({ x: p.x, z: p.z, radius: 20.0 })),
+  ...JUNGLE_PLACEMENTS.map((p) => ({ x: p.x, z: p.z, radius: 20.0 })),
+  { x:    0, z:    0, radius: 600.0 },           // central mountain block
+  { x: 1040, z:    0, radius: 120.0 },           // dock headland
+  { x: TOWN_CX, z: TOWN_CZ, radius: 110.0 },    // township — no zombie spawns inside
 ];
 
 // ─── Biome material factory (richer, more natural palette) ────────────────────
@@ -243,13 +289,22 @@ function JungleTree({ x, z, h = 13.0, ry = 0 }: { x: number; z: number; h?: numb
 // ─── Rock clusters ─────────────────────────────────────────────────────────────
 interface RockConfig { x: number; z: number; s: number; ry: number }
 const ROCK_PLACEMENTS: RockConfig[] = [
-  { x:  440, z: 1600, s: 3.2, ry: 0.4 }, { x: -360, z: 1500, s: 2.5, ry: 1.2 },
-  { x:  700, z: 1240, s: 4.0, ry: 2.1 }, { x: -580, z: 1160, s: 3.0, ry: 0.8 },
-  { x:  260, z:  840, s: 5.5, ry: 1.7 }, { x: -440, z:  740, s: 4.8, ry: 0.3 },
-  { x:  760, z:  560, s: 3.6, ry: 2.8 }, { x: -120, z:  300, s: 2.8, ry: 1.5 },
-  { x:  340, z: -160, s: 6.0, ry: 0.6 }, { x: -300, z: -240, s: 5.2, ry: 2.2 },
-  { x:   80, z: -500, s: 4.4, ry: 1.0 }, { x:  500, z: -700, s: 3.8, ry: 0.2 },
-  { x: -440, z: 2100, s: 2.0, ry: 0.9 }, { x:  620, z: 1960, s: 1.8, ry: 1.6 },
+  { x: -297, z:  194, s:3.6, ry:1.13 },
+  { x: -331, z: -270, s:5.9, ry:2.84 },
+  { x: -375, z:  536, s:3.9, ry:0.31 },
+  { x: -148, z: -104, s:4.2, ry:2.75 },
+  { x: -351, z:  107, s:7.8, ry:2.75 },
+  { x:  154, z:  108, s:3.7, ry:3.95 },
+  { x: -482, z:  294, s:4.0, ry:3.89 },
+  { x: -415, z:  424, s:3.8, ry:4.60 },
+  { x:  -36, z:  373, s:4.4, ry:4.05 },
+  { x: -370, z:  262, s:7.8, ry:2.33 },
+  { x: -125, z: -155, s:4.9, ry:0.65 },
+  { x: -316, z:  394, s:3.5, ry:1.58 },
+  { x: -164, z:  292, s:4.5, ry:1.17 },
+  { x: -540, z: -123, s:7.3, ry:0.51 },
+  { x:  -46, z:  629, s:7.3, ry:4.54 },
+  { x:  155, z:  108, s:4.9, ry:2.93 },
 ];
 function RockCluster({ x, z, s, ry }: RockConfig) {
   const groundY = getIslandHeight(x, z);
@@ -276,16 +331,16 @@ function RockCluster({ x, z, s, ry }: RockConfig) {
 // ─── Ore veins ─────────────────────────────────────────────────────────────────
 interface OreConfig { x: number; z: number; s: number; ry: number; kind: "iron" | "gold" | "coal" }
 const ORE_PLACEMENTS: OreConfig[] = [
-  { x:  360, z: 1360, s: 2.2, ry: 0.5, kind: "iron" },
-  { x: -320, z: 1180, s: 1.8, ry: 1.8, kind: "iron" },
-  { x:  600, z:  700, s: 2.5, ry: 0.9, kind: "iron" },
-  { x: -480, z:  400, s: 2.0, ry: 2.3, kind: "iron" },
-  { x:  200, z: -120, s: 1.9, ry: 0.7, kind: "iron" },
-  { x:  240, z:  640, s: 1.6, ry: 1.3, kind: "gold" },
-  { x: -200, z:  200, s: 1.4, ry: 2.7, kind: "gold" },
-  { x:  760, z: 1720, s: 1.5, ry: 0.2, kind: "coal" },
-  { x: -640, z: 1640, s: 1.7, ry: 1.1, kind: "coal" },
-  { x:  820, z:  320, s: 1.4, ry: 2.0, kind: "coal" },
+  { x: -102, z: -280, s:2.9, ry:5.89, kind: "iron" },
+  { x:  213, z:  452, s:2.3, ry:2.59, kind: "iron" },
+  { x:  245, z:  -35, s:2.0, ry:0.52, kind: "iron" },
+  { x: -540, z:  621, s:2.0, ry:6.26, kind: "iron" },
+  { x: -487, z:  454, s:1.8, ry:1.48, kind: "gold" },
+  { x:  328, z:   59, s:2.0, ry:6.16, kind: "gold" },
+  { x:  252, z:   90, s:2.2, ry:2.91, kind: "coal" },
+  { x: -460, z:  -37, s:1.5, ry:0.79, kind: "coal" },
+  { x: -384, z:  790, s:2.3, ry:5.60, kind: "coal" },
+  { x:    3, z:  449, s:2.8, ry:0.91, kind: "coal" },
 ];
 const ORE_COLORS: Record<string, string> = {
   iron: "#9a5a3a", gold: "#d4a820", coal: "#2a2620",
@@ -311,11 +366,12 @@ function OreVein({ x, z, s, ry, kind }: OreConfig) {
 }
 
 // ─── Hemp plants ───────────────────────────────────────────────────────────────
-const HEMP_POSITIONS: Array<[number, number]> = [
-  [  60, 2320], [-280, 2220], [ 380, 2140], [-520, 2080], [ 660, 2000],
-  [ 880, 1760], [-660, 1720], [ 160, 1680], [ 820, 1400], [-760, 1280],
-  [ 920, 1000], [-700,  840], [ 860,  600], [-620,  480], [ 400,  280],
-  [-340,  200], [ 120, -160], [-160, -360], [ 400, -520],
+const HEMP_POSITIONS: Array<[number,number]> = [
+  [  297, 1123], [ -204, -286], [  -74, 1495], [  313,  735], [ -605, -133],
+  [  341, 1725], [  -35, -312], [  334,  682], [  535, 2242], [  493, 2107],
+  [  441, 1500], [ -270,  876], [   -7, 1768], [ -896,  491], [ -478,  937],
+  [ -632,  685], [  -18, -403], [  504, 1401], [  187, 2426], [ -325, 1042],
+  [  294,  -80], [   93, 1878],
 ];
 function HempPlant({ x, z }: { x: number; z: number }) {
   const groundY = getIslandHeight(x, z);
@@ -346,16 +402,15 @@ function HempPlant({ x, z }: { x: number; z: number }) {
 }
 
 // ─── Wild flowers (improved — fuller petals + stem leaves) ────────────────────
-const FLOWER_DATA: Array<[number, number, string]> = [
-  [  40, 2360, "#e84cc0"], [-320, 2280, "#f2c12e"], [ 460, 2180, "#e84cc0"],
-  [-560, 2120, "#f2c12e"], [ 620, 2020, "#ff5e78"], [-180, 1960, "#f2c12e"],
-  [ 800, 1900, "#e84cc0"], [-660, 1840, "#ff5e78"], [ 220, 1800, "#f2c12e"],
-  [ 920, 1520, "#e84cc0"], [-720, 1380, "#f2c12e"], [ 880,  920, "#ff5e78"],
-  [-700,  600, "#e84cc0"], [ 320,  300, "#f2c12e"], [-260, -300, "#ff5e78"],
-  [ 440, -600, "#e84cc0"],
-  // Extra flowers near township for colour
-  [ 440,  380, "#ffdd00"], [ 360,  220, "#ff7b39"], [ 520,  160, "#e84cc0"],
-  [ 410,  480, "#ffffff"], [ 350,  330, "#ffdd00"],
+const FLOWER_DATA: Array<[number,number,string]> = [
+  [  492, 1703, "#e84cc0"], [  465, 2206, "#f2c12e"], [  608, 2079, "#ff5e78"],
+  [ -466,  898, "#ffffff"], [  -72, 2042, "#ffdd00"], [ -573, 1147, "#ff7b39"],
+  [  177, 1404, "#e84cc0"], [  693,  871, "#f2c12e"], [  793,  395, "#ff5e78"],
+  [ -143, 1250, "#ffffff"], [ -879,  394, "#ffdd00"], [  401, 1386, "#ff7b39"],
+  [  738,  342, "#e84cc0"], [  244, 1107, "#f2c12e"], [  564, 1663, "#ff5e78"],
+  [ -113, 1810, "#ffffff"], [ -962,  614, "#ffdd00"], [ -134, 2314, "#ff7b39"],
+  [  319, 2208, "#e84cc0"], [  276, 1575, "#f2c12e"], [  -51, -350, "#ff5e78"],
+  [  784, 2297, "#ffffff"],
 ];
 function WildFlower({ x, z, color }: { x: number; z: number; color: string }) {
   const groundY = getIslandHeight(x, z);
@@ -1208,17 +1263,106 @@ function IslandGround() {
         <meshStandardMaterial color="#b8955a" roughness={1} metalness={0} />
       </mesh>
 
+      {/* Ocean floor — prevents falling through */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[1200, 0.5, 1200]} position={[0, -40, 0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[3500, 0.5, 3500]} position={[0, -40, 0]} collisionGroups={CG_WORLD} />
       </RigidBody>
 
+      {/* World boundary walls — match 6 km footprint */}
       <RigidBody type="fixed" colliders={false} friction={0.05} restitution={0}>
-        <CuboidCollider args={[1000, 20, 0.5]} position={[    0, 8, -1000]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[1000, 20, 0.5]} position={[    0, 8,  1000]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[0.5, 20, 1000]} position={[-1000, 8,     0]} collisionGroups={CG_WORLD} />
-        <CuboidCollider args={[0.5, 20, 1000]} position={[ 1000, 8,     0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[3000, 200, 0.5]} position={[    0, 8, -3000]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[3000, 200, 0.5]} position={[    0, 8,  3000]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 200, 3000]} position={[-3000, 8,     0]} collisionGroups={CG_WORLD} />
+        <CuboidCollider args={[0.5, 200, 3000]} position={[ 3000, 8,     0]} collisionGroups={CG_WORLD} />
       </RigidBody>
     </>
+  );
+}
+
+// ─── XYZ Grid overlay — always-on for island placement reference ──────────────
+function IslandGrid() {
+  const gridObjects = useMemo(() => {
+    const objs: THREE.LineSegments[] = [];
+    const STEP  = 500;
+    const HALF  = 3000;
+    const Y_OFF = 0.5;
+    const mat   = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.10 });
+
+    // Build one LineSegments with all grid lines for performance
+    const positions: number[] = [];
+    for (let z = -HALF; z <= HALF; z += STEP) {
+      positions.push(-HALF, Y_OFF, z,  HALF, Y_OFF, z);
+    }
+    for (let x = -HALF; x <= HALF; x += STEP) {
+      positions.push(x, Y_OFF, -HALF,  x, Y_OFF, HALF);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    objs.push(new THREE.LineSegments(geo, mat));
+    return objs;
+  }, []);
+
+  // Axis arrows built with Line primitives
+  const axes = useMemo(() => {
+    const Y = 2;
+    const LEN = 80;
+    const makeLine = (dir: [number,number,number], color: number) => {
+      const geo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, Y, 0),
+        new THREE.Vector3(dir[0]*LEN, Y+dir[1]*LEN, dir[2]*LEN),
+      ]);
+      return new THREE.Line(geo, new THREE.LineBasicMaterial({ color }));
+    };
+    return [
+      makeLine([1,0,0], 0xff2222),   // +X red
+      makeLine([0,1,0], 0x22ff22),   // +Y green
+      makeLine([0,0,1], 0x2266ff),   // +Z blue
+    ];
+  }, []);
+
+  return (
+    <group>
+      {gridObjects.map((obj, i) => <primitive key={i} object={obj} />)}
+      {axes.map((obj, i)        => <primitive key={`ax-${i}`} object={obj} />)}
+    </group>
+  );
+}
+
+// ─── Spawner marker — glowing pillar of light ─────────────────────────────────
+function SpawnerMarker({ x, z, label = "SPAWN" }: { x: number; z: number; label?: string }) {
+  const gY    = getIslandHeight(x, z);
+  const pulse = useRef(0);
+  const ringRef = useRef<THREE.Mesh>(null!);
+
+  useFrame(({ clock }) => {
+    pulse.current = clock.elapsedTime;
+    if (ringRef.current) {
+      ringRef.current.rotation.y = pulse.current * 0.8;
+      ringRef.current.scale.setScalar(1 + Math.sin(pulse.current * 2.4) * 0.08);
+    }
+  });
+
+  return (
+    <group position={[x, gY, z]}>
+      {/* Ground ring */}
+      <mesh ref={ringRef} rotation-x={-Math.PI / 2} position={[0, 0.1, 0]}>
+        <ringGeometry args={[3.0, 4.2, 32]} />
+        <meshStandardMaterial color="#00ff88" emissive={new THREE.Color("#00ff88")}
+          emissiveIntensity={2.5} transparent opacity={0.80} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Vertical light beam */}
+      <mesh position={[0, 60, 0]}>
+        <cylinderGeometry args={[0.6, 1.8, 120, 8, 1, true]} />
+        <meshStandardMaterial color="#00ff88" emissive={new THREE.Color("#00ff88")}
+          emissiveIntensity={1.5} transparent opacity={0.18} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Top orb */}
+      <mesh position={[0, 120, 0]}>
+        <sphereGeometry args={[2.5, 10, 8]} />
+        <meshStandardMaterial color="#ffffff" emissive={new THREE.Color("#00ff88")}
+          emissiveIntensity={4.0} transparent opacity={0.92} />
+      </mesh>
+    </group>
   );
 }
 
@@ -1271,29 +1415,38 @@ export function PirateIsland() {
 
       {heightsReady && (
         <>
-          {/* Trees */}
+          {/* XYZ world-space grid — always visible for placement reference */}
+          <IslandGrid />
+
+          {/* Spawner marker — at town center (east-shore safe zone) */}
+          <SpawnerMarker x={TOWN_CX} z={TOWN_CZ} label="TOWN SPAWN" />
+
+          {/* Beach & coastal palm trees */}
           <Suspense fallback={null}>
-            {PALM_PLACEMENTS.map((p, i) =>
-              p.h >= 13 ? (
-                <JungleTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
-              ) : (
-                <PalmTree key={i} x={p.x} z={p.z} h={p.h} ry={p.ry} />
-              )
-            )}
+            {PALM_PLACEMENTS.map((p, i) => (
+              <PalmTree key={`palm-${i}`} x={p.x} z={p.z} h={p.h} ry={p.ry} />
+            ))}
+          </Suspense>
+
+          {/* Jungle / highland trees on mid-slopes */}
+          <Suspense fallback={null}>
+            {JUNGLE_PLACEMENTS.map((p, i) => (
+              <JungleTree key={`jtree-${i}`} x={p.x} z={p.z} h={p.h} ry={p.ry} />
+            ))}
           </Suspense>
 
           {/* Rocks */}
-          {ROCK_PLACEMENTS.map((r, i) => <RockCluster key={i} {...r} />)}
+          {ROCK_PLACEMENTS.map((r, i) => <RockCluster key={`rock-${i}`} {...r} />)}
 
-          {/* Ores */}
-          {ORE_PLACEMENTS.map((o, i) => <OreVein key={i} {...o} />)}
+          {/* Ore veins */}
+          {ORE_PLACEMENTS.map((o, i) => <OreVein key={`ore-${i}`} {...o} />)}
 
-          {/* Hemp */}
-          {HEMP_POSITIONS.map(([x, z], i) => <HempPlant key={i} x={x} z={z} />)}
+          {/* Hemp plants */}
+          {HEMP_POSITIONS.map(([x, z], i) => <HempPlant key={`hemp-${i}`} x={x} z={z} />)}
 
           {/* Wild flowers */}
           {FLOWER_DATA.map(([x, z, color], i) => (
-            <WildFlower key={i} x={x} z={z} color={color} />
+            <WildFlower key={`flower-${i}`} x={x} z={z} color={color} />
           ))}
 
           {/* Dock */}
@@ -1301,7 +1454,7 @@ export function PirateIsland() {
             <Dock />
           </Suspense>
 
-          {/* ── Pirate township + wildlife ──────────────────────────────── */}
+          {/* Pirate township + wildlife */}
           <Suspense fallback={null}>
             <PirateVillage />
           </Suspense>
