@@ -1,23 +1,17 @@
 /**
  * PirateIsland — Genesis Island map for Racalvin the Pirate King.
  *
- * Visual terrain: genesis_island.glb (converted from Terrain_1774999201051.fbx)
- * Physics:        Rapier HeightfieldCollider built from baked mesh heights
- * Pathfinding:    NavGrid 100×100 cells @ 2 m/cell over 200 m footprint
+ * Visual terrain: PlaneGeometry(6000, 6000, 63, 63) displaced from heights.bin.
+ *   Shares EXACT same data as the Rapier HeightfieldCollider → zero drift.
+ * Physics:        HeightfieldCollider from genesis_island_heights.bin (64×64).
+ * Scale:          GENESIS_TERRAIN_SIZE=6000 m, GENESIS_HEIGHT_SCALE=10×.
  *
- * Coordinate system: 1 Three.js unit = 1 metre.
- * Island footprint: 6000 m × 6000 m (centred on origin).
- * Height range: 0 m (shoreline / ocean level) → ~1280 m (peak, after 10× scale).
- *
- * Conversion constants (FBX cm → game metres):
- *   GLB_SCALE_Y  = 2.5e-3  (Y only, 10× the raw 2.5e-4 to give volcano peaks)
- *   GLB_SCALE_XZ = 7.5e-3  (X/Z, 30× for 6000 m footprint)
- *   GLB_OFFSET_Y = 721.05  (aligns visual mesh min with physics ground = 0)
+ * heights.bin values: raw 0..128.3 m → world 0..1283 m after ×10.
+ * Sea level = world Y 0. Physics and visual both use this origin.
  */
 
 import { Suspense, useMemo, useRef, useState, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
-import { useGLTF } from "@react-three/drei";
 import { RigidBody, CuboidCollider, HeightfieldCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import {
@@ -32,34 +26,24 @@ import {
 import { CG_WORLD } from "./CollisionLayers";
 import type { NavObstacle } from "./NavGrid";
 
-// ── GLB alignment constants ─────────────────────────────────────────────────────
-// The source FBX uses cm units; 1 unit = 0.01 m = raw scale 2.5e-4 after /40 export.
-// 6000 m footprint = 30× horizontal expansion.
-// GLB alignment — measured from actual genesis_island.glb bounding box:
-//   raw bounds  X: -390000 … 410000   center.x =  10000
-//               Z: -410000 … 390000   center.z = -10000
-//               Y: -798963 … 225768   sea-level raw_y = 0
-// At suggestedScale = 2.5e-4, raw center = (2.5 m, −2.5 m) in 200 m world space.
-// With the 30× island stretch:
-//   GLB_OFFSET_X = -(2.5 × 30) = −75 m   → mesh spans exactly −3000 … +3000 in X
-//   GLB_OFFSET_Z = +(2.5 × 30) = +75 m   → mesh spans exactly −3000 … +3000 in Z
-//   GLB_OFFSET_Y = 0                      → raw_y=0 (sea level) maps to world Y=0,
-//                                            matching the Rapier heightfield (min=0).
-const GLB_RAW_SCALE    = 2.5e-4;
-const GLB_SCALE_XZ     = GLB_RAW_SCALE * 30;                     // 7.5e-3 → 6000 m footprint
-const GLB_SCALE_Y      = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE;   // 2.5e-3 → 10× height
-const GLB_OFFSET_X     = -10000 * GLB_SCALE_XZ;                  // −75 m   (centres mesh in X)
-const GLB_OFFSET_Z     =  10000 * GLB_SCALE_XZ;                  //  +75 m  (centres mesh in Z)
-const GLB_OFFSET_Y     = 0;                                       // sea level = world Y 0
-
-// Biome height thresholds (world metres, after 10× GENESIS_HEIGHT_SCALE)
-// Raw binary max = 128.3 → world max ≈ 1283 m
-const H_BEACH   =   25;   // 0–25 m  : sandy beach
-const H_GRASS   =  100;   // 25–100 m: coastal grass
-const H_JUNGLE  =  400;   // 100–400 m: dense jungle
-const H_FOREST  =  750;   // 400–750 m: highland forest
+// ── Biome height thresholds (world metres, GENESIS_HEIGHT_SCALE=10×) ───────────
+// heights.bin raw max ≈ 128.3 → world max ≈ 1283 m
+const H_BEACH   =   25;   // 0–25 m    : sandy beach
+const H_GRASS   =  100;   // 25–100 m  : coastal grass
+const H_JUNGLE  =  400;   // 100–400 m : dense jungle
+const H_FOREST  =  750;   // 400–750 m : highland forest
 const H_ROCK    = 1100;   // 750–1100 m: bare rock
-                           // 1100+ m: snow/ice peak
+                           // 1100+ m   : snow / ice peak
+
+/** Return a THREE.Color for a given world-Y height. */
+function getBiomeColor(worldY: number): THREE.Color {
+  if (worldY < H_BEACH)  return new THREE.Color("#C89A3E");
+  if (worldY < H_GRASS)  return new THREE.Color("#3AAA28");
+  if (worldY < H_JUNGLE) return new THREE.Color("#1D7818");
+  if (worldY < H_FOREST) return new THREE.Color("#3D6B40");
+  if (worldY < H_ROCK)   return new THREE.Color("#7A6E62");
+  return new THREE.Color("#D0C8BA");
+}
 
 // ── Township location — east shore, inland from dock (x=1040, z=0) ────────────
 export const TOWN_CX       = 760;
@@ -81,6 +65,32 @@ const TORCH_ORG   = "#FF8000";
 
 // ── Start fetching the height binary as soon as this module loads ─────────────
 preloadGenesisHeights();
+
+/**
+ * Returns an array of valid enemy/player spawn positions on land.
+ * Built lazily from heights.bin on first call (after it is loaded).
+ * Positions: 2-60 m world height (beach + low grass), ≥ 250 m from island centre.
+ */
+let _spawnPool: Array<[number, number]> | null = null;
+export function getIslandSpawnPool(): Array<[number, number]> {
+  if (_spawnPool) return _spawnPool;
+  const pool: Array<[number, number]> = [];
+  const HALF = GENESIS_TERRAIN_SIZE / 2;
+  const STEP = GENESIS_TERRAIN_SIZE / GENESIS_TERRAIN_SEGS;
+  for (let iz = 0; iz <= GENESIS_TERRAIN_SEGS; iz++) {
+    for (let ix = 0; ix <= GENESIS_TERRAIN_SEGS; ix++) {
+      const wx = -HALF + ix * STEP;
+      const wz = -HALF + iz * STEP;
+      const h  = getIslandHeight(wx, wz);
+      // Valid spawn: above sea, below jungle canopy, away from island centre (0,0)
+      if (h > 2 && h < 60 && (wx * wx + wz * wz) > 250 * 250) {
+        pool.push([wx, wz]);
+      }
+    }
+  }
+  _spawnPool = pool;
+  return pool;
+}
 
 // ─── Nav obstacles (A* avoidance) ─────────────────────────────────────────────
 interface PalmConfig { x: number; z: number; h: number; ry: number }
@@ -165,61 +175,6 @@ export const NAV_OBSTACLES: NavObstacle[] = [
   { x: TOWN_CX, z: TOWN_CZ, radius: 110.0 },    // township — no zombie spawns inside
 ];
 
-// ─── Biome material factory (richer, more natural palette) ────────────────────
-function biomeMaterial(worldY: number, idx: number): THREE.MeshStandardMaterial {
-  const polyFactor = 1 + (idx % 8);
-
-  // Subtle hue jitter — every 3 meshes at same biome gets a slightly different tone
-  const hueShift = (idx % 3) * 0.018;
-
-  function tinted(hex: string, shift: number): THREE.Color {
-    const c = new THREE.Color(hex);
-    c.r = Math.min(1, c.r + shift);
-    c.g = Math.min(1, c.g + shift * 0.5);
-    return c;
-  }
-
-  if (worldY < H_BEACH) {
-    return new THREE.MeshStandardMaterial({
-      color: tinted("#C8993A", hueShift * 0.8),
-      roughness: 0.90, metalness: 0.01,
-      polygonOffset: true, polygonOffsetFactor: polyFactor, polygonOffsetUnits: polyFactor,
-    });
-  }
-  if (worldY < H_GRASS) {
-    return new THREE.MeshStandardMaterial({
-      color: tinted("#3AAA28", -hueShift * 0.3),
-      roughness: 0.82, metalness: 0.01,
-      polygonOffset: true, polygonOffsetFactor: polyFactor, polygonOffsetUnits: polyFactor,
-    });
-  }
-  if (worldY < H_JUNGLE) {
-    return new THREE.MeshStandardMaterial({
-      color: tinted("#1D7818", hueShift * 0.2),
-      roughness: 0.88, metalness: 0.01,
-      polygonOffset: true, polygonOffsetFactor: polyFactor, polygonOffsetUnits: polyFactor,
-    });
-  }
-  if (worldY < H_FOREST) {
-    return new THREE.MeshStandardMaterial({
-      color: tinted("#3D6B40", -hueShift * 0.2),
-      roughness: 0.93, metalness: 0.01,
-      polygonOffset: true, polygonOffsetFactor: polyFactor, polygonOffsetUnits: polyFactor,
-    });
-  }
-  if (worldY < H_ROCK) {
-    return new THREE.MeshStandardMaterial({
-      color: tinted("#7A6E62", hueShift),
-      roughness: 0.97, metalness: 0.02,
-      polygonOffset: true, polygonOffsetFactor: polyFactor, polygonOffsetUnits: polyFactor,
-    });
-  }
-  return new THREE.MeshStandardMaterial({
-    color: tinted("#D8CFC0", hueShift * 0.3),   // snow/ice peak
-    roughness: 0.80, metalness: 0.04,
-    polygonOffset: true, polygonOffsetFactor: polyFactor, polygonOffsetUnits: polyFactor,
-  });
-}
 
 // ─── Palm tree ─────────────────────────────────────────────────────────────────
 const LEAF_ANGLES = [0, 51, 103, 154, 205, 257, 308];
@@ -1142,7 +1097,7 @@ const PLANK_COUNT   = 18;
 const DOCK_START_X  = 1040;
 const DOCK_Z        =    0;
 const PLANK_SPACING = 22.0;
-const OCEAN_Y       = -0.40;
+const OCEAN_Y       = 0;   // physics sea level = world Y 0
 
 function Dock() {
   const planks = useMemo(() => {
@@ -1197,35 +1152,46 @@ function Dock() {
   );
 }
 
-// ─── GLB terrain visual ────────────────────────────────────────────────────────
-function TerrainModel() {
-  const { scene } = useGLTF("/models/genesis_island.glb") as any;
+// ─── Heightmap terrain visual ──────────────────────────────────────────────────
+// Built directly from heights.bin so physics and visual share IDENTICAL data.
+// No GLB scale/offset mismatch — if a player stands on physics ground,
+// they stand exactly on the rendered surface.
+function IslandTerrain({ ready }: { ready: boolean }) {
+  const geometry = useMemo(() => {
+    if (!ready) return null;
+    const SEGS = GENESIS_TERRAIN_SEGS; // 63 quads → 64 vertices per axis
+    const SIZE = GENESIS_TERRAIN_SIZE; // 6000 m
 
-  const clone = useMemo(() => {
-    const c = scene.clone(true);
-    let meshIdx = 0;
-    c.traverse((obj: THREE.Object3D) => {
-      if (!(obj as THREE.Mesh).isMesh) return;
-      const mesh = obj as THREE.Mesh;
-      mesh.castShadow    = true;
-      mesh.receiveShadow = true;
-      mesh.geometry.computeBoundingBox();
-      const bbox    = mesh.geometry.boundingBox ?? new THREE.Box3();
-      const localCY = (bbox.min.y + bbox.max.y) * 0.5 + mesh.position.y;
-      const worldY  = localCY * GLB_SCALE_Y + GLB_OFFSET_Y;
-      const idx = meshIdx++;
-      mesh.material = biomeMaterial(worldY, idx);
-    });
-    return c;
-  }, [scene]);
+    const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEGS, SEGS);
+    // Rotate from XY plane → XZ plane (Y-up terrain)
+    geo.rotateX(-Math.PI / 2);
+
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    const colors = new Float32Array(pos.count * 3);
+
+    for (let i = 0; i < pos.count; i++) {
+      const wx = pos.getX(i);
+      const wz = pos.getZ(i);
+      const h  = getIslandHeight(wx, wz);
+      pos.setY(i, h);
+      const col = getBiomeColor(h);
+      colors[i * 3]     = col.r;
+      colors[i * 3 + 1] = col.g;
+      colors[i * 3 + 2] = col.b;
+    }
+
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    geo.computeVertexNormals();
+    return geo;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  if (!geometry) return null;
 
   return (
-    <group
-      position={[GLB_OFFSET_X, GLB_OFFSET_Y, GLB_OFFSET_Z]}
-      scale={[GLB_SCALE_XZ, GLB_SCALE_Y, GLB_SCALE_XZ]}
-    >
-      <primitive object={clone} />
-    </group>
+    <mesh geometry={geometry} receiveShadow castShadow>
+      <meshStandardMaterial vertexColors roughness={0.88} metalness={0} />
+    </mesh>
   );
 }
 
@@ -1287,94 +1253,7 @@ function IslandGround() {
   );
 }
 
-// ─── XYZ Grid overlay — always-on for island placement reference ──────────────
-function IslandGrid() {
-  const gridObjects = useMemo(() => {
-    const objs: THREE.LineSegments[] = [];
-    const STEP  = 500;
-    const HALF  = 3000;
-    const Y_OFF = 0.5;
-    const mat   = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.10 });
-
-    // Build one LineSegments with all grid lines for performance
-    const positions: number[] = [];
-    for (let z = -HALF; z <= HALF; z += STEP) {
-      positions.push(-HALF, Y_OFF, z,  HALF, Y_OFF, z);
-    }
-    for (let x = -HALF; x <= HALF; x += STEP) {
-      positions.push(x, Y_OFF, -HALF,  x, Y_OFF, HALF);
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    objs.push(new THREE.LineSegments(geo, mat));
-    return objs;
-  }, []);
-
-  // Axis arrows built with Line primitives
-  const axes = useMemo(() => {
-    const Y = 2;
-    const LEN = 80;
-    const makeLine = (dir: [number,number,number], color: number) => {
-      const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, Y, 0),
-        new THREE.Vector3(dir[0]*LEN, Y+dir[1]*LEN, dir[2]*LEN),
-      ]);
-      return new THREE.Line(geo, new THREE.LineBasicMaterial({ color }));
-    };
-    return [
-      makeLine([1,0,0], 0xff2222),   // +X red
-      makeLine([0,1,0], 0x22ff22),   // +Y green
-      makeLine([0,0,1], 0x2266ff),   // +Z blue
-    ];
-  }, []);
-
-  return (
-    <group>
-      {gridObjects.map((obj, i) => <primitive key={i} object={obj} />)}
-      {axes.map((obj, i)        => <primitive key={`ax-${i}`} object={obj} />)}
-    </group>
-  );
-}
-
-// ─── Spawner marker — glowing pillar of light ─────────────────────────────────
-function SpawnerMarker({ x, z, label = "SPAWN" }: { x: number; z: number; label?: string }) {
-  const gY    = getIslandHeight(x, z);
-  const pulse = useRef(0);
-  const ringRef = useRef<THREE.Mesh>(null!);
-
-  useFrame(({ clock }) => {
-    pulse.current = clock.elapsedTime;
-    if (ringRef.current) {
-      ringRef.current.rotation.y = pulse.current * 0.8;
-      ringRef.current.scale.setScalar(1 + Math.sin(pulse.current * 2.4) * 0.08);
-    }
-  });
-
-  return (
-    <group position={[x, gY, z]}>
-      {/* Ground ring */}
-      <mesh ref={ringRef} rotation-x={-Math.PI / 2} position={[0, 0.1, 0]}>
-        <ringGeometry args={[3.0, 4.2, 32]} />
-        <meshStandardMaterial color="#00ff88" emissive={new THREE.Color("#00ff88")}
-          emissiveIntensity={2.5} transparent opacity={0.80} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Vertical light beam */}
-      <mesh position={[0, 60, 0]}>
-        <cylinderGeometry args={[0.6, 1.8, 120, 8, 1, true]} />
-        <meshStandardMaterial color="#00ff88" emissive={new THREE.Color("#00ff88")}
-          emissiveIntensity={1.5} transparent opacity={0.18} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Top orb */}
-      <mesh position={[0, 120, 0]}>
-        <sphereGeometry args={[2.5, 10, 8]} />
-        <meshStandardMaterial color="#ffffff" emissive={new THREE.Color("#00ff88")}
-          emissiveIntensity={4.0} transparent opacity={0.92} />
-      </mesh>
-    </group>
-  );
-}
-
-// ─── Animated ocean ────────────────────────────────────────────────────────────
+// ─── Animated ocean — sits at world Y=0 (physics sea level) ──────────────────
 function Ocean() {
   const matRef  = useRef<THREE.MeshStandardMaterial>(null!);
   const meshRef = useRef<THREE.Mesh>(null!);
@@ -1382,16 +1261,18 @@ function Ocean() {
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     if (matRef.current) matRef.current.roughness = 0.07 + Math.sin(t * 0.35) * 0.03;
-    if (meshRef.current) meshRef.current.position.y = OCEAN_Y + Math.sin(t * 0.28) * 0.01;
+    if (meshRef.current) meshRef.current.position.y = Math.sin(t * 0.28) * 0.02;
   });
 
   return (
     <>
-      <mesh ref={meshRef} rotation-x={-Math.PI / 2} position={[0, OCEAN_Y, 0]} receiveShadow>
+      {/* Main ocean plane — sits exactly at physics sea level Y=0 */}
+      <mesh ref={meshRef} rotation-x={-Math.PI / 2} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[60000, 60000, 1, 1]} />
         <meshStandardMaterial ref={matRef} color="#005f73" metalness={0.28} roughness={0.08} />
       </mesh>
-      <mesh rotation-x={-Math.PI / 2} position={[0, OCEAN_Y + 0.01, 0]}>
+      {/* Shallow shore glow ring */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.01, 0]}>
         <ringGeometry args={[700, 920, 96]} />
         <meshStandardMaterial color="#0a8f9e" transparent opacity={0.45}
           metalness={0.1} roughness={0.15} />
@@ -1413,21 +1294,17 @@ export function PirateIsland() {
 
   return (
     <group>
+      {/* Physics collider + skirt geometry */}
       <IslandGround />
 
-      <Suspense fallback={null}>
-        <TerrainModel />
-      </Suspense>
+      {/* Visual terrain — built from same heights.bin as physics */}
+      <IslandTerrain ready={heightsReady} />
 
+      {/* Ocean at world Y=0 = physics sea level */}
       <Ocean />
 
       {heightsReady && (
         <>
-          {/* XYZ world-space grid — always visible for placement reference */}
-          <IslandGrid />
-
-          {/* Spawner marker — at town center (east-shore safe zone) */}
-          <SpawnerMarker x={TOWN_CX} z={TOWN_CZ} label="TOWN SPAWN" />
 
           {/* Beach & coastal palm trees */}
           <Suspense fallback={null}>
@@ -1472,4 +1349,3 @@ export function PirateIsland() {
   );
 }
 
-useGLTF.preload("/models/genesis_island.glb");

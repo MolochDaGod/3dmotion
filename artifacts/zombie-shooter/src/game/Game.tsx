@@ -15,7 +15,7 @@ import { getIslandHeight, getTerrainHeight, GENESIS_TERRAIN_SIZE, isGenesisHeigh
 import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
-import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES } from "./PirateIsland";
+import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES, getIslandSpawnPool } from "./PirateIsland";
 import { Airship, AIRSHIP_SPAWN_POS, AIRSHIP_GONDOLA_DECK_Y } from "./Airship";
 import { Graveyard,   NAV_OBSTACLES as GRAVEYARD_NAV_OBSTACLES } from "./Graveyard";
 import { NavWorkerProvider } from "./NavWorkerContext";
@@ -68,22 +68,14 @@ const MELEE_RANGE       = 2.6;
 const MELEE_DAMAGE      = 80;
 const MELEE_ARC_DOT     = 0.35;
 
-// Genesis Island (12000 m footprint — 2× scale) — player spawns at north beach (0, _, 2190).
-// Island land mass (2× binary map): x ≈ -800→+1240, z ≈ -860→+2580.
-// Zombies emerge from the sea just outside the coastline on all four sides and wade ashore.
-const ISLAND_SPAWN: [number, number, number][] = [
-  // North coast — just beyond the beach
-  [    0, 0,  3200], [ 1000, 0,  3100], [-1000, 0,  3100],
-  // NE / NW coast flanks
-  [ 1800, 0,  2400], [-1800, 0,  2400],
-  // East coast — wade in from the east
-  [ 1900, 0,  1200], [ 1800, 0,   200], [ 1700, 0,  -400],
-  // West coast — mirror flanks
-  [-1900, 0,  1200], [-1800, 0,   200], [-1700, 0,  -400],
-  // South — through the jungle from below
-  [    0, 0, -1400], [  900, 0, -1300], [ -900, 0, -1300],
-  // Far south pressure
-  [  400, 0, -1800], [ -400, 0, -1800],
+// Genesis Island zombie spawn positions: lazy-built from heights.bin (2–60 m land).
+// Falls back to a hardcoded coastal ring if heights.bin isn't loaded yet.
+const ISLAND_SPAWN_FALLBACK: [number, number, number][] = [
+  [    0, 0,  2800], [ 1000, 0,  2600], [-1000, 0,  2600],
+  [ 1800, 0,  2000], [-1800, 0,  2000],
+  [ 1800, 0,   200], [ 1800, 0,  -400],
+  [-1800, 0,   200], [-1800, 0,  -400],
+  [    0, 0, -1200], [  900, 0, -1100], [ -900, 0, -1100],
 ];
 // Graveyard: flat centre, spawns ring at ~20–28 m radius
 const GRAVEYARD_SPAWN: [number, number, number][] = [
@@ -99,7 +91,11 @@ function spawnZombie(wave: number): ZombieData {
   const customPool = isIsland
     ? useGameStore.getState().customSpawners.map(([sx, sz]) => [sx, 0, sz] as [number, number, number])
     : [];
-  const pool = isIsland ? [...ISLAND_SPAWN, ...customPool] : GRAVEYARD_SPAWN;
+  // Use heights.bin-derived positions once loaded; fallback to hardcoded coastal ring
+  const islandBase = isGenesisHeightsLoaded()
+    ? getIslandSpawnPool().map(([sx, sz]) => [sx, 0, sz] as [number, number, number])
+    : ISLAND_SPAWN_FALLBACK;
+  const pool = isIsland ? [...islandBase, ...customPool] : GRAVEYARD_SPAWN;
   const getH = isIsland ? getIslandHeight : getTerrainHeight;
   const pos = pool[Math.floor(Math.random() * pool.length)];
   const jitter = () => (Math.random() - 0.5) * 4;
