@@ -16,7 +16,7 @@ import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
 import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES } from "./PirateIsland";
-import { Airship } from "./Airship";
+import { Airship, AIRSHIP_SPAWN_POS } from "./Airship";
 import { Graveyard,   NAV_OBSTACLES as GRAVEYARD_NAV_OBSTACLES } from "./Graveyard";
 import { NavWorkerProvider } from "./NavWorkerContext";
 import { useCharacterStore } from "./useCharacterStore";
@@ -174,6 +174,15 @@ function SceneContent({
   }, [islandReady, isGraveyard]);
 
   const canSpawn = isGraveyard || islandReady;
+
+  // ── Trigger drop phase when island player is about to mount ──────────────
+  useEffect(() => {
+    if (canSpawn && !isGraveyard) {
+      useGameStore.getState().setDropPhase(true);
+      useGameStore.getState().setPlayerAltitude(AIRSHIP_SPAWN_POS[1]);
+    }
+  }, [canSpawn, isGraveyard]);
+
   const navObstacles = isGraveyard ? GRAVEYARD_NAV_OBSTACLES : ISLAND_NAV_OBSTACLES;
   const activeMap    = isGraveyard ? "graveyard" : "island";
 
@@ -242,7 +251,7 @@ function SceneContent({
               waterY={isGraveyard ? undefined : 0}
               spawnPos={isGraveyard
                 ? [0, getTerrainHeight(0, 0) + 5, 0]
-                : [760, getIslandHeight(760, 100) + 20, 100]}
+                : AIRSHIP_SPAWN_POS}
             />
           )}
 

@@ -101,6 +101,12 @@ interface GameStore {
   setSkillCooldown:   (id: string, cd: number) => void;
   tickSkillCooldowns: (dt: number) => void;
 
+  // ── Battle-royale drop phase ───────────────────────────────────────────────
+  dropPhase:        boolean;
+  playerAltitude:   number;
+  setDropPhase:     (v: boolean) => void;
+  setPlayerAltitude:(v: number) => void;
+
   // ── Minimap ────────────────────────────────────────────────────────────────
   showMinimap:            boolean;
   setShowMinimap:         (v: boolean) => void;
@@ -256,6 +262,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     return changed ? { skillCooldowns: next } : s;
   }),
+
+  // ── Battle-royale drop phase ─────────────────────────────────────────────────
+  dropPhase:         false,
+  playerAltitude:    0,
+  setDropPhase:      (v) => set({ dropPhase: v }),
+  setPlayerAltitude: (v) => set({ playerAltitude: v }),
 
   // ── Minimap ─────────────────────────────────────────────────────────────────
   showMinimap:            false,

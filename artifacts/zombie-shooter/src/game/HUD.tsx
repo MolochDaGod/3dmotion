@@ -401,6 +401,7 @@ export function HUD() {
     skillCooldowns,
     isPaused,
     meleeBlocking,
+    dropPhase, playerAltitude,
   } = useGameStore();
 
   const selectedSpellDef = SPELLS.find((s) => s.id === selectedSpell);
@@ -429,6 +430,72 @@ export function HUD() {
   return (
     <>
       <MinimapPanel />
+
+      {/* ── FREEFALL / DROP PHASE HUD ─────────────────────────────────────── */}
+      {dropPhase && (
+        <div style={{
+          position:       "fixed",
+          top:            0, left: 0, right: 0, bottom: 0,
+          pointerEvents:  "none",
+          zIndex:         50,
+          display:        "flex",
+          flexDirection:  "column",
+          alignItems:     "center",
+        }}>
+          {/* Altitude banner */}
+          <div style={{
+            marginTop:      "12vh",
+            textAlign:      "center",
+            fontFamily:     "monospace",
+            color:          "#FFD700",
+            textShadow:     "0 0 24px #FFD700aa, 0 2px 8px #000",
+            letterSpacing:  6,
+          }}>
+            <div style={{ fontSize: 11, color: "#aaa", letterSpacing: 4, marginBottom: 2 }}>ALTITUDE</div>
+            <div style={{ fontSize: 52, fontWeight: "bold", lineHeight: 1 }}>
+              {Math.round(playerAltitude).toLocaleString()}
+              <span style={{ fontSize: 18, fontWeight: "normal", marginLeft: 6, color: "#aaa" }}>m</span>
+            </div>
+          </div>
+
+          {/* Drop indicator */}
+          <div style={{
+            marginTop:      16,
+            padding:        "6px 22px",
+            background:     "rgba(0,0,0,0.55)",
+            border:         "1px solid rgba(255,215,0,0.3)",
+            borderRadius:   4,
+            fontFamily:     "monospace",
+            fontSize:       11,
+            letterSpacing:  3,
+            color:          "#FFD700cc",
+            textTransform:  "uppercase",
+          }}>
+            ⟱ FREEFALL
+          </div>
+
+          {/* Controls hint */}
+          <div style={{
+            marginTop:    10,
+            fontFamily:   "monospace",
+            fontSize:     10,
+            color:        "#666",
+            letterSpacing: 2,
+            textAlign:    "center",
+          }}>
+            WASD — Steer
+          </div>
+
+          {/* Edge vignette — wind effect */}
+          <div style={{
+            position:    "absolute",
+            inset:       0,
+            background:  "radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%)",
+            pointerEvents: "none",
+          }} />
+        </div>
+      )}
+
       {showCharacterPanel && <CharacterPanel />}
       {showCameraSettings && !showCharacterPanel && <CameraSettingsPanel />}
 

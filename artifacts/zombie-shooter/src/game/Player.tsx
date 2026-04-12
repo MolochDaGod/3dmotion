@@ -759,7 +759,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
 
   // Velocity smoothing — eliminates rubber-band jitter on start/stop/direction change.
   // Stores the current smoothed horizontal velocity (m/s); updated via exponential decay.
-  const smoothVelRef = useRef(new THREE.Vector3(0, 0, 0));
+  const smoothVelRef  = useRef(new THREE.Vector3(0, 0, 0));
+  const dropVelRef    = useRef(new THREE.Vector3(0, 0, 0)); // freefall velocity (m/s)
 
   // Smooth camera world-space position — lerped toward the ideal shoulder offset
   // each frame so physics jitter / Rapier corrections never snap the view.
@@ -2083,6 +2084,64 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
       // Keep the mixer ticking so the death animation plays through
       mixerRef.current?.update(delta);
       return;
+    }
+
+    // ── DROP PHASE — battle-royale freefall ──────────────────────────────────
+    if (gs.dropPhase) {
+      // Accumulate downward gravity
+      dropVelRef.current.y -= 42 * delta;
+      dropVelRef.current.y  = Math.max(dropVelRef.current.y, -120); // terminal velocity
+
+      // WASD steers horizontally relative to look direction
+      const steerA = 24 * delta;
+      const hx =  -Math.sin(yaw.current);
+      const hz =  -Math.cos(yaw.current);
+      const rx =   Math.cos(yaw.current);
+      const rz =  -Math.sin(yaw.current);
+      if (keys.current["KeyW"] || keys.current["ArrowUp"])    { dropVelRef.current.x += hx * steerA; dropVelRef.current.z += hz * steerA; }
+      if (keys.current["KeyS"] || keys.current["ArrowDown"])  { dropVelRef.current.x -= hx * steerA; dropVelRef.current.z -= hz * steerA; }
+      if (keys.current["KeyA"] || keys.current["ArrowLeft"])  { dropVelRef.current.x -= rx * steerA; dropVelRef.current.z -= rz * steerA; }
+      if (keys.current["KeyD"] || keys.current["ArrowRight"]) { dropVelRef.current.x += rx * steerA; dropVelRef.current.z += rz * steerA; }
+
+      // Horizontal speed cap + light drag
+      const hspd = Math.sqrt(dropVelRef.current.x ** 2 + dropVelRef.current.z ** 2);
+      if (hspd > 50) { const f = 50 / hspd; dropVelRef.current.x *= f; dropVelRef.current.z *= f; }
+      dropVelRef.current.x *= 1 - 0.6 * delta;
+      dropVelRef.current.z *= 1 - 0.6 * delta;
+
+      // Apply to kinematic rigid body
+      if (playerRBRef.current && !rapierPanicked.current) {
+        const pos = playerRBRef.current.translation();
+        const nx  = pos.x + dropVelRef.current.x * delta;
+        const ny  = pos.y + dropVelRef.current.y * delta;
+        const nz  = pos.z + dropVelRef.current.z * delta;
+
+        try { playerRBRef.current.setNextKinematicTranslation({ x: nx, y: ny, z: nz }); }
+        catch (_) { /* ignore wasm edge cases */ }
+
+        // Sync root mesh (feet = body centre - capCY)
+        const feetY = ny - capCY;
+        if (rootRef.current) rootRef.current.position.set(nx, feetY, nz);
+        playerPosRef.current.set(nx, feetY, nz);
+
+        // Push altitude to store (used by HUD)
+        useGameStore.getState().setPlayerAltitude(Math.max(0, ny));
+        useGameStore.getState().setPlayerWorldPos([nx, nz]);
+
+        // ── Landing detection ──────────────────────────────────────────────
+        const groundH = getIslandHeight(nx, nz);
+        if (ny <= groundH + capCY + 1.5) {
+          // Snap feet to ground, clear drop state
+          dropVelRef.current.set(0, 0, 0);
+          useGameStore.getState().setDropPhase(false);
+          try {
+            playerRBRef.current.setNextKinematicTranslation({ x: nx, y: groundH + capCY, z: nz });
+          } catch (_) {}
+        }
+      }
+
+      mixerRef.current?.update(delta);
+      return; // Skip all normal movement/physics
     }
 
     // ── Timers ─────────────────────────────────────────────────────────────
