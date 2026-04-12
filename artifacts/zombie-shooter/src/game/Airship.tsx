@@ -28,11 +28,14 @@ const BOB_FREQ        = 0.18;
 const ROLL_AMP        = 0.07;
 const PROP_RPM        = 80;
 
-// ── Gondola is ~35 m below the envelope centre; spawn on top of envelope ──────
+// ── Gondola deck — the walkable surface players spawn on ─────────────────────
+// Gondola hull: position [0, -20, 0], height 10  → top surface at local Y = -15.
+// At t=0 the ship is at ORBIT_ALTITUDE with zero bob, so deck world Y = 1800 − 15 = 1785.
+export const AIRSHIP_GONDOLA_DECK_Y = ORBIT_ALTITUDE - 15; // 1785 m MSL
 export const AIRSHIP_SPAWN_POS: [number, number, number] = [
-  ORBIT_X_RADIUS,           // x at angle = 0  (east coast, near the dock)
-  ORBIT_ALTITUDE + 30,      // y: top of gas envelope
-  ORBIT_Z_CENTER,           // z at angle = 0
+  ORBIT_X_RADIUS,              // x at angle = 0  (east coast, near the dock)
+  AIRSHIP_GONDOLA_DECK_Y,      // y: gondola deck surface (not gas-bag top!)
+  ORBIT_Z_CENTER,              // z at angle = 0
 ];
 
 // ── Colours ────────────────────────────────────────────────────────────────────

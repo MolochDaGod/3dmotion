@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useGameStore, SPELLS, CAMERA_CYCLE, type CameraViewMode } from "./useGameStore";
 import { WEAPON_SKILLS } from "./SkillSystem";
 import { CharacterPanel } from "./CharacterPanel";
@@ -401,8 +401,17 @@ export function HUD() {
     skillCooldowns,
     isPaused,
     meleeBlocking,
-    dropPhase, playerAltitude,
+    onShipPhase, dropPhase, playerAltitude,
   } = useGameStore();
+
+  // Countdown 3 → 0 while riding the airship before auto-drop
+  const [countdown, setCountdown] = useState(3);
+  useEffect(() => {
+    if (!onShipPhase) { setCountdown(3); return; }
+    setCountdown(3);
+    const id = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(id);
+  }, [onShipPhase]);
 
   const selectedSpellDef = SPELLS.find((s) => s.id === selectedSpell);
 
@@ -430,6 +439,56 @@ export function HUD() {
   return (
     <>
       <MinimapPanel />
+
+      {/* ── ON-SHIP / PRE-DROP PHASE HUD ────────────────────────────────────── */}
+      {onShipPhase && (
+        <div style={{
+          position:      "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          pointerEvents: "none",
+          zIndex:        50,
+          display:       "flex",
+          flexDirection: "column",
+          alignItems:    "center",
+          justifyContent: "flex-start",
+        }}>
+          <div style={{
+            marginTop:   "12vh",
+            textAlign:   "center",
+            fontFamily:  "monospace",
+          }}>
+            <div style={{ fontSize: 11, color: "#aaa", letterSpacing: 4, marginBottom: 6, textTransform: "uppercase" }}>
+              Aboard the Pirate Airship
+            </div>
+            {/* Big countdown */}
+            <div style={{
+              fontSize:   96,
+              fontWeight: "bold",
+              lineHeight: 1,
+              color:      "#FFD700",
+              textShadow: "0 0 40px #FFD700aa, 0 2px 12px #000",
+            }}>
+              {countdown}
+            </div>
+            <div style={{
+              marginTop:    10,
+              fontSize:     13,
+              color:        "#fff",
+              textShadow:   "0 1px 4px #000",
+              letterSpacing: 2,
+            }}>
+              [SPACE] to jump now
+            </div>
+          </div>
+          {/* Subtle vignette */}
+          <div style={{
+            position:      "absolute",
+            inset:         0,
+            background:    "radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.35) 100%)",
+            pointerEvents: "none",
+          }} />
+        </div>
+      )}
 
       {/* ── FREEFALL / DROP PHASE HUD ─────────────────────────────────────── */}
       {dropPhase && (

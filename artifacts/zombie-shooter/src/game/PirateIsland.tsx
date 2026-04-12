@@ -35,14 +35,22 @@ import type { NavObstacle } from "./NavGrid";
 // ── GLB alignment constants ─────────────────────────────────────────────────────
 // The source FBX uses cm units; 1 unit = 0.01 m = raw scale 2.5e-4 after /40 export.
 // 6000 m footprint = 30× horizontal expansion.
-// Height aligned so physics ground (heightfield = 0) matches visual mesh bottom.
+// GLB alignment — measured from actual genesis_island.glb bounding box:
+//   raw bounds  X: -390000 … 410000   center.x =  10000
+//               Z: -410000 … 390000   center.z = -10000
+//               Y: -798963 … 225768   sea-level raw_y = 0
+// At suggestedScale = 2.5e-4, raw center = (2.5 m, −2.5 m) in 200 m world space.
+// With the 30× island stretch:
+//   GLB_OFFSET_X = -(2.5 × 30) = −75 m   → mesh spans exactly −3000 … +3000 in X
+//   GLB_OFFSET_Z = +(2.5 × 30) = +75 m   → mesh spans exactly −3000 … +3000 in Z
+//   GLB_OFFSET_Y = 0                      → raw_y=0 (sea level) maps to world Y=0,
+//                                            matching the Rapier heightfield (min=0).
 const GLB_RAW_SCALE    = 2.5e-4;
-const GLB_SCALE_XZ     = GLB_RAW_SCALE * 30;        // 7.5e-3 → 6000 m footprint
-const GLB_SCALE_Y      = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE; // 2.5e-3 → 10× height
-const GLB_RAW_OFFSET_Y = 72.105;                    // raw mesh min (units before scale)
-const GLB_OFFSET_Y     = GLB_RAW_OFFSET_Y * GENESIS_HEIGHT_SCALE; // lifts visual base to y=0
-const GLB_OFFSET_X     = -25.000 * 30;              // centre mesh on world origin X
-const GLB_OFFSET_Z     =  25.000 * 30;              // centre mesh on world origin Z
+const GLB_SCALE_XZ     = GLB_RAW_SCALE * 30;                     // 7.5e-3 → 6000 m footprint
+const GLB_SCALE_Y      = GLB_RAW_SCALE * GENESIS_HEIGHT_SCALE;   // 2.5e-3 → 10× height
+const GLB_OFFSET_X     = -10000 * GLB_SCALE_XZ;                  // −75 m   (centres mesh in X)
+const GLB_OFFSET_Z     =  10000 * GLB_SCALE_XZ;                  //  +75 m  (centres mesh in Z)
+const GLB_OFFSET_Y     = 0;                                       // sea level = world Y 0
 
 // Biome height thresholds (world metres, after 10× GENESIS_HEIGHT_SCALE)
 // Raw binary max = 128.3 → world max ≈ 1283 m

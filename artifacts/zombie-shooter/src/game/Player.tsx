@@ -2086,6 +2086,23 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
       return;
     }
 
+    // ── ON-SHIP PHASE — kinematically pin player to gondola deck ────────────
+    if (gs.onShipPhase) {
+      if (playerRBRef.current && spawnPos && !rapierPanicked.current) {
+        const sx = spawnPos[0];
+        const sy = spawnPos[1] + capCY;  // spawnPos Y is feet; RB centre is higher
+        const sz = spawnPos[2];
+        try { playerRBRef.current.setNextKinematicTranslation({ x: sx, y: sy, z: sz }); }
+        catch (_) {}
+        if (rootRef.current) rootRef.current.position.set(sx, spawnPos[1], sz);
+        playerPosRef.current.set(sx, spawnPos[1], sz);
+        useGameStore.getState().setPlayerAltitude(sy);
+        useGameStore.getState().setPlayerWorldPos([sx, sz]);
+      }
+      mixerRef.current?.update(delta);
+      return;
+    }
+
     // ── DROP PHASE — battle-royale freefall ──────────────────────────────────
     if (gs.dropPhase) {
       // Accumulate downward gravity

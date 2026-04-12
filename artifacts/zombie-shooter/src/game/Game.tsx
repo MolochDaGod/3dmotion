@@ -16,7 +16,7 @@ import { Player } from "./Player";
 import { Zombie, ZombieData } from "./Zombie";
 import { Bullet, BulletData } from "./Bullet";
 import { PirateIsland, NAV_OBSTACLES as ISLAND_NAV_OBSTACLES } from "./PirateIsland";
-import { Airship, AIRSHIP_SPAWN_POS } from "./Airship";
+import { Airship, AIRSHIP_SPAWN_POS, AIRSHIP_GONDOLA_DECK_Y } from "./Airship";
 import { Graveyard,   NAV_OBSTACLES as GRAVEYARD_NAV_OBSTACLES } from "./Graveyard";
 import { NavWorkerProvider } from "./NavWorkerContext";
 import { useCharacterStore } from "./useCharacterStore";
@@ -175,12 +175,32 @@ function SceneContent({
 
   const canSpawn = isGraveyard || islandReady;
 
-  // ── Trigger drop phase when island player is about to mount ──────────────
+  // ── Pre-drop: ride airship for 3 s, then auto-drop (Space drops early) ──────
   useEffect(() => {
-    if (canSpawn && !isGraveyard) {
+    if (!canSpawn || isGraveyard) return;
+    const gs = useGameStore.getState();
+    gs.setOnShipPhase(true);
+    gs.setPlayerAltitude(AIRSHIP_GONDOLA_DECK_Y);
+
+    let dropped = false;
+    const doDrop = () => {
+      if (dropped) return;
+      dropped = true;
+      useGameStore.getState().setOnShipPhase(false);
       useGameStore.getState().setDropPhase(true);
-      useGameStore.getState().setPlayerAltitude(AIRSHIP_SPAWN_POS[1]);
-    }
+    };
+
+    // Auto-drop after 3 seconds
+    const autoTimer = setTimeout(doDrop, 3000);
+
+    // Space key triggers early drop
+    const onKey = (e: KeyboardEvent) => { if (e.code === "Space") doDrop(); };
+    window.addEventListener("keydown", onKey);
+
+    return () => {
+      clearTimeout(autoTimer);
+      window.removeEventListener("keydown", onKey);
+    };
   }, [canSpawn, isGraveyard]);
 
   const navObstacles = isGraveyard ? GRAVEYARD_NAV_OBSTACLES : ISLAND_NAV_OBSTACLES;

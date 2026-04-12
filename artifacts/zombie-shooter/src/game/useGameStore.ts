@@ -102,8 +102,10 @@ interface GameStore {
   tickSkillCooldowns: (dt: number) => void;
 
   // ── Battle-royale drop phase ───────────────────────────────────────────────
+  onShipPhase:      boolean;          // true while countdown ticks before drop
   dropPhase:        boolean;
   playerAltitude:   number;
+  setOnShipPhase:   (v: boolean) => void;
   setDropPhase:     (v: boolean) => void;
   setPlayerAltitude:(v: number) => void;
 
@@ -264,8 +266,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   }),
 
   // ── Battle-royale drop phase ─────────────────────────────────────────────────
+  onShipPhase:       false,
   dropPhase:         false,
   playerAltitude:    0,
+  setOnShipPhase:    (v) => set({ onShipPhase: v }),
   setDropPhase:      (v) => set({ dropPhase: v }),
   setPlayerAltitude: (v) => set({ playerAltitude: v }),
 
