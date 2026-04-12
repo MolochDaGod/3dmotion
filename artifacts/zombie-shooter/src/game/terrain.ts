@@ -10,14 +10,17 @@ export const TERRAIN_SEGS = 63;    // 63 quad rows/cols → 64×64 vertex grid
 // ── Genesis Island constants ───────────────────────────────────────────────────
 // Baked from Terrain_1774999201051.fbx (800 000 cm → 200 m FBX world).
 // Island is rendered at 30× horizontal scale so the playable footprint is 6000 m.
-// GENESIS_HEIGHT_SCALE amplifies the raw binary heights (0–128 m) to give the
-// mountain the dramatic silhouette a real tropical island peak deserves.
-// At 10×: peak ≈ 1283 m on a 6000 m base → 21% ratio (dramatic volcano profile).
-// Both the visual GLB and the Rapier heightfield use this multiplier so physics
-// and rendering stay perfectly in sync.
+// GENESIS_HEIGHT_SCALE amplifies the raw binary heights (0–128 m).
+// At 4×: peak ≈ 513 m on a 6000 m base → realistic tropical volcanic island.
+//   (10× gave 1283 m which looked like vertical knife-edges next to a 1.8 m character.)
+// Both the visual terrain mesh and the Rapier heightfield use this multiplier so
+// physics and rendering stay perfectly in sync.
+// GENESIS_TERRAIN_SEGS: physics heightfield resolution (matches the 64×64 binary data).
+// GENESIS_VISUAL_SEGS:  visual mesh resolution (higher = smoother via bilinear interp).
 export const GENESIS_TERRAIN_SIZE   = 6000;  // 6 km island footprint
-export const GENESIS_TERRAIN_SEGS   = 63;    // 64×64 vertex grid
-export const GENESIS_HEIGHT_SCALE   = 10.0;  // peak ≈ 1283 m
+export const GENESIS_TERRAIN_SEGS   = 63;    // 64×64 vertex grid (physics — matches raw data)
+export const GENESIS_VISUAL_SEGS    = 191;   // 192×192 vertex grid (visual — smooth surface)
+export const GENESIS_HEIGHT_SCALE   = 4.0;   // peak ≈ 513 m (realistic island proportions)
 
 // ─── Legacy graveyard heightmap ───────────────────────────────────────────────
 export function getTerrainHeight(worldX: number, worldZ: number): number {

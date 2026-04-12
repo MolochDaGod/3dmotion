@@ -21,19 +21,20 @@ import {
   isGenesisHeightsLoaded,
   GENESIS_TERRAIN_SIZE,
   GENESIS_TERRAIN_SEGS,
+  GENESIS_VISUAL_SEGS,
   GENESIS_HEIGHT_SCALE,
 } from "./terrain";
 import { CG_WORLD } from "./CollisionLayers";
 import type { NavObstacle } from "./NavGrid";
 
-// ── Biome height thresholds (world metres, GENESIS_HEIGHT_SCALE=10×) ───────────
-// heights.bin raw max ≈ 128.3 → world max ≈ 1283 m
-const H_BEACH   =   25;   // 0–25 m    : sandy beach
-const H_GRASS   =  100;   // 25–100 m  : coastal grass
-const H_JUNGLE  =  400;   // 100–400 m : dense jungle
-const H_FOREST  =  750;   // 400–750 m : highland forest
-const H_ROCK    = 1100;   // 750–1100 m: bare rock
-                           // 1100+ m   : snow / ice peak
+// ── Biome height thresholds (world metres, GENESIS_HEIGHT_SCALE=4×) ────────────
+// heights.bin raw max ≈ 128.3 → world max ≈ 513 m
+const H_BEACH   =  10;    // 0–10 m  : sandy beach / shoreline
+const H_GRASS   =  40;    // 10–40 m : coastal grass
+const H_JUNGLE  = 150;    // 40–150 m: dense jungle
+const H_FOREST  = 300;    // 150–300 m: highland forest
+const H_ROCK    = 440;    // 300–440 m: bare rock
+                           // 440+ m  : snow / ice peak cap
 
 /** Return a THREE.Color for a given world-Y height. */
 function getBiomeColor(worldY: number): THREE.Color {
@@ -82,8 +83,9 @@ export function getIslandSpawnPool(): Array<[number, number]> {
       const wx = -HALF + ix * STEP;
       const wz = -HALF + iz * STEP;
       const h  = getIslandHeight(wx, wz);
-      // Valid spawn: above sea, below jungle canopy, away from island centre (0,0)
-      if (h > 2 && h < 60 && (wx * wx + wz * wz) > 250 * 250) {
+      // Valid spawn: above sea (>1m), below jungle canopy (<40m beach/grass zone),
+      // away from island centre. Thresholds match GENESIS_HEIGHT_SCALE=4× biomes.
+      if (h > 1 && h < 40 && (wx * wx + wz * wz) > 200 * 200) {
         pool.push([wx, wz]);
       }
     }
@@ -1159,7 +1161,7 @@ function Dock() {
 function IslandTerrain({ ready }: { ready: boolean }) {
   const geometry = useMemo(() => {
     if (!ready) return null;
-    const SEGS = GENESIS_TERRAIN_SEGS; // 63 quads → 64 vertices per axis
+    const SEGS = GENESIS_VISUAL_SEGS;  // 191 quads → 192 vertices per axis (smooth surface)
     const SIZE = GENESIS_TERRAIN_SIZE; // 6000 m
 
     const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEGS, SEGS);
@@ -1209,7 +1211,7 @@ function IslandGround() {
 
   const { heights, skirtGeo } = useMemo(() => {
     const heights  = buildIslandHeightArray();
-    const skirtH   = 30 * GENESIS_HEIGHT_SCALE;
+    const skirtH   = 12 * GENESIS_HEIGHT_SCALE;  // scaled depth below sea level for the cliff skirt
     const skirtGeo = new THREE.BoxGeometry(GENESIS_TERRAIN_SIZE, skirtH, GENESIS_TERRAIN_SIZE);
     return { heights, skirtGeo };
   // eslint-disable-next-line react-hooks/exhaustive-deps

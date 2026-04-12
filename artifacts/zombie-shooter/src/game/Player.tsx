@@ -946,9 +946,19 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     // do NOT fade out the current anim — keep it playing so we never hit T-pose.
     if (!a) return;
     const prev = actionsRef.current[curAnim.current];
-    if (prev && curAnim.current !== key) prev.fadeOut(fade);
-    a.timeScale = timeScale;
-    a.reset().fadeIn(fade).play();
+
+    // ── Best-practice THREE.js crossfade ──────────────────────────────────────
+    // crossFadeFrom() fades prev OUT and fades `a` IN simultaneously, guaranteeing
+    // total blend weight = 1 throughout — no T-pose flash, no weight dip.
+    // Manual fadeOut+fadeIn can momentarily drop total weight below 1.
+    a.reset().play();
+    a.setEffectiveTimeScale(timeScale);
+    if (prev && curAnim.current !== key) {
+      a.crossFadeFrom(prev, fade, false);   // false = linear weight (no warping)
+    } else {
+      a.setEffectiveWeight(1);              // same animation restart — full weight
+    }
+
     curAnim.current = key;
     // Broadcast current animation to MMO sync
     if (currentAnimRef) currentAnimRef.current = key;
@@ -1500,14 +1510,23 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     // do NOT fade out the current animation — keep it playing until the new one is ready.
     // This is the primary defence against T-pose on weapon switch or traverse entry.
     if (!a) return;
-    actionsRef.current[curAnim.current]?.fadeOut(fade);
+    const prev = actionsRef.current[curAnim.current];
+
+    // ── crossFadeFrom — weight always sums to 1, no T-pose dip ───────────────
+    // For already-running locomotion clips (e.g. walk → walk returning from sprint):
+    //   crossFadeFrom does NOT reset the animation time, only transitions the weight.
+    //   The cycle phase is therefore preserved — no foot-pop or stride stutter.
+    // For clips not yet playing: reset() starts them cleanly from frame 0.
     if (!a.isRunning()) {
-      // Not playing yet — start cleanly from the top
-      a.reset().fadeIn(fade).play();
+      a.reset().play();            // not previously active — start from frame 0
     } else {
-      // Already playing (e.g. returning to walk from sprint mid-stride)
-      // — just cross-fade in without restarting the phase.
-      a.fadeIn(fade);
+      a.enabled = true;
+      a.play();                    // already running — preserve current time/phase
+    }
+    if (prev) {
+      a.crossFadeFrom(prev, fade, false);  // linear blend; total weight = 1 always
+    } else {
+      a.setEffectiveWeight(1);
     }
     curAnim.current = next;
   }, []);
