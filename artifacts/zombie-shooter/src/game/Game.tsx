@@ -631,7 +631,7 @@ export default function Game({ onGameOver }: GameProps) {
             }
           : { antialias: false, powerPreference: "high-performance" }
         }
-        dpr={[1, 2]}
+        dpr={[1, 1.5]}
         style={{ width: "100%", height: "100%" }}
         onCreated={({ gl }) => {
           // ACES Filmic tone mapping gives emissive surfaces a natural bloom-like

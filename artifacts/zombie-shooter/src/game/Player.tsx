@@ -97,8 +97,8 @@ const MANA_REGEN_RATE  = 5;     // per second
 // ─── Crossfade timings ────────────────────────────────────────────────────────
 const FADE_ATK_START = 0.08;   // locomotion → attack initiation
 const FADE_ATK_CHAIN = 0.04;   // attack done → queued attack (crisp cut)
-const FADE_ATK_REST  = 0.18;   // attack done → return to idle
-const FADE_LOCO      = 0.14;   // locomotion ↔ locomotion blend
+const FADE_ATK_REST  = 0.22;   // attack done → return to idle
+const FADE_LOCO      = 0.22;   // locomotion ↔ locomotion blend (longer = smoother feet)
 
 // ─── Water + Climbing constants ───────────────────────────────────────────────
 const WATER_GRAV      = -5;     // reduced gravity while submerged (buoyancy)
@@ -765,6 +765,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
   // Smooth camera world-space position — lerped toward the ideal shoulder offset
   // each frame so physics jitter / Rapier corrections never snap the view.
   const cameraWorldPosRef = useRef(new THREE.Vector3());
+  // Smoothed character world position — absorbs Rapier fixed-timestep micro-jitter.
+  // k=55 tracks the true position very closely (sub-frame lag) while removing jitter.
+  const smoothCharPosRef  = useRef(new THREE.Vector3());
 
   // ── Procedural animation refs ─────────────────────────────────────────────
   const leanRef          = useRef(0);    // current body lean angle (radians)
@@ -1094,6 +1097,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
         spawn.z + camSettings.shoulderZ,
       );
       cameraWorldPosRef.current.copy(camera.position);
+      // Prime the character-position smoother so it doesn't lerp from (0,0,0)
+      smoothCharPosRef.current.copy(spawn);
     }
     camera.rotation.set(0, 0, 0);
     // Ensure camera is in scene space (R3F may have moved it)
@@ -2255,18 +2260,37 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     // arpg   = isometric follow cam — Diablo/PoE style, fixed world angle
     const { mode, shoulderX, shoulderY, shoulderZ } = gs.camera;
     const camX = mode === "arpg"   ? 0
-               : mode === "action" ? 0.28
+               : mode === "action" ? 0.32
                : shoulderX;
-    const camY = mode === "arpg"   ? ARPG_CAM_Y
-               : mode === "action" ? 0.80
-               : shoulderY;
-    const camZ = mode === "arpg"   ? ARPG_CAM_Z
-               : mode === "action" ? 1.55
-               : shoulderZ;
+    const camYBase = mode === "arpg"   ? ARPG_CAM_Y
+                   : mode === "action" ? 0.76
+                   : shoulderY;
+    const camZBase = mode === "arpg"   ? ARPG_CAM_Z
+                   : mode === "action" ? 1.60
+                   : shoulderZ;
 
-    // Head bob — procedural oscillation while moving; fades out on stop.
-    // Suppressed in ARPG mode (fixed camera — bob looks odd from isometric angle).
+    // ── Physics jitter absorber: smooth char position with tight k=55 ─────────
+    // Rapier runs at a fixed substep (≥60 Hz); render can run at any rate.
+    // Without this, camera jitter is visible whenever render > physics rate.
+    smoothCharPosRef.current.lerp(rootRef.current.position, 1 - Math.exp(-55 * delta));
+    const pPos = smoothCharPosRef.current; // use smoothed position for all camera math
+
+    // ── Sprint / movement dynamics ────────────────────────────────────────────
     const isMovingNow = (fwd || bwd || left || right) && grounded.current;
+    // Estimate horizontal speed from smoothed velocity ref
+    const hSpeed      = Math.sqrt(smoothVelRef.current.x ** 2 + smoothVelRef.current.z ** 2);
+    // sprintFactor: 0 at rest → 1 at full sprint — used for all dynamic offsets
+    const sprintFactor = sprint && isMovingNow
+      ? THREE.MathUtils.clamp(hSpeed / 7.0, 0, 1)
+      : 0;
+
+    // Dynamic camera Z: pull further back when sprinting (cinematic speed feel)
+    const camZ = camZBase + sprintFactor * 1.2;
+    // Slight camera height dip at full sprint (low "ground rush" feel)
+    const camY = camYBase - sprintFactor * 0.12;
+
+    // ── Head bob — procedural oscillation while moving ────────────────────────
+    // Suppressed in ARPG mode (fixed camera — bob looks odd from isometric angle).
     const bobFreq = sprint ? 13 : 9;
     bobTimerRef.current += delta * bobFreq * (isMovingNow ? 1 : -Math.min(1, bobTimerRef.current));
     bobTimerRef.current  = Math.max(0, bobTimerRef.current);
@@ -2275,29 +2299,34 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     const bobY    = enableBob && (isMovingNow || bobTimerRef.current > 0.01) ? Math.sin(bobTimerRef.current) * bobAmp : 0;
     const bobX    = enableBob && (isMovingNow || bobTimerRef.current > 0.01) ? Math.sin(bobTimerRef.current * 0.5) * bobAmp * 0.35 : 0;
 
-    const pPos = rootRef.current.position; // character world position
-
     if (mode === "arpg") {
       // ARPG isometric: fixed world-space offset, no yaw rotation.
-      // Camera always looks from the same world direction (like Diablo).
-      // Position: directly behind (+Z) and above (+Y) the player — the
-      // resulting angle is arctan(ARPG_CAM_Y / ARPG_CAM_Z) ≈ -45°.
       _camIdeal.set(pPos.x, pPos.y + ARPG_CAM_Y, pPos.z + ARPG_CAM_Z);
     } else {
       // TPS / action: shoulder offset rotated by character yaw
-      // Compute yawQ once (also reused for rootRef rotation below)
       _yawQ.setFromAxisAngle(_UP_AXIS, yaw.current);
       _camOffset.set(camX, camY, camZ).applyQuaternion(_yawQ);
       _camIdeal.copy(pPos).add(_camOffset);
-      // Bob applied in world space along global Y and strafe-right
+
+      // Velocity look-ahead: shift camera target slightly in the movement
+      // direction so the player can see where they are going (action cam feel).
+      if (isMovingNow && mode === "action") {
+        const leadScale = THREE.MathUtils.clamp(hSpeed * 0.045, 0, 0.9);
+        _camIdeal.x += smoothVelRef.current.x * leadScale;
+        _camIdeal.z += smoothVelRef.current.z * leadScale;
+      }
+
+      // Bob applied in world space
       _camIdeal.y += bobY;
-      // Lateral bob along the right vector (cos yaw, 0, -sin yaw)
       _camIdeal.x += bobX * Math.cos(yaw.current);
       _camIdeal.z += bobX * -Math.sin(yaw.current);
     }
 
-    // Smooth lerp toward ideal — k=18: responsive, never snappy
-    const camT = 1 - Math.exp(-18 * delta);
+    // Adaptive lerp coefficient:
+    //  • High when moving fast  → camera stays glued to the character
+    //  • Lower when slow/idle   → slight inertial lag feels natural
+    const camK  = isMovingNow ? 20 + sprintFactor * 10 : 14;
+    const camT  = 1 - Math.exp(-camK * delta);
     cameraWorldPosRef.current.lerp(_camIdeal, camT);
     camera.position.copy(cameraWorldPosRef.current);
 
@@ -2306,15 +2335,19 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     camera.rotation.y = mode === "arpg" ? 0          : yaw.current;
     camera.rotation.z = mode === "arpg" ? 0          : rollCamZ.current;
 
-    // ── FOV zoom — smooth lerp for melee block (1.5×) and bow aim ────────────
-    // Uses exponential decay (1 - e^(-k·dt)) for true frame-rate independence —
-    // a fixed lerp factor (delta * k) undershoots at low fps and overshoots at high fps.
+    // ── FOV — sprint expansion + zoom for block/aim ───────────────────────────
+    // Three layers composited in priority order:
+    //  1. Block / aim zoom (-33% FOV, highest priority)
+    //  2. Sprint expansion (+10° at full sprint)
+    //  3. Base user FOV setting
     {
       const baseFov   = gs.camera.fov;
       const isZoomed  = meleeBlocking.current || ssBlocking.current;
-      const targetFov = isZoomed ? baseFov / 1.5 : baseFov;
+      const targetFov = isZoomed
+        ? baseFov / 1.5                             // block/aim zoom
+        : baseFov + sprintFactor * 10;              // sprint expansion (+10° max)
       const cam       = camera as THREE.PerspectiveCamera;
-      const t         = 1 - Math.exp(-10 * delta);   // frame-rate-independent decay
+      const t         = 1 - Math.exp(-10 * delta);
       cam.fov         = THREE.MathUtils.lerp(cam.fov, targetFov, t);
       cam.updateProjectionMatrix();
     }

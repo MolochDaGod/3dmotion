@@ -1189,7 +1189,7 @@ function IslandTerrain({ ready }: { ready: boolean }) {
   if (!geometry) return null;
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow>
+    <mesh geometry={geometry} receiveShadow>
       <meshStandardMaterial vertexColors roughness={0.88} metalness={0} />
     </mesh>
   );
