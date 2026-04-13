@@ -130,7 +130,6 @@ function CameraSettingsPanel() {
       if (e.code === "Escape" || e.code === "F3") {
         e.preventDefault();
         setShowCameraSettings(false);
-        document.body.requestPointerLock();
       }
     };
     document.addEventListener("keydown", onKey);
@@ -151,7 +150,6 @@ function CameraSettingsPanel() {
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
           setShowCameraSettings(false);
-          document.body.requestPointerLock();
         }
       }}
     >
@@ -399,7 +397,6 @@ export function HUD() {
     camera, showCameraSettings, showCharacterPanel,
     weaponMode, selectedSpell, spellCooldown,
     skillCooldowns,
-    isPaused,
     meleeBlocking,
     onShipPhase, dropPhase, playerAltitude,
   } = useGameStore();
@@ -558,50 +555,9 @@ export function HUD() {
       {showCharacterPanel && <CharacterPanel />}
       {showCameraSettings && !showCharacterPanel && <CameraSettingsPanel />}
 
-      {/* Pause / free-cursor overlay ─────────────────────────────────────── */}
-      {isPaused && !showCharacterPanel && !showCameraSettings && (
-        <div
-          style={{
-            position:        "fixed",
-            inset:           0,
-            display:         "flex",
-            flexDirection:   "column",
-            alignItems:      "center",
-            justifyContent:  "center",
-            background:      "rgba(0,0,0,0.55)",
-            backdropFilter:  "blur(6px)",
-            zIndex:          9999,
-            userSelect:      "none",
-          }}
-          onClick={() => document.body.requestPointerLock()}
-        >
-          <div style={{
-            fontFamily:    "monospace",
-            fontSize:      38,
-            fontWeight:    "bold",
-            color:         "#ffffff",
-            letterSpacing: 6,
-            textTransform: "uppercase",
-            textShadow:    "0 0 24px rgba(255,255,255,0.4)",
-            marginBottom:  16,
-          }}>
-            PAUSED
-          </div>
-          <div style={{
-            fontFamily:    "monospace",
-            fontSize:      13,
-            color:         "rgba(255,255,255,0.55)",
-            letterSpacing: 2,
-          }}>
-            Click to play &nbsp;·&nbsp; <strong style={{ color: "#fff" }}>ESC</strong> to pause in-game
-          </div>
-        </div>
-      )}
-
       <div className="fixed inset-0 pointer-events-none select-none">
 
-        {/* Crosshair — hidden when paused */}
-        {!isPaused && <Crosshair fps={false} staff={isStaffMode} blocking={meleeBlocking} />}
+        <Crosshair fps={false} staff={isStaffMode} blocking={meleeBlocking} />
 
         {/* Camera mode badge */}
         <div style={{

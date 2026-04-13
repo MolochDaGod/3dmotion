@@ -56,7 +56,6 @@ export function CharacterPanel() {
       if (e.code === "KeyC" || e.code === "Escape") {
         e.preventDefault();
         setShowCharacterPanel(false);
-        document.body.requestPointerLock();
       }
     };
     document.addEventListener("keydown", onKey);
@@ -80,7 +79,6 @@ export function CharacterPanel() {
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) {
           setShowCharacterPanel(false);
-          document.body.requestPointerLock();
         }
       }}
     >

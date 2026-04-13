@@ -877,7 +877,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     selectedSpell, setShowSpellRadial,
     spellCooldown, tickSpellCooldown,
     addMagicProjectile,
-    setPaused,
     setSkillCooldown, tickSkillCooldowns,
     setMeleeBlocking,
   } = useGameStore();
@@ -1829,9 +1828,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     }
     keys.current[e.code] = true;
 
-    // ESC — pause game, release pointer lock
+    // ESC — release pointer lock (game keeps running; click game area to re-lock)
     if (e.code === "Escape") {
-      setPaused(true);
       document.exitPointerLock();
       return;
     }
@@ -1892,8 +1890,9 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
       const gs = useGameStore.getState();
       const show = !gs.showMinimap;
       gs.setShowMinimap(show);
+      // Release pointer lock when opening so the cursor is visible on the map.
+      // No re-lock on close — player clicks the game area to re-engage.
       if (show) document.exitPointerLock();
-      else      document.body.requestPointerLock();
     }
 
     // C — character panel
@@ -1901,7 +1900,6 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
       const show = !useGameStore.getState().showCharacterPanel;
       toggleCharacterPanel();
       if (show) document.exitPointerLock();
-      else document.body.requestPointerLock();
     }
 
     // P — cycle camera modes: tps → action → arpg → tps
@@ -1988,7 +1986,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
       if (setInvincible) setInvincible(true);
     }
   }, [
-    setPaused, cycleWeapon, transitionTo,
+    cycleWeapon, transitionTo,
     setCameraMode, cycleCameraMode, setShowCameraSettings,
     startCrouch, endCrouch, setInvincible,
     toggleCharacterPanel,
@@ -1998,11 +1996,10 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
   const handleKeyUp   = useCallback((e: KeyboardEvent) => { keys.current[e.code] = false; }, []);
   const handlePLC = useCallback(() => {
     locked.current = document.pointerLockElement === document.body;
-    // Gaining pointer lock always resumes the game.
-    // Losing it (alt-tab, window blur) pauses until the player clicks back in.
-    if (locked.current) setPaused(false);
-    else                setPaused(true);
-  }, [setPaused]);
+    // No pause on lock-loss — game keeps running without pointer lock.
+    // Camera stops moving (handleMouseMove guards on locked.current) but
+    // physics and enemies continue. Player clicks the game area to re-lock.
+  }, []);
   const handleCtxMenu = useCallback((e: MouseEvent) => e.preventDefault(), []);
 
   useEffect(() => {

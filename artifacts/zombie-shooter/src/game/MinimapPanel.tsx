@@ -494,7 +494,6 @@ export function MinimapPanel() {
       const wy = getIslandHeight(wx, wz) + 22;
       teleportTo([wx, wy, wz]);
       setShowMinimap(false);
-      setTimeout(() => document.body.requestPointerLock(), 50);
     } else if (mode === "spawner") {
       addCustomSpawner([wx, wz]);
     }
@@ -502,7 +501,6 @@ export function MinimapPanel() {
 
   const closeMap = useCallback(() => {
     setShowMinimap(false);
-    setTimeout(() => document.body.requestPointerLock(), 50);
   }, [setShowMinimap]);
 
   if (!showMinimap) return null;
