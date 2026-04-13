@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useLayoutEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import {
@@ -118,7 +118,10 @@ function spawnZombie(wave: number): ZombieData {
 // Canvas after R3F's own init, overriding the type to the current correct value.
 function ShadowTypeOverride() {
   const { gl } = useThree();
-  useEffect(() => {
+  // useLayoutEffect fires synchronously after DOM mutations and BEFORE the browser
+  // paints — in R3F this means it runs before the first WebGL shadow render pass,
+  // so the type override takes effect immediately (no per-frame startup warnings).
+  useLayoutEffect(() => {
     gl.shadowMap.type = THREE_TYPES.PCFShadowMap;
     gl.shadowMap.needsUpdate = true;
   }, [gl]);

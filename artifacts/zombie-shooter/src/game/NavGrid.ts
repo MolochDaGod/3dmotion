@@ -4,14 +4,19 @@
 // and simple visibility smoothing.
 
 // ── Grid parameters ───────────────────────────────────────────────────────────
-// CELL is now configurable via initNavGrid so large maps (e.g. 2000 m island)
+// CELL is now configurable via initNavGrid so large maps (e.g. 6000 m island)
 // can use a coarser grid (e.g. 10 m/cell) without inflating A* search space.
 let CELL   = 2.0; // world units per cell — set by initNavGrid
 
 // Module-level state — set by initNavGrid, used by all pathfinding calls.
-let _N:      number = 60;   // cells per axis (default: 120 m / 2 = 60)
-let _ORIGIN: number = -60;  // world X/Z of cell (0,0) left edge
-let _grid:   Uint8Array | null = null;
+let _N:       number = 60;       // cells per axis (default: 120 m / 2 = 60)
+let _ORIGIN:  number = -60;      // world X/Z of cell (0,0) left edge
+let _grid:    Uint8Array | null = null;
+// MAX_ITER is set dynamically by initNavGrid — must be large enough for the
+// worst-case A* search on the current grid.  For a 60×60 graveyard grid,
+// 3600 nodes suffices; for the 600×600 island grid we need up to 360 000.
+// Capped at 500 000 to prevent runaway searches on pathological inputs.
+let _maxIter: number = 8000;
 
 function idx(col: number, row: number): number { return row * _N + col; }
 function inBounds(col: number, row: number): boolean {
@@ -70,6 +75,9 @@ export function initNavGrid(
   CELL    = cellSize;
   _N      = Math.ceil(terrainSize / CELL);
   _ORIGIN = -terrainSize / 2;
+  // Scale search budget to grid area — graveyard 60×60=3 600, island 600×600=360 000.
+  // Cap at 500 000 to bound worst-case worker CPU without losing path quality.
+  _maxIter = Math.min(500_000, _N * _N);
 
   const grid = new Uint8Array(_N * _N); // all walkable by default
 
@@ -202,11 +210,10 @@ export function getPath(
   gScore[startI] = 0;
   open.push({ f: octile(goalC - srcC, goalR - srcR), i: startI });
 
-  const goalI   = idx(goalC, goalR);
-  const MAX_ITER = 8000; // bumped to handle larger 200 m grid
-  let iter = 0;
+  const goalI = idx(goalC, goalR);
+  let iter    = 0;
 
-  while (open.size > 0 && iter++ < MAX_ITER) {
+  while (open.size > 0 && iter++ < _maxIter) {
     const { i: ci } = open.pop()!;
     if (ci === goalI) break;
 

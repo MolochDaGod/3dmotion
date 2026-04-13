@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations, useTexture } from "@react-three/drei";
-import { getIslandHeight } from "./terrain";
+import { getIslandHeight, getTerrainHeight } from "./terrain";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import * as THREE from "three";
 import { useNavWorker } from "./NavWorkerContext";
@@ -33,7 +33,11 @@ const ATTACK_DAMAGE   = 10;
 const ATTACK_COOLDOWN = 4.0;
 const DEAD_LINGER     = 3.5;
 const WANDER_SPEED    = 0.30;  // fraction of data.speed used while wandering
-const WANDER_BOUNDS   = 80;    // world-unit boundary — zombies bounce back inside
+// Wander bounds are scene-specific: graveyard terrain is 120 m (±55 m keeps
+// zombies inside the wall colliders), island terrain is 6000 m (±2900 m gives
+// a generous coastal roaming area while staying inside the heightfield).
+const WANDER_BOUNDS_GRAVEYARD = 55;
+const WANDER_BOUNDS_ISLAND    = 2900;
 
 const ONCE_ANIMS = new Set([
   "punch", "punchStart", "punchEnd", "fist",
@@ -174,6 +178,11 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
     const ed = useEditorStore.getState();
     const detectionRadius = ed.zombieDetectionRadius;
     const speedMult       = ed.zombieSpeedMult;
+    const isGraveyard     = ed.activeScene === "graveyard";
+
+    // Scene-aware helpers — pick the right height sampler and wander limit
+    const getH        = isGraveyard ? getTerrainHeight : getIslandHeight;
+    const wanderLimit = isGraveyard ? WANDER_BOUNDS_GRAVEYARD : WANDER_BOUNDS_ISLAND;
 
     tmpDir.current.set(pp.x - pos.x, 0, pp.z - pos.z);
     const dist = tmpDir.current.length();
@@ -194,7 +203,7 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
       const nx = pos.x + wanderDirRef.current.x * ws * delta;
       const nz = pos.z + wanderDirRef.current.z * ws * delta;
 
-      if (Math.abs(nx) < WANDER_BOUNDS && Math.abs(nz) < WANDER_BOUNDS) {
+      if (Math.abs(nx) < wanderLimit && Math.abs(nz) < wanderLimit) {
         pos.x = nx;
         pos.z = nz;
       } else {
@@ -203,7 +212,7 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
 
       groupRef.current.rotation.y = Math.atan2(wanderDirRef.current.x, wanderDirRef.current.z);
       data.position.copy(pos);
-      pos.y = getIslandHeight(pos.x, pos.z);
+      pos.y = getH(pos.x, pos.z);
       data.position.y = pos.y;
       return;
     }
@@ -280,7 +289,9 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
     // ── Pin zombie feet to terrain surface ────────────────────────────────
     // Zombies don't use the Rapier character controller, so we manually
     // lock their Y to the heightfield at every frame to prevent floating / sinking.
-    pos.y = getIslandHeight(pos.x, pos.z);
+    // Use the scene-aware sampler built above (getH is either getTerrainHeight
+    // for the graveyard or getIslandHeight for Genesis Island).
+    pos.y = getH(pos.x, pos.z);
     data.position.y = pos.y;
 
   });
