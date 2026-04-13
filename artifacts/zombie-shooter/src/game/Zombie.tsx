@@ -57,11 +57,10 @@ export function Zombie({ data, playerPosition, onDamagePlayer, onDied }: ZombieP
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         mesh.material = new THREE.MeshStandardMaterial({
-          map: texture,
+          map:       texture,
           roughness: 0.85,
           metalness: 0.0,
-          skinning: true,
-        } as any);
+        });
       }
     });
     return c;

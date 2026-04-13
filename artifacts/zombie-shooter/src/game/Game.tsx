@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import {
   EffectComposer, Bloom, Vignette, SMAA,
@@ -112,6 +112,19 @@ function spawnZombie(wave: number): ZombieData {
   };
 }
 
+// ─── Fix R3F shadow type ───────────────────────────────────────────────────────
+// R3F internally defaults gl.shadowMap.type to PCFSoftShadowMap, which THREE r183
+// deprecated (emits a per-frame console warning).  This component runs INSIDE the
+// Canvas after R3F's own init, overriding the type to the current correct value.
+function ShadowTypeOverride() {
+  const { gl } = useThree();
+  useEffect(() => {
+    gl.shadowMap.type = THREE_TYPES.PCFShadowMap;
+    gl.shadowMap.needsUpdate = true;
+  }, [gl]);
+  return null;
+}
+
 function SceneContent({
   zombies,
   bullets,
@@ -204,6 +217,9 @@ function SceneContent({
 
   return (
     <>
+      {/* Runs once after R3F init to set the correct shadow map type */}
+      <ShadowTypeOverride />
+
       {/* ── Performance overlay (F2 or toggle from editor panel) ── */}
       {ed.showPerf && <Perf position="top-left" />}
 
@@ -217,7 +233,7 @@ function SceneContent({
                mieCoefficient={0.001} mieDirectionalG={0.9} />
           <ambientLight intensity={ed.ambientIntensity * 0.35} color="#b0c8e0" />
           <directionalLight position={[-20, 60, 30]} intensity={ed.sunIntensity * 0.4}
-            color="#c8d8f0" castShadow shadow-mapSize={[4096, 4096]}
+            color="#c8d8f0" castShadow shadow-mapSize={[2048, 2048]}
             shadow-camera-far={220} shadow-camera-left={-60} shadow-camera-right={60}
             shadow-camera-top={60} shadow-camera-bottom={-60} />
           {/* Eerie green ground-fill */}
@@ -234,7 +250,7 @@ function SceneContent({
           {/* Warm golden morning angle */}
           <ambientLight intensity={ed.ambientIntensity} color="#ffd8a0" />
           <directionalLight position={[50, 65, -80]} intensity={ed.sunIntensity}
-            color="#ffe8c0" castShadow shadow-mapSize={[4096, 4096]}
+            color="#ffe8c0" castShadow shadow-mapSize={[2048, 2048]}
             shadow-camera-far={220} shadow-camera-left={-60} shadow-camera-right={60}
             shadow-camera-top={60} shadow-camera-bottom={-60} />
           {/* Ocean-bounce fill — cool blue from the water below */}
@@ -599,14 +615,17 @@ export default function Game({ onGameOver }: GameProps) {
             the postprocessing library accesses WebGLRenderer-specific APIs.
           • ACESFilmicToneMapping + toneMappingExposure are set on the renderer to
             compensate visually: emissive surfaces look bright/glowy, sky is correct.
-          • shadows use PCFSoftShadowMap for smoother contact shadows in WebGPU mode.
 
         WebGL 2 (SUPPORTS_WEBGPU = false):
           • Standard R3F Canvas with WebGL 2 renderer + full postprocessing stack.
+          • PCFShadowMap — PCFSoftShadowMap was deprecated in THREE r183; PCFShadowMap
+            now produces equivalent soft filtering automatically.
+          • Shadow maps 2048×2048 (industry standard for game scenes — 4096 wastes
+            VRAM with imperceptible quality gain at typical view distances).
         ───────────────────────────────────────────────────────────────────────── */}
       <Canvas
-        shadows={{ type: SUPPORTS_WEBGPU ? THREE_TYPES.PCFSoftShadowMap : THREE_TYPES.PCFShadowMap }}
-        camera={{ fov: 70, near: 0.1, far: 12000 }}
+        shadows
+        camera={{ fov: 72, near: 0.1, far: 12000 }}
         gl={SUPPORTS_WEBGPU
           ? async (canvas) => {
               // Dynamic import keeps WebGPU out of Vite's static scan graph.
@@ -634,9 +653,13 @@ export default function Game({ onGameOver }: GameProps) {
         dpr={[1, 1.5]}
         style={{ width: "100%", height: "100%" }}
         onCreated={({ gl }) => {
+          // R3F defaults to PCFSoftShadowMap which was deprecated in THREE r183.
+          // Override after renderer creation to silence the per-frame warning.
+          // PCFShadowMap is the correct modern type with equivalent shadow quality.
+          gl.shadowMap.type = THREE_TYPES.PCFShadowMap;
+
           // ACES Filmic tone mapping gives emissive surfaces a natural bloom-like
           // glow and keeps the sky and skin tones perceptually correct.
-          // Applied to both WebGPU and WebGL 2 paths for consistent look.
           gl.toneMapping        = THREE_TYPES.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.15;
 
