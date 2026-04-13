@@ -84,7 +84,7 @@ function PlayerTab() {
     <div>
       <SectionLabel>Status</SectionLabel>
 
-      <Toggle label="God Mode (F1)" value={godMode} onChange={setGodMode} />
+      <Toggle label="God Mode (F8)" value={godMode} onChange={setGodMode} />
       <Toggle label="Invincible" value={isInvincible} onChange={setInvincible} />
 
       <div style={{ height: 8 }} />
@@ -414,7 +414,7 @@ export function AdminPanel() {
       {/* Footer */}
       <div style={{ padding: "6px 14px", borderTop: "1px solid #0d1a0d",
         fontFamily: mono, fontSize: 9, color: "#1a3a1a", display: "flex", justifyContent: "space-between" }}>
-        <span>F1 — God Mode &nbsp;·&nbsp; F9 — Panel</span>
+        <span>F1 — Controls &nbsp;·&nbsp; F8 — God Mode &nbsp;·&nbsp; F9 — Panel</span>
         <span style={{ color: godMode ? "#cc3333" : "#2a4a2a" }}>
           {godMode ? "⚡ NOCLIP" : "● NORMAL"}
         </span>

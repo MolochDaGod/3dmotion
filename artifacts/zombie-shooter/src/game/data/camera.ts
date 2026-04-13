@@ -38,9 +38,9 @@ export interface CameraSettings {
 
 export const DEFAULT_CAMERA: CameraSettings = {
   mode:        "tps",
-  fov:         70,
-  sensitivity: 0.002,
-  shoulderX:   0.52,
-  shoulderY:   1.30,
-  shoulderZ:   2.55,
+  fov:         72,
+  sensitivity: 0.0022,
+  shoulderX:   0.60,   // more over-shoulder → cinematic right-bias
+  shoulderY:   1.16,   // slightly lower eye-level → ground immersion
+  shoulderZ:   2.80,   // a bit further back → more field-of-view context
 };

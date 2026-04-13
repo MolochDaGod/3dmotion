@@ -6,17 +6,21 @@ import { MinimapPanel } from "./MinimapPanel";
 
 // ─── CSS Crosshair ────────────────────────────────────────────────────────────
 
-function Crosshair({ fps, staff, blocking }: { fps: boolean; staff: boolean; blocking: boolean }) {
-  const GAP  = blocking ? 2 : fps ? 4  : 7;
+function Crosshair({ fps, staff, blocking, hitMarker }: {
+  fps: boolean; staff: boolean; blocking: boolean; hitMarker: boolean;
+}) {
+  const GAP  = hitMarker ? 10 : blocking ? 2 : fps ? 4  : 7;
   const LEN  = blocking ? 6 : fps ? 9  : 12;
   const TICK = fps ? 1.5 : 2;
-  const DOT_COLOR = staff ? "rgba(180,120,255,0.95)" : "rgba(255,60,60,0.95)";
-  const DOT_GLOW  = staff ? "rgba(160,80,255,0.7)"   : "rgba(255,80,80,0.7)";
+  const DOT_COLOR = hitMarker ? "rgba(255,220,60,0.98)" : staff ? "rgba(180,120,255,0.95)" : "rgba(255,60,60,0.95)";
+  const DOT_GLOW  = hitMarker ? "rgba(255,200,0,0.8)"   : staff ? "rgba(160,80,255,0.7)"   : "rgba(255,80,80,0.7)";
+  const lineColor = hitMarker ? "rgba(255,220,60,0.92)" : "rgba(255,255,255,0.88)";
 
   const base: React.CSSProperties = {
     position: "absolute",
-    background: "rgba(255,255,255,0.88)",
+    background: lineColor,
     borderRadius: 1,
+    transition: "all 0.08s ease-out",
   };
 
   return (
@@ -26,14 +30,15 @@ function Crosshair({ fps, staff, blocking }: { fps: boolean; staff: boolean; blo
       transform: "translate(-50%, -50%)",
       width: 0, height: 0,
       pointerEvents: "none",
+      transition: "all 0.08s ease-out",
     }}>
       <div style={{
         ...base,
-        width: staff ? 6 : 4, height: staff ? 6 : 4,
+        width: staff ? 6 : hitMarker ? 5 : 4, height: staff ? 6 : hitMarker ? 5 : 4,
         borderRadius: "50%",
         background: DOT_COLOR,
         transform: "translate(-50%, -50%)",
-        boxShadow: `0 0 ${staff ? 8 : 4}px ${DOT_GLOW}`,
+        boxShadow: `0 0 ${staff ? 10 : hitMarker ? 10 : 4}px ${DOT_GLOW}`,
       }} />
       {!staff && <>
         <div style={{ ...base, width: TICK, height: LEN,
@@ -51,7 +56,7 @@ function Crosshair({ fps, staff, blocking }: { fps: boolean; staff: boolean; blo
           <div key={deg} style={{
             ...base,
             width: 2, height: 14,
-            background: "rgba(180,120,255,0.7)",
+            background: hitMarker ? "rgba(255,220,60,0.8)" : "rgba(180,120,255,0.7)",
             transformOrigin: "center center",
             transform: `translate(-50%, calc(-50% - 12px)) rotate(${deg}deg) translateY(-6px)`,
           }} />
@@ -377,12 +382,6 @@ function GodModeBanner() {
         boxShadow: "0 0 8px #ff4444",
         animation: "god-pulse 1.2s ease-in-out infinite 0.6s",
       }} />
-      <style>{`
-        @keyframes god-pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.4; transform: scale(0.7); }
-        }
-      `}</style>
     </div>
   );
 }
@@ -399,6 +398,8 @@ export function HUD() {
     skillCooldowns,
     meleeBlocking,
     onShipPhase, dropPhase, playerAltitude,
+    lastDamageTime, hitMarkerActive,
+    showHotkeys, toggleHotkeys,
   } = useGameStore();
 
   // Countdown 3 → 0 while riding the airship before auto-drop
@@ -409,6 +410,24 @@ export function HUD() {
     const id = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
     return () => clearInterval(id);
   }, [onShipPhase]);
+
+  // F1 key: toggle hotkey legend
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "F1") { e.preventDefault(); toggleHotkeys(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [toggleHotkeys]);
+
+  // Damage vignette opacity — fades out over 1 s after last damage
+  const [vigOpacity, setVigOpacity] = useState(0);
+  useEffect(() => {
+    if (!lastDamageTime) return;
+    setVigOpacity(1);
+    const t = setTimeout(() => setVigOpacity(0), 80);
+    return () => clearTimeout(t);
+  }, [lastDamageTime]);
 
   const selectedSpellDef = SPELLS.find((s) => s.id === selectedSpell);
 
@@ -557,7 +576,7 @@ export function HUD() {
 
       <div className="fixed inset-0 pointer-events-none select-none">
 
-        <Crosshair fps={false} staff={isStaffMode} blocking={meleeBlocking} />
+        <Crosshair fps={false} staff={isStaffMode} blocking={meleeBlocking} hitMarker={hitMarkerActive} />
 
         {/* Camera mode badge */}
         <div style={{
@@ -881,17 +900,24 @@ export function HUD() {
           </div>
         )}
 
-        {/* Controls — top center */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 text-white/25 text-xs text-center leading-5">
-          WASD move &nbsp;·&nbsp; Shift sprint &nbsp;·&nbsp; Space jump
-          &nbsp;·&nbsp; <span className="text-white/40">Alt</span> crouch
-          &nbsp;·&nbsp; <span className="text-white/40">Ctrl</span> roll
-          &nbsp;·&nbsp; <span className="text-white/40">Q</span> swap weapon
-          &nbsp;·&nbsp; <span className="text-white/40">1–4·R</span> skills
-          &nbsp;·&nbsp; <span className="text-white/40">E</span> interact
-          &nbsp;·&nbsp; LMB attack &nbsp;·&nbsp; RMB heavy
-          &nbsp;·&nbsp; <span className="text-white/40">P</span> camera
-          &nbsp;·&nbsp; <span className="text-white/40">ESC</span> pause
+        {/* Controls hint — compact F1 badge top-center */}
+        <div style={{
+          position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
+          display: "flex", alignItems: "center", gap: 6,
+          background: "rgba(0,0,0,0.28)", borderRadius: 5,
+          padding: "3px 10px",
+          fontFamily: "monospace", fontSize: 9, letterSpacing: 2,
+          color: "rgba(255,255,255,0.22)",
+          userSelect: "none",
+        }}>
+          <span style={{ color: "rgba(255,255,255,0.42)", fontWeight: "bold" }}>F1</span>
+          CONTROLS
+          &nbsp;·&nbsp;
+          <span style={{ color: "rgba(255,255,255,0.42)" }}>P</span> CAM
+          &nbsp;·&nbsp;
+          <span style={{ color: "rgba(255,255,255,0.42)" }}>M</span> MAP
+          &nbsp;·&nbsp;
+          <span style={{ color: "rgba(255,255,255,0.42)" }}>C</span> CHAR
         </div>
 
         {/* ── God Mode Banner ─────────────────────────────────────────────── */}
@@ -911,13 +937,125 @@ export function HUD() {
           </div>
         )}
 
+        {/* Low-health vignette — pulsing red inner glow when health < 25 % */}
         {healthPct < 25 && (
           <div
             className="absolute inset-0"
-            style={{ boxShadow: "inset 0 0 90px rgba(255,0,0,0.28)" }}
+            style={{
+              boxShadow: "inset 0 0 120px rgba(255,0,0,0.38)",
+              animation: "hp-pulse 1.1s ease-in-out infinite",
+            }}
           />
         )}
+
+        {/* Damage hit vignette — instant red flash on hit */}
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: "radial-gradient(ellipse at center, transparent 45%, rgba(220,30,30,0.82) 100%)",
+          opacity: vigOpacity,
+          transition: vigOpacity > 0 ? "none" : "opacity 0.9s ease-out",
+        }} />
+
+        <style>{`
+          @keyframes hp-pulse {
+            0%, 100% { opacity: 0.8; }
+            50%       { opacity: 0.25; }
+          }
+          @keyframes god-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.4; transform: scale(0.7); }
+          }
+        `}</style>
       </div>
+
+      {/* ── F1 Hotkey Legend Panel ──────────────────────────────────────────── */}
+      {showHotkeys && (
+        <div
+          style={{
+            position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.72)",
+            zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center",
+            pointerEvents: "auto",
+          }}
+          onMouseDown={() => toggleHotkeys()}
+        >
+          <div
+            style={{
+              background: "linear-gradient(160deg, rgba(10,8,24,0.98) 0%, rgba(18,12,38,0.98) 100%)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 12, padding: "28px 36px",
+              minWidth: 520, maxWidth: 680,
+              fontFamily: "monospace",
+              boxShadow: "0 8px 60px rgba(0,0,0,0.8)",
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 13, fontWeight: "bold", letterSpacing: 3, color: "#FFD700", marginBottom: 20, textTransform: "uppercase" }}>
+              Controls &amp; Hotkeys
+              <span style={{ float: "right", fontSize: 10, color: "rgba(255,255,255,0.3)", letterSpacing: 2, cursor: "pointer" }}
+                onClick={toggleHotkeys}>✕ F1</span>
+            </div>
+            {[
+              ["Movement", [
+                ["WASD / Arrows", "Move"],
+                ["Shift (hold)", "Sprint"],
+                ["Space", "Jump / Vault wall"],
+                ["Alt", "Crouch / Stand"],
+                ["Ctrl", "Roll (direction-aware)"],
+                ["Double-tap WASD", "Quick dodge"],
+              ]],
+              ["Combat", [
+                ["LMB", "Attack / Shoot / Cast"],
+                ["RMB", "Heavy / Aim / Block"],
+                ["Q", "Cycle weapon"],
+                ["1 – 4", "Activate skill"],
+                ["R", "Reload"],
+                ["F", "Cycle spell (staff)"],
+              ]],
+              ["Camera & UI", [
+                ["P", "Cycle camera (TPS / Action / ARPG)"],
+                ["F2", "Toggle TPS ↔ ARPG"],
+                ["F3", "Camera settings"],
+                ["M", "World minimap"],
+                ["C", "Character panel"],
+                ["F1", "This controls overlay"],
+                ["ESC", "Release cursor"],
+              ]],
+              ["Debug", [
+                ["F8", "God Mode — noclip free-fly"],
+                ["F9", "Admin panel"],
+                ["` (backtick)", "Dev editor"],
+              ]],
+            ].map(([section, rows]) => (
+              <div key={section as string} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 9, letterSpacing: 3, color: "rgba(255,200,80,0.7)", textTransform: "uppercase", marginBottom: 7 }}>
+                  {section as string}
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <tbody>
+                    {(rows as [string, string][]).map(([key, desc]) => (
+                      <tr key={key}>
+                        <td style={{ padding: "2px 0", width: 180 }}>
+                          <span style={{
+                            display: "inline-block",
+                            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)",
+                            borderRadius: 4, padding: "1px 7px",
+                            fontSize: 10, color: "rgba(255,255,255,0.85)", letterSpacing: 1,
+                          }}>{key}</span>
+                        </td>
+                        <td style={{ fontSize: 11, color: "rgba(200,200,220,0.75)", letterSpacing: 0.5 }}>{desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+            <div style={{ marginTop: 8, fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: 2, textAlign: "center" }}>
+              CLICK ANYWHERE OR PRESS F1 TO CLOSE
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

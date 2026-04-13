@@ -117,7 +117,8 @@ function HomeScreen({
             <p style={{ margin: 0 }}>LMB — Shoot &nbsp;·&nbsp; Q — Cycle Weapon &nbsp;·&nbsp; R — Spell &nbsp;·&nbsp; F — Cast &nbsp;·&nbsp; 1/2/3/4 — Skills</p>
             <p style={{ margin: 0 }}>C — Character &nbsp;·&nbsp; P — Camera &nbsp;·&nbsp; Ctrl — Roll &nbsp;·&nbsp; F2 — Perf &nbsp;·&nbsp; <span style={{ color: "#998844" }}>M — Minimap</span></p>
             <p style={{ margin: "2px 0 0", color: "#3a2a0a", fontWeight: 700 }}>
-              <span style={{ color: "#664444" }}>F1</span> — God Mode &nbsp;·&nbsp;
+              <span style={{ color: "#664444" }}>F1</span> — Controls &nbsp;·&nbsp;
+              <span style={{ color: "#664444" }}>F8</span> — God Mode &nbsp;·&nbsp;
               <span style={{ color: "#664444" }}>F9</span> — Admin Panel &nbsp;·&nbsp;
               <span style={{ color: "#443333" }}>` — Dev Editor</span>
             </p>

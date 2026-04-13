@@ -97,8 +97,8 @@ const MANA_REGEN_RATE  = 5;     // per second
 // ─── Crossfade timings ────────────────────────────────────────────────────────
 const FADE_ATK_START = 0.08;   // locomotion → attack initiation
 const FADE_ATK_CHAIN = 0.04;   // attack done → queued attack (crisp cut)
-const FADE_ATK_REST  = 0.22;   // attack done → return to idle
-const FADE_LOCO      = 0.22;   // locomotion ↔ locomotion blend (longer = smoother feet)
+const FADE_ATK_REST  = 0.20;   // attack done → return to idle
+const FADE_LOCO      = 0.18;   // locomotion ↔ locomotion blend (crisper transitions)
 
 // ─── Water + Climbing constants ───────────────────────────────────────────────
 const WATER_GRAV      = -5;     // reduced gravity while submerged (buoyancy)
@@ -879,6 +879,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     addMagicProjectile,
     setSkillCooldown, tickSkillCooldowns,
     setMeleeBlocking,
+    activateHitMarker,
   } = useGameStore();
 
   // ── Always-fresh damage / queue-done callbacks (updated every render) ─────
@@ -892,6 +893,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     camera.getWorldPosition(origin);
     origin.addScaledVector(dir, 0.5);
     onMelee(origin, dir);
+    activateHitMarker();
   };
 
   onBlockingDoneRef.current = (_finishedKey: AnimKey) => {
@@ -1763,6 +1765,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
           camera.getWorldPosition(origin);
           origin.addScaledVector(dir, 0.5);
           onShoot(origin, dir);
+          activateHitMarker();
           if (wm === "rifle") {
             requestBlockingAnim({ key: "rifleFire", fade: FADE_ATK_START });
           }
@@ -1823,7 +1826,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
   }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (["AltLeft","AltRight","F1","F2","F3","F9","ControlLeft","ControlRight","Escape"].includes(e.code)) {
+    if (["AltLeft","AltRight","F1","F2","F3","F8","F9","ControlLeft","ControlRight","Escape"].includes(e.code)) {
       e.preventDefault();
     }
     keys.current[e.code] = true;
@@ -1834,8 +1837,8 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
       return;
     }
 
-    // F1 — toggle God Mode (noclip, free-fly, T-pose)
-    if (e.code === "F1") {
+    // F8 — toggle God Mode (noclip, free-fly, T-pose)
+    if (e.code === "F8") {
       useGameStore.getState().toggleGodMode();
       return;
     }
@@ -1911,6 +1914,12 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     if (e.code === "F2") {
       const store = useGameStore.getState();
       setCameraMode(store.camera.mode === "arpg" ? "tps" : "arpg");
+    }
+
+    // F1 — hotkey legend overlay
+    if (e.code === "F1") {
+      e.preventDefault();
+      useGameStore.getState().toggleHotkeys();
     }
 
     // F3 — settings panel
@@ -1989,7 +1998,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     cycleWeapon, transitionTo,
     setCameraMode, cycleCameraMode, setShowCameraSettings,
     startCrouch, endCrouch, setInvincible,
-    toggleCharacterPanel,
+    toggleCharacterPanel, activateHitMarker,
     setShowSpellRadial, doFireSpell,
   ]);
 
@@ -2236,6 +2245,7 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
 
         // Fire hit — Game.tsx resolves which zombies are in range + arc
         onSkillHit({ origin, dir: hitFwd, damage: hit.damage, range: hit.range, arcDeg: hit.arcDeg });
+        activateHitMarker();
 
         // ── Visual effect (based on arc width, not shape) ─────────────────
         if (hit.arcDeg >= 180) {
@@ -2286,13 +2296,13 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     // arpg   = isometric follow cam — Diablo/PoE style, fixed world angle
     const { mode, shoulderX, shoulderY, shoulderZ } = gs.camera;
     const camX = mode === "arpg"   ? 0
-               : mode === "action" ? 0.32
+               : mode === "action" ? 0.42   // tight cinematic right-shoulder bias
                : shoulderX;
     const camYBase = mode === "arpg"   ? ARPG_CAM_Y
-                   : mode === "action" ? 0.76
+                   : mode === "action" ? 0.68  // low, dramatic combat angle
                    : shoulderY;
     const camZBase = mode === "arpg"   ? ARPG_CAM_Z
-                   : mode === "action" ? 1.60
+                   : mode === "action" ? 1.95  // medium pull-back: more context
                    : shoulderZ;
 
     // ── Physics jitter absorber: smooth char position with tight k=55 ─────────
@@ -2351,9 +2361,20 @@ export function Player({ onShoot, onMelee, onSkillHit, onDead, playerPosRef, cur
     // Adaptive lerp coefficient:
     //  • High when moving fast  → camera stays glued to the character
     //  • Lower when slow/idle   → slight inertial lag feels natural
-    const camK  = isMovingNow ? 20 + sprintFactor * 10 : 14;
+    const camK  = isMovingNow ? 24 + sprintFactor * 14 : 11;
     const camT  = 1 - Math.exp(-camK * delta);
     cameraWorldPosRef.current.lerp(_camIdeal, camT);
+
+    // ── Camera terrain avoidance — prevent clipping below ground/water ────────
+    if (mode !== "arpg") {
+      const cx = cameraWorldPosRef.current.x;
+      const cz = cameraWorldPosRef.current.z;
+      const groundUnderCam = Math.max(0, getIslandHeight(cx, cz));
+      if (cameraWorldPosRef.current.y < groundUnderCam + 0.9) {
+        cameraWorldPosRef.current.y = groundUnderCam + 0.9;
+      }
+    }
+
     camera.position.copy(cameraWorldPosRef.current);
 
     // Camera rotation — world space (no parent transform to inherit yaw from)

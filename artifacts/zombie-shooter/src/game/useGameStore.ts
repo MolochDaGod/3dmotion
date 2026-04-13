@@ -122,6 +122,15 @@ interface GameStore {
   pendingTeleport:        [number, number, number] | null;
   teleportTo:             (p: [number, number, number]) => void;
   clearTeleport:          () => void;
+
+  // ── Feedback FX ────────────────────────────────────────────────────────────
+  lastDamageTime:    number;   // performance.now() stamp of last damage taken
+  hitMarkerActive:   boolean;  // true for ~180 ms after a hit lands
+  activateHitMarker: () => void;
+
+  // ── Hotkey legend overlay ──────────────────────────────────────────────────
+  showHotkeys:       boolean;
+  toggleHotkeys:     () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -164,7 +173,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   takeDamage: (amount) => {
     if (get().isInvincible || get().godMode) return;
-    set((s) => ({ health: Math.max(0, s.health - amount) }));
+    set((s) => ({ health: Math.max(0, s.health - amount), lastDamageTime: performance.now() }));
   },
 
   heal: (amount) => {
@@ -287,4 +296,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   removeCustomSpawner:     (i) => set((s) => ({ customSpawners: s.customSpawners.filter((_, idx) => idx !== i) })),
   teleportTo:              (p) => set({ pendingTeleport: p }),
   clearTeleport:           ()  => set({ pendingTeleport: null }),
+
+  // ── Feedback FX ────────────────────────────────────────────────────────────
+  lastDamageTime:  0,
+  hitMarkerActive: false,
+  activateHitMarker: () => {
+    set({ hitMarkerActive: true });
+    setTimeout(() => set({ hitMarkerActive: false }), 180);
+  },
+
+  // ── Hotkey legend overlay ──────────────────────────────────────────────────
+  showHotkeys:   false,
+  toggleHotkeys: () => set((s) => ({ showHotkeys: !s.showHotkeys })),
 }));
