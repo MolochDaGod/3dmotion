@@ -1,0 +1,6 @@
+{
+  "buildCommand": "pnpm --filter @workspace/zombie-shooter run build",
+  "outputDirectory": "artifacts/zombie-shooter/dist/public",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "framework": "vite"
+}
